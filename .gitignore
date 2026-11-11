@@ -1,0 +1,36 @@
+# Generated output
+/build/
+/dist/
+/coverage/
+/tmp/
+/docs/_build/
+*.log
+
+# Raku tooling
+.precomp/
+*.moarvm
+.zef/
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Local environment and worktrees
+/.cache/
+/.direnv/
+/.envrc.local
+.env
+.env.*
+!.env.example
+/.worktrees/
+/worktrees/
+/scratch/
+
+# Local agent configuration
+CLAUDE.local.md
+.claude/settings.local.json
