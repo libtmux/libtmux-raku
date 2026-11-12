@@ -4,6 +4,7 @@ use Test::LibTmux::Fixture;
 use LibTmux::Engine;
 use LibTmux::Model;
 use LibTmux::Exceptions;
+use LibTmux::Types;
 
 # Outer: linked windows, session groups and explicit command effects require tmux.
 with-tmux(-> $fixture {
@@ -32,6 +33,30 @@ with-tmux(-> $fixture {
     is $grouped.session-groups.elems, 1, 'session group is represented explicitly';
     is $grouped.session-groups.single.sessions.elems, 2, 'group resolves its member sessions';
     my $pane = $grouped.panes.where(%(id => '%0')).single;
+    subtest 'panes without a child process remain in captured graphs' => {
+        my @empty = $pane.ref.split(:empty);
+        @empty.push($pane.ref.new-floating(:width(20), :height(8), :empty))
+            if $grouped.capabilities.supports('pane-floating');
+        LEAVE .kill for @empty;
+        my @pids = @empty.map({ $fixture.cmd('display-message', '-p', '-t', .id, '#{pane_pid}').chomp });
+        my $captured;
+        lives-ok { $captured = capture($runtime) }, 'empty tiled and available floating panes can be captured';
+        if $captured.defined {
+            for @empty.kv -> $index, $reference {
+                my $view = $captured.panes.where(%(id => $reference.id)).single;
+                if @pids[$index].chars {
+                    is $view.pid, @pids[$index].Int, 'legacy numeric process evidence remains unchanged';
+                } else {
+                    is $view.state('pid'), KnownNull, 'missing process evidence is domain null';
+                    nok $view.pid.defined, 'a pane without a process has no fabricated PID';
+                    is $view.state('current-path'), KnownNull, 'a missing process cwd is domain null';
+                    is $captured.panes.where(%(id => $reference.id,
+                        pid => %(is-null => True), current-path => %(is-null => True))).single.id,
+                        $reference.id, 'absent process fields participate in validated criteria';
+                }
+            }
+        }
+    };
     $runtime.close;
     is $pane.window.id, '@0', 'retained graph resolves relationships after owner close';
     is $pane.snapshot.windows.elems, 2, 'retained graph enumerates after owner close';

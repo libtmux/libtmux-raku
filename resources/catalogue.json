@@ -834,7 +834,7 @@
       "format": "pane_pid",
       "context": "pane",
       "kind": "uint",
-      "nullable": false,
+      "nullable": true,
       "decoder": "uint",
       "operators": [
         "equals",
@@ -844,10 +844,12 @@
         "lt",
         "lte",
         "gt",
-        "gte"
+        "gte",
+        "is-null"
       ],
-      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
-      "pushdown": []
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/format.c",
+      "pushdown": [],
+      "null-when": "empty"
     },
     {
       "entity": "pane",
@@ -919,7 +921,7 @@
       "format": "pane_current_path",
       "context": "pane",
       "kind": "text",
-      "nullable": false,
+      "nullable": true,
       "decoder": "text",
       "operators": [
         "equals",
@@ -928,10 +930,12 @@
         "not-in",
         "contains",
         "starts-with",
-        "ends-with"
+        "ends-with",
+        "is-null"
       ],
-      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
-      "pushdown": []
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/format.c",
+      "pushdown": [],
+      "null-when": "empty"
     },
     {
       "entity": "pane",

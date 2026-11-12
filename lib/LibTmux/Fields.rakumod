@@ -87,7 +87,7 @@ role PaneFields is export {
     #| Captured pane_top; local uint access.
     method top(--> Count:D) { self.value('top') }
     #| Captured pane_pid; local uint access.
-    method pid(--> Count:D) { self.value('pid') }
+    method pid(--> Count) { self.value('pid') }
     #| Captured pane_tty; local text access.
     method tty(--> Str:D) { self.value('tty') }
     #| Captured pane_title; local text access.
@@ -95,7 +95,7 @@ role PaneFields is export {
     #| Captured pane_current_command; local text access.
     method current-command(--> Str:D) { self.value('current-command') }
     #| Captured pane_current_path; local text access.
-    method current-path(--> Str:D) { self.value('current-path') }
+    method current-path(--> Str) { self.value('current-path') }
     #| Captured pane_start_command; local text access.
     method start-command(--> Str:D) { self.value('start-command') }
     #| Captured pane_start_path; local text access.

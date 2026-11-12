@@ -608,19 +608,19 @@ Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf71
 
 =item C<pid> / C<pid>
 
-FORMAT C<pane_pid>; uint; context pane; nullable False; since 3.3a.
+FORMAT C<pane_pid>; uint; context pane; nullable True; since 3.3a.
+
+Null policy: empty; dependency: none.
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte, is-null.
 
 
 
-Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
 
 
 
 
-
-
-
-Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/format.c>
 
 =item C<tty> / C<tty>
 
@@ -672,19 +672,19 @@ Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf71
 
 =item C<current-path> / C<currentPath>
 
-FORMAT C<pane_current_path>; text; context pane; nullable False; since 3.3a.
+FORMAT C<pane_current_path>; text; context pane; nullable True; since 3.3a.
+
+Null policy: empty; dependency: none.
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with, is-null.
 
 
 
-Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
 
 
 
 
-
-
-
-Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/format.c>
 
 =item C<start-command> / C<startCommand>
 
