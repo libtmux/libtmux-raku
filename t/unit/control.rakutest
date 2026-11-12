@@ -1,0 +1,109 @@
+use v6.d;
+use Test;
+use LibTmux::Control;
+use LibTmux::Control :internal;
+use LibTmux::Exceptions;
+
+subtest 'byte framing correlates guards and preserves payload and unknown events' => {
+    my $raw = "%begin 100 7 1\n%output %0 stays payload\n%end 100 8 1\n%end 100 7 1\n"
+        ~ "%future-event opaque\n%output %12 a\\000\\012\\134";
+    my $bytes = Blob.new(|$raw.encode.list, 255, 10);
+    for 1, 7, $bytes.elems -> $size {
+        my $parser = Decoder.new;
+        my @frames;
+        for $bytes.list.rotor($size, :partial) -> @chunk {
+            @frames.append($parser.feed(Blob.new(@chunk)).list);
+        }
+        $parser.finish;
+        is @frames.elems, 3, "three frames with chunk size $size";
+        isa-ok @frames[0], Response;
+        is @frames[0].payload.decode, "%output %0 stays payload\n%end 100 8 1\n",
+            'notification and wrong-number end inside response stay payload';
+        isa-ok @frames[1], UnknownEvent;
+        is @frames[1].raw.decode, '%future-event opaque';
+        isa-ok @frames[2], PaneOutput;
+        is-deeply @frames[2].data, Blob.new(97, 0, 10, 92, 255),
+            'octal decoder preserves NUL and invalid UTF-8';
+    }
+    my $extended = Decoder.new.feed('%extended-output %9 23 future : \\302'.encode ~ Blob.new(10))[0];
+    is $extended.age-ms, 23;
+    is-deeply $extended.data, Blob.new(194), 'a partial UTF-8 sequence remains bytes';
+    my $buffer = Buf.new(65);
+    my $event = PaneOutput.new(:kind<output>, :raw($buffer), :pane-id<%0>, :data($buffer));
+    $buffer[0] = 66;
+    is $event.raw[0], 65, 'base event copies input bytes';
+    is $event.data[0], 65, 'pane event copies payload bytes';
+};
+
+subtest 'malformed input and resource limits poison the decoder' => {
+    for "%begin\n", "%end\n", "%error\n", "%end 1 1 1\n", "%begin broken\n", "%output %0 \\400\n",
+        "%output %0 \\01\n", "%extended-output %0 nope : a\n" -> $text {
+        my $parser = Decoder.new;
+        throws-like { $parser.feed($text.encode) }, X::LibTmux::Decode;
+        throws-like { $parser.feed(Blob.new) }, X::LibTmux::Decode,
+            'failed decoder cannot resume';
+    }
+    for "%begin 1 1 1\nbody\n", "%sessions-changed" -> $text {
+        my $parser = Decoder.new;
+        $parser.feed($text.encode);
+        throws-like { $parser.finish }, X::LibTmux::Decode, 'EOF cannot truncate input';
+    }
+    throws-like { Decoder.new(:max-line-bytes(3)).feed('abcd'.encode) }, X::LibTmux::Decode;
+    throws-like { Decoder.new(:max-response-bytes(3)).feed("%begin 1 1 1\nabcd\n".encode) },
+        X::LibTmux::Decode;
+    throws-like { Decoder.new(:max-frames(1)).feed("%sessions-changed\n%exit\n".encode) },
+        X::LibTmux::Decode;
+};
+
+subtest 'shared Supply isolates callback failure, ordering and late subscriptions' => {
+    my $stream = EventStream.new;
+    my $good = Channel.new;
+    my $bad = Promise.new;
+    my $bad-vow = $bad.vow;
+    my $tap1 = $stream.Supply.tap(-> $ { die X::LibTmux.new(:message<observer>) },
+        :quit({ $bad-vow.keep($_) }));
+    my $tap2 = $stream.Supply.tap({ $good.send(.raw[0]) }, :done({ $good.send('done') }));
+    $stream.emit(Event.new(:kind<message>, :raw(Blob.new(1))));
+    await Promise.anyof($bad, Promise.in(1));
+    is $bad.status, Kept, 'throwing subscriber receives its own error';
+    $stream.emit(Event.new(:kind<message>, :raw(Blob.new(2))));
+    $stream.finish;
+    is-deeply ($good.receive, $good.receive, $good.receive), (1, 2, 'done'),
+        'other subscriber retains order and completion';
+    my $late = Promise.new;
+    my $late-vow = $late.vow;
+    my $late-tap = $stream.Supply.tap(-> $ { die 'no replay expected' }, :done({ $late-vow.keep(True) }));
+    await Promise.anyof($late, Promise.in(1));
+    is $late.status, Kept, 'late subscriber receives terminal state without replay';
+    .close for $tap1, $tap2, $late-tap;
+};
+
+subtest 'slow subscriber overflows independently and closes without waiting for callbacks' => {
+    my $stream = EventStream.new(:max-events(1));
+    my $entered = Promise.new;
+    my $entered-vow = $entered.vow;
+    my $release = Promise.new;
+    my $release-vow = $release.vow;
+    my $overflow = Promise.new;
+    my $overflow-vow = $overflow.vow;
+    my $seen = 0;
+    my $tap = $stream.Supply.tap(-> $ {
+        ++$seen;
+        $entered-vow.keep(True);
+        await $release;
+    }, :quit({ $overflow-vow.keep($_) }));
+    $stream.emit(Event.new(:kind<message>, :raw(Blob.new(1))));
+    await Promise.anyof($entered, Promise.in(1));
+    is $entered.status, Kept, 'observer owns one in-flight value';
+    $stream.emit(Event.new(:kind<message>, :raw(Blob.new(2))));
+    $stream.emit(Event.new(:kind<message>, :raw(Blob.new(3))));
+    $stream.finish;
+    $release-vow.keep(True);
+    await Promise.anyof($overflow, Promise.in(1));
+    is $overflow.status, Kept, 'overflow is an explicit subscriber failure';
+    is $overflow.result.kind, 'overflow';
+    is $seen, 1, 'queued events are discarded after overflow';
+    $tap.close;
+};
+
+done-testing;

@@ -1,0 +1,113 @@
+use v6.d;
+use Test;
+use LibTmux::Model;
+use LibTmux::Engine;
+use LibTmux::Catalogue;
+use LibTmux::Capabilities;
+use LibTmux::Format;
+use LibTmux::Types;
+use LibTmux::Exceptions;
+
+my $endpoint = Endpoint.new(:socket-path('/tmp/nonexistent-observation-only'));
+my $identity = Incarnation.new(:endpoint-key($endpoint.key), :boot-id<unit>,
+    :pid(1), :start-ticks(1), :start-time(1),
+    :daemon-version(support-policy().latest));
+my $capabilities = LibTmux::Capabilities.new(:daemon-version($identity.daemon-version),
+    :incarnation($identity.key));
+my $observation = Observation.new(:incarnation($identity), :$capabilities);
+
+sub row(Str:D $entity, %values, :$caps = $capabilities --> DecodedRow:D) {
+    my @fields = %values.keys.sort;
+    my $projection = Projection.new(:$entity, :fields(@fields), :capabilities($caps));
+    my @tokens = @fields.map(-> $name {
+        my $kind = catalogue().field($entity, $name).kind;
+        my $value = %values{$name};
+        $kind eq 'text' ?? ($value.chars ?? $value !! "''")
+            !! ($kind eq 'bool' ?? ($value ?? '1' !! '0') !! $value.Str)
+    });
+    $projection.decode-row(Blob.new(('LTM1', $projection.schema,
+        $projection.codec-profile, |@tokens, 'END').join("\t").encode.list))
+}
+
+sub graph(%rows, :$complete = () --> Snapshot:D) {
+    Snapshot.new(:$endpoint, :$observation, :%rows, :$complete)
+}
+
+subtest 'physical identity and repeated contextual rows' => {
+    my $window = row('window', %(id => '@7', name => 'editor'));
+    my $pane = row('pane', %(id => '%10', window-id => '@7', active => True,
+        width => 140, current-command => 'nvim'));
+    my %rows =
+        session => [row('session', %(id => '$1', name => 'work'))],
+        window => [$window, $window], pane => [$pane, $pane],
+        window-link => [
+            row('window-link', %(session-id => '$1', window-id => '@7', index => 0, active => True)),
+            row('window-link', %(session-id => '$1', window-id => '@7', index => 4, active => False)),
+        ];
+    my $snapshot = graph(%rows, :complete<session window pane window-link>);
+    %rows<window>[0] = row('window', %(id => '@9', name => 'changed'));
+    is $snapshot.windows.elems, 1, 'physical window is unique and captured membership is copied';
+    is $snapshot.panes.elems, 1, 'physical pane is unique';
+    is $snapshot.rows('window').elems, 2, 'raw contextual multiplicity is retained';
+    is $snapshot.window-links.elems, 2, 'both same-session associations remain';
+    my $session = $snapshot.sessions.single;
+    is $session.window-links.elems, 2, 'local session relationship preserves both links';
+    is $session.current-link.index, 0, 'current selection belongs to the link';
+    is $snapshot.windows.single.links.elems, 2, 'reverse relation preserves multiplicity';
+    ok $snapshot.panes.single.window.same-entity($snapshot.windows.single),
+        'pane resolves the same physical window locally';
+    is $snapshot.windows.single.active-pane.id, '%10', 'active pane is window-relative';
+    is $snapshot.panes.where(%(width => %(gte => 120))).single.id, '%10',
+        'native graph views satisfy the validated query protocol';
+    is $snapshot.sessions.where(%(window-links => %(some => %(
+        window => %(is => %(panes => %(some => %(current-command => 'nvim')))),
+    )))).elems, 1, 'relation criteria traverse actual links and panes';
+    isa-ok $snapshot.panes.single.ref, PaneRef, 'reference construction performs no I/O';
+    my $again = $snapshot.clone;
+    ok $again.windows.single.same-entity($snapshot.windows.single),
+        'physical identity is separate from observation identity';
+    nok $again.window-links[0].same-entity($snapshot.window-links[0]),
+        'an index association has no stable identity across observations';
+    dies-ok { $snapshot.rows('pane')[0] = $pane }, 'raw membership is read-only';
+};
+
+subtest 'missing, empty and null relations have distinct contracts' => {
+    my $window = row('window', %(id => '@7', name => 'empty'));
+    my $partial = graph(%(window => [$window]));
+    is $partial.windows.single.state('panes'), Unloaded, 'partial graph does not invent empty children';
+    throws-like { $partial.windows.single.panes }, X::LibTmux::MissingData, :state(Unloaded);
+    my $empty = graph(%(window => [$window], window-link => []), :complete<window-link>);
+    is $empty.windows.single.links.elems, 0, 'complete empty relation is known empty';
+    is $empty.windows.where(%(links => %(every => %(active => True)))).elems, 1,
+        'every is vacuously true only for a known empty relation';
+    my $ungrouped = graph(%(session => [row('session', %(
+        id => '$1', name => 'solo', grouped => False, group-name => '',
+    ))]));
+    is $ungrouped.sessions.single.state('group'), KnownNull, 'ungrouped session has known null group';
+    nok $ungrouped.sessions.single.group.defined, 'known null returns Nil';
+    is $partial.windows.single.state('linked'), Unavailable,
+        'a contextual field is unavailable on the physical-window acquisition';
+};
+
+subtest 'contradictions are acquisition errors' => {
+    throws-like {
+        graph(%(window => [row('window', %(id => '@7', name => 'other'),
+            :caps($capabilities.clone(:incarnation<other-daemon>)))]))
+    }, X::LibTmux::StaleReference, 'rows from another daemon cannot enter the captured graph';
+    throws-like {
+        graph(%(window => [
+            row('window', %(id => '@7', name => 'before')),
+            row('window', %(id => '@7', name => 'after')),
+        ]))
+    }, X::LibTmux::InconsistentSnapshot, 'disagreeing repeated records are exposed';
+    throws-like {
+        graph(%(pane => [row('pane', %(id => '%10', window-id => '@missing'))], window => []),
+            :complete<window>)
+    }, X::LibTmux::Decode, 'invalid ID fails at the codec boundary';
+    throws-like {
+        graph(%(pane => [row('pane', %(id => '%10', window-id => '@8'))], window => []),
+            :complete<window>)
+    }, X::LibTmux::InconsistentSnapshot, 'missing target in a complete graph is not null';
+};
+
+done-testing;

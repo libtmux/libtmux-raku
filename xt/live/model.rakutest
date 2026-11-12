@@ -1,0 +1,41 @@
+use v6.d;
+use Test;
+use Test::LibTmux::Fixture;
+use LibTmux::Engine;
+use LibTmux::Model;
+use LibTmux::Exceptions;
+
+# Outer: linked windows, session groups and explicit command effects require tmux.
+with-tmux(-> $fixture {
+    my $runtime = Runtime.new(:endpoint(Endpoint.new(:binary($fixture.binary),
+        :socket-path($fixture.socket-path.Str), :config-file('/dev/null'))));
+    LEAVE $runtime.close;
+    $fixture.cmd('new-session', '-d', '-s', 'second', 'exec cat');
+    $fixture.cmd('link-window', '-s', '@0', '-t', '$0:4');
+    $fixture.cmd('link-window', '-s', '@0', '-t', '$1:3');
+    my $snapshot = capture($runtime);
+    is $snapshot.windows.elems, 2, 'global windows deduplicate linked physical identity';
+    is $snapshot.panes.elems, 2, 'global panes deduplicate linked physical identity';
+    is $snapshot.window-links.elems, 4, 'all four placements are retained';
+    is $snapshot.windows.where(%(id => '@0')).single.links.elems, 3,
+        'same window has two links in one session and one in another';
+    my $original = $snapshot.sessions.where(%(id => '$0')).single;
+    $original.ref.rename('night-shift');
+    is $original.name, 'fixture', 'mutation leaves captured values unchanged';
+    is $original.ref.inspect.name, 'night-shift', 'inspection explicitly acquires current data';
+    my $link = $original.window-links.where(%(index => 4)).single;
+    $fixture.cmd('move-window', '-s', '$0:4', '-t', '$0:5');
+    throws-like { $link.ref.select }, X::LibTmux::StaleReference,
+        'link reference refuses a renumbered placement';
+    $fixture.cmd('new-session', '-d', '-s', 'grouped', '-t', '$0');
+    my $grouped = capture($runtime);
+    is $grouped.session-groups.elems, 1, 'session group is represented explicitly';
+    is $grouped.session-groups.single.sessions.elems, 2, 'group resolves its member sessions';
+    my $pane = $grouped.panes.where(%(id => '%0')).single;
+    $runtime.close;
+    is $pane.window.id, '@0', 'retained graph resolves relationships after owner close';
+    is $pane.snapshot.windows.elems, 2, 'retained graph enumerates after owner close';
+    isa-ok $pane.ref, PaneRef, 'reference value construction does not retain the old owner';
+});
+
+done-testing;

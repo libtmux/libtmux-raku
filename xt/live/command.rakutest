@@ -1,0 +1,35 @@
+use v6.d;
+use Test;
+use Test::LibTmux::Fixture;
+use LibTmux::Command;
+
+# Outer: the tmux parser and raw buffer stream establish byte preservation.
+with-tmux(-> $tmux {
+    my @payloads = (1..255).map({ Blob.new($_) });
+    @payloads.push(Blob.new(1..255));
+    @payloads.push(Blob.new(q[~$HOME; #{pid} " ' \ ;].encode.list));
+    @payloads.push(Blob.new(q['; set-option -g @injected yes; #].encode.list));
+    my @failures;
+    for @payloads.kv -> $index, $expected {
+        my $command = Invocation.new(:argv([
+            'set-buffer', '-b', 'literal', $expected.decode('utf8-c8'),
+        ]));
+        $tmux.cmd('if-shell', '-F', '1', $command.source);
+        my $actual = $tmux.cmd('save-buffer', '-b', 'literal', '-', :bin);
+        @failures.push($index) unless $actual eqv $expected;
+    }
+    is-deeply @failures, [], 'all representable byte classes survive command-language encoding';
+    is $tmux.cmd('show-options', '-gqv', '@injected'), '', 'command-looking data cannot add a command';
+    # tmux set-buffer ignores empty data; a user option is the empty-value oracle.
+    my $empty = Invocation.new(:argv(['set-option', '-g', '@empty', '']));
+    $tmux.cmd('if-shell', '-F', '1', $empty.source);
+    is $tmux.cmd('show-options', '-gqv', '@empty'), "\n", 'empty argument survives command-language encoding';
+    for 'tail;', 'tail\;', ';' -> $value {
+        my $command = Invocation.new(:argv(['set-buffer', '-b', 'literal', $value]));
+        $tmux.cmd(|$command.as-argv);
+        is-deeply $tmux.cmd('save-buffer', '-b', 'literal', '-', :bin),
+            Blob.new($value.encode.list), 'literal final separator survives direct argv';
+    }
+});
+
+done-testing;

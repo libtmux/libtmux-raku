@@ -1,0 +1,82 @@
+use v6.d;
+use Test;
+use LibTmux;
+use LibTmux::Control;
+use Test::LibTmux::Fixture;
+
+# Outer: one equivalent operation sequence with event-proven output in every mode.
+my @observations;
+for <sync async control> -> $mode {
+    with-tmux(-> $fixture {
+        subtest $mode => {
+            my $server = Server.new(:binary($fixture.binary), :socket-path($fixture.socket-path.Str));
+            LEAVE $server.close if $server.defined;
+            my $connection = $server.open-control(:session-id<$0>);
+            LEAVE $connection.close if $connection.defined;
+            my &dispatch = -> Invocation:D $command {
+                given $mode {
+                    when 'sync' { $server.command($command).stdout }
+                    when 'async' { (await $server.command-async($command)).stdout }
+                    default { $connection.execute($command).payload }
+                }
+            };
+            my ($session, $left) = dispatch(Invocation.new(:argv([
+                'new-session', '-d', '-P', '-F', "#{'{session_id}'}\t#{'{pane_id}'}",
+                '-s', 'workload', '-x', '120', '-y', '30', 'exec cat',
+            ]))).decode('ascii').trim.split("\t");
+            ok $session ~~ SessionId && $left ~~ PaneId, 'creation returns exact declared identities';
+            $connection.execute(Invocation.new(:argv(['switch-client', '-E', '-t', $session])));
+            my $right = dispatch(Invocation.new(:argv([
+                'split-window', '-d', '-h', '-P', '-F', '#{pane_id}', '-t', $left, 'exec cat',
+            ]))).decode('ascii').trim;
+            ok $right ~~ PaneId && $right ne $left, 'split returns a distinct pane identity';
+
+            my $seen = Promise.new;
+            my $vow = $seen.vow;
+            my $lock = Lock.new;
+            my $output = '';
+            my $marker = 'orbital-signal';
+            my $tap = $connection.events.tap(-> $event {
+                if $event ~~ PaneOutput && $event.pane-id eq $left {
+                    $lock.protect({
+                        $output ~= $event.data.decode('utf8-c8');
+                        die 'Workload output limit exceeded' if $output.chars > 65536;
+                        $vow.keep(True) if $seen.status == Planned && $output.contains($marker);
+                    });
+                }
+            }, :quit(-> $error { $lock.protect({ $vow.break($error) if $seen.status == Planned }) }));
+            LEAVE $tap.close;
+            dispatch(Invocation.new(:argv(['send-keys', '-l', '-t', $left, '--', $marker])));
+            dispatch(Invocation.new(:argv(['send-keys', '-t', $left, 'Enter'])));
+            my $wait = await Promise.anyof($seen, Promise.in(2));
+            is $seen.status, Kept, 'pane output independently establishes the capture precondition';
+            my $capture = dispatch(Invocation.new(:argv(['capture-pane', '-p', '-t', $left])));
+            ok $capture.decode('utf8').contains($marker), 'screen capture contains the observed text';
+
+            my $snapshot = $mode eq 'control' ?? $connection.snapshot
+                !! $mode eq 'async' ?? (await $server.snapshot-async) !! $server.snapshot;
+            my @panes := $snapshot.panes.where(%(id => %(in => [$left, $right])));
+            is @panes.elems, 2, 'snapshot contains both created panes';
+            is @panes[0].window.panes.elems, 2, 'snapshot retains the complete window relation';
+            my $selected = $mode eq 'control'
+                ?? $connection.query-panes(:where(%(id => $left)), :pushdown<require>)
+                !! $mode eq 'async'
+                    ?? (await $server.query-async('pane', :where(%(id => $left)), :pushdown<require>))
+                    !! $server.query-panes(:where(%(id => $left)), :pushdown<require>);
+            is $selected.single.id, $left, 'source query agrees with the creation identity';
+            @observations.push(@panes.map({ (.index, .width, .height, .active).List }).List);
+
+            $connection.execute(Invocation.new(:argv(['switch-client', '-E', '-t', '$0'])));
+            dispatch(Invocation.new(:argv(['kill-session', '-t', $session])));
+            is $fixture.cmd('list-sessions', '-F', '#{session_id}'), "\$0\n",
+                'cleanup removes the workload session and preserves the fixture';
+            my $pid = $connection.pid;
+            $tap.close;
+            $connection.close;
+            ok $connection.reaped && !"/proc/$pid".IO.e, 'owned control client exited and was reaped';
+        };
+    });
+}
+is-deeply @observations[1], @observations[0], 'async workload observations match synchronous results';
+is-deeply @observations[2], @observations[0], 'control workload observations match synchronous results';
+done-testing;

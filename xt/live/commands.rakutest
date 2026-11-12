@@ -1,0 +1,200 @@
+use v6.d;
+use Test;
+use Test::LibTmux::Fixture;
+use LibTmux::Engine;
+use LibTmux::Model;
+use LibTmux::Command;
+use LibTmux::Operations;
+use LibTmux::Exceptions;
+use LibTmux::Control::Connection;
+
+# Outer: command effects, returned identities and byte streams need the owned daemon.
+with-tmux(-> $fixture {
+    my $endpoint = Endpoint.new(:binary($fixture.binary), :socket-path($fixture.socket-path.Str));
+    my $runtime = Runtime.new(:$endpoint);
+    LEAVE $runtime.close;
+    my $observation = $runtime.observe;
+    my $incarnation = $observation.incarnation;
+    my $session = SessionRef.new(:$endpoint, :$incarnation, :id('$0'));
+    my $original = WindowRef.new(:$endpoint, :$incarnation, :id<@0>);
+    my $pane = PaneRef.new(:$endpoint, :$incarnation, :id<%0>);
+    sub field($target, Str:D $format --> Str:D) {
+        $fixture.cmd('display-message', '-p', '-t', $target, $format).chomp
+    }
+
+    subtest 'literal creation, returned IDs and independent observations' => {
+        lives-ok { $session.rename('-leading') }, 'session rename accepts a leading hyphen';
+        is field($session.id, '#{session_name}'), '-leading', 'session name is not parsed as an option';
+        lives-ok { $original.rename('-leading') }, 'window rename accepts a leading hyphen';
+        is field($original.id, '#{window_name}'), '-leading', 'window name is not parsed as an option';
+        my $name = 'literal-#{session_name}-#[fg=red];';
+        my $directory = $fixture.directory.add('literal-#{pid}');
+        $directory.mkdir;
+        $session.rename($name);
+        is field($session.id, '#{session_name}'), $name, 'rename stores FORMAT-looking text literally';
+        my $window = $session.new-window(:name($name), :directory($directory.Str), :shell-command(
+            "'{$fixture.binary}' -S '{$fixture.socket-path}' wait-for -S directory-ready; exec cat"));
+        $fixture.cmd('wait-for', 'directory-ready');
+        is field($window.id, '#{window_id}'), $window.id, 'new-window returns its actual ID';
+        is field($window.id, '#{window_name}'), $name, 'new-window preserves style-shaped hashes and semicolon';
+        is field($window.id, '#{pane_current_path}'), $directory.Str,
+            'start directory keeps FORMAT-looking path components literal';
+        $window.rename('renamed-#{pid};');
+        is field($window.id, '#{window_name}'), 'renamed-#{pid};', 'window rename uses one literal expansion';
+        my $new-pane = $pane.split(:horizontal, :percent(30), :shell-command('exec cat'));
+        isnt $new-pane.id, $pane.id, 'split returns the new pane, not the highest guessed index';
+        is field($new-pane.id, '#{window_id}'), $original.id, 'split remains in the original physical window';
+        $new-pane.set-title('title-#{pid};');
+        is field($new-pane.id, '#{pane_title}'), 'title-#{pid};', 'pane title treats FORMAT text literally';
+        $new-pane.resize(:width(25));
+        is field($new-pane.id, '#{pane_width}'), '25', 'absolute pane resize takes effect';
+        $original.select-layout('even-horizontal');
+        my $layout = field($original.id, '#{window_layout}').encode;
+        $original.restore-layout($layout);
+        is field($original.id, '#{window_layout}'), $layout.decode,
+            'declared classic or JSON layout can be reapplied without changing placement';
+        $new-pane.select;
+        is field($new-pane.id, '#{pane_active}'), '1', 'selection changes the window active pane';
+        my $broken = $new-pane.break($session, :index(8), :name('broken-#{pid};'));
+        is field($new-pane.id, '#{window_id}'), $broken.id, 'break returns the reported new window';
+        is field($broken.id, '#{window_name}'), 'broken-#{pid};', 'break name has raw-name semantics';
+        $new-pane.join($pane, :horizontal, :size(20));
+        is field($new-pane.id, '#{window_id}'), $original.id, 'join preserves pane identity across windows';
+        my $other-pane = PaneRef.new(:$endpoint, :$incarnation, :id(field($window.id, '#{pane_id}')));
+        $new-pane.move($other-pane, :horizontal);
+        is field($new-pane.id, '#{window_id}'), $window.id, 'move names an explicit pane destination';
+        $new-pane.join($pane, :horizontal);
+        $new-pane.swap($pane);
+        is field($new-pane.id, '#{pane_index}'), '0', 'swap preserves IDs and changes placement';
+        $new-pane.kill;
+        $window.kill;
+        $directory.rmdir;
+    };
+
+    subtest 'link multiplicity, placement checks and legacy single-pane break' => {
+        my $link = $original.link($session, :index(4));
+        is $fixture.cmd('list-windows', '-t', $session.id, '-F', '#{window_id}').lines.elems,
+            2, 'one physical window can occupy two indices in one session';
+        throws-like { $pane.break($session, :index(9)) }, X::LibTmux::Cardinality,
+            :entity<window-link>, 'break refuses an ambiguous source association';
+        my $contextual = $pane.break($session, :index(9), :from($link));
+        is $contextual.id, $original.id, 'explicit break moves only the chosen association';
+        $link = WindowLinkRef.new(:$endpoint, :$incarnation, :session-id($session.id),
+            :window-id($original.id), :index(9));
+        my $moved = $link.move($session, :index(5));
+        throws-like { $link.select }, X::LibTmux::StaleReference, 'old index refuses after renumbering';
+        $moved.select;
+        is field($session.id, '#{window_index}'), '5', 'new placement selects by session and index';
+        my $other = $session.new-window(:index(7), :shell-command('exec cat'));
+        my $other-link = WindowLinkRef.new(:$endpoint, :$incarnation, :session-id($session.id),
+            :window-id($other.id), :index(7));
+        $moved.swap($other-link);
+        is field($session.id ~ ':5', '#{window_id}'), $other.id, 'window swap exchanges placements';
+        throws-like { $moved.select }, X::LibTmux::StaleReference, 'pre-swap reference rejects a replaced slot';
+        $other.kill;
+        $moved = WindowLinkRef.new(:$endpoint, :$incarnation, :session-id($session.id),
+            :window-id($original.id), :index(7));
+        $moved.unlink;
+        my $single = $pane.break($session, :index(6));
+        is $single.id, $original.id, 'single-pane break preserves physical identity with legacy print fallback';
+        $session.renumber-windows;
+        my $grouped-id = $fixture.cmd('new-session', '-d', '-t', $session.id,
+            '-s', 'grouped', '-P', '-F', '#{session_id}').chomp;
+        my $grouped-link;
+        lives-ok { $grouped-link = $original.link($session, :index(5)) },
+            'physical window linking selects the destination session context within a group';
+        if $grouped-link.defined {
+            is field($grouped-id ~ ':5', '#{window_id}'), $original.id,
+                'group synchronization creates the matching peer placement';
+            $grouped-link.unlink;
+            nok $fixture.cmd('list-windows', '-t', $grouped-id, '-F', '#{window_index}').lines.grep(* eq '5'),
+                'unlink synchronizes the placement removal across grouped sessions';
+        }
+        $fixture.cmd('kill-session', '-t', $grouped-id);
+    };
+
+    subtest 'literal input and binary capture use operation-specific completion' => {
+        my $path = $fixture.directory.add('line');
+        my $shell = "stty -echo; '{$fixture.binary}' -S '{$fixture.socket-path}' wait-for -S ready; "
+            ~ "IFS= read -r line; printf '%s' \"\$line\" > '$path'; "
+            ~ "'{$fixture.binary}' -S '{$fixture.socket-path}' wait-for -S received; exec cat";
+        my $reader = $session.new-window(:shell-command($shell));
+        my $reader-pane = PaneRef.new(:$endpoint, :$incarnation,
+            :id(field($reader.id, '#{pane_id}')));
+        $fixture.cmd('wait-for', 'ready');
+        my $text = q[quotes ' " \ ; #{pid} #[fg=blue]];
+        $reader-pane.send-text($text);
+        $reader-pane.send-keys('Enter');
+        $fixture.cmd('wait-for', 'received');
+        is-deeply $path.slurp(:bin).list, $text.encode.list, 'the pane program receives exact literal input';
+        isa-ok $reader-pane.capture, Blob, 'capture returns bytes without trimming or decoding';
+        $reader-pane.respawn(:kill, :shell-command(
+            "'{$fixture.binary}' -S '{$fixture.socket-path}' wait-for -S respawned; exec cat"));
+        $fixture.cmd('wait-for', 'respawned');
+        is field($reader-pane.id, '#{pane_dead}'), '0', 'respawn preserves ID and starts the requested process';
+        $path.unlink;
+        $reader.kill;
+    };
+
+    subtest 'empty and floating panes follow capability evidence' => {
+        my $empty = $pane.split(:empty);
+        is field($empty.id, '#{pane_dead_status}'), '', 'empty split has no child exit status';
+        $empty.command(Invocation.new(:argv(['display-message', '-I', '-t', $empty.id])),
+            :stdin(Blob.new(("\e[?25l" ~ (1..80).join("\r\n") ~ "\r\n").encode.list)));
+        ok field($empty.id, '#{history_size}').Int > 0, 'completed stdin injection populates scrollback';
+        is field($empty.id, '#{cursor_flag}'), '0', 'terminal cursor mode is changed before reset';
+        $empty.reset;
+        is field($empty.id, '#{history_size}'), '0', 'reset clears scrollback in the same command queue';
+        is field($empty.id, '#{cursor_flag}'), '1', 'reset also restores terminal state';
+        $empty.kill;
+        if $observation.capabilities.status('window-empty').supported {
+            my $window = $session.new-window(:empty);
+            is field($window.id, '#{pane_dead_status}'), '', 'empty window has no child exit status';
+            $window.kill;
+        } else {
+            throws-like { $session.new-window(:empty) }, X::LibTmux::Unsupported,
+                :feature<window-empty>, 'older new-window explicitly refuses empty-pane semantics';
+        }
+        if $observation.capabilities.status('pane-floating').supported {
+            my $floating = $pane.new-floating(:width(20), :height(8), :x(1), :y(1), :empty);
+            is field($floating.id, '#{pane_floating_flag}'), '1', 'floating creation uses new-pane';
+            $floating.move-floating(:x(4), :y(3));
+            is field($floating.id, '#{pane_left}'), '5', 'floating position accounts for its left border';
+            $floating.tile;
+            is field($floating.id, '#{pane_floating_flag}'), '0', 'tiling preserves pane identity';
+            $floating.float(:width(20), :height(8));
+            is field($floating.id, '#{pane_floating_flag}'), '1', 'floating conversion preserves pane identity';
+            $floating.kill;
+            my $modal = $pane.new-floating(:width(20), :height(8), :modal, :empty);
+            is field($modal.id, '#{pane_modal_flag}'), '1', 'modal pane requires and uses its capability';
+            $modal.kill;
+        } else {
+            throws-like { $pane.new-floating(:width(20), :height(8)) }, X::LibTmux::Unsupported,
+                :feature<pane-floating>, 'unsupported floating creation does not dispatch';
+        }
+    };
+
+    subtest 'scoped configuration and observed client reference integration' => {
+        for $session, $original, $pane -> $reference {
+            $reference.options.set('@reference-scope', $reference.id);
+            is $reference.options.get('@reference-scope'), $reference.id,
+                'reference options retain the intended scope';
+        }
+        $session.environment.set('LIBTMUX_REFERENCE_TEST', 'literal-#{pid};');
+        is $session.environment.get('LIBTMUX_REFERENCE_TEST').bytes.decode, 'literal-#{pid};',
+            'session environment facade preserves literal values';
+        my $connection = LibTmux::Control::Connection.connect(:$endpoint,
+            :session-id($session.id), :$incarnation);
+        LEAVE $connection.close if $connection.defined;
+        my $view = capture($runtime, :required-incarnation($incarnation)).clients
+            .where(%(pid => $connection.pid)).single;
+        my $reference = $view.ref;
+        isa-ok $reference, ClientRef, 'observed client constructs its value-only reference';
+        ok $reference.inspect.same-entity($view), 'client inspection matches name, PID and creation time';
+        $connection.close;
+        throws-like { $reference.inspect }, X::LibTmux::StaleReference,
+            'disconnected client inspection refuses an absent identity';
+    };
+});
+
+done-testing;

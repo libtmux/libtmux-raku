@@ -1,0 +1,72 @@
+use v6.d;
+use Test;
+use LibTmux::Client;
+use LibTmux::Attachment;
+use LibTmux::Engine;
+use LibTmux::Command;
+use LibTmux::Exceptions;
+use LibTmux::Types;
+
+my $endpoint = Endpoint.new(:binary('/does/not/exist'), :socket-name<client-unit>);
+my $incarnation = Incarnation.new(:endpoint-key($endpoint.key), :boot-id<test>,
+    :pid(1), :start-ticks(1), :start-time(1), :daemon-version<3.8>);
+my $client = ClientTarget.new(:$endpoint, :$incarnation, :name<client-test>, :pid(2), :created(1));
+
+subtest 'value validation has no subprocess effects' => {
+    throws-like { $client.clone(:name('')) }, X::LibTmux::Command;
+    throws-like { $client.clone(:endpoint($endpoint.clone(:socket-name<other>))) },
+        X::LibTmux::StaleReference;
+    throws-like { CommandTemplate.new(:source("bad\0")) }, X::LibTmux::Command;
+    throws-like { MenuItem.new(:label<commandless>) }, X::LibTmux::Command;
+    throws-like { MenuItem.new(:label(''), :key<x>) }, X::LibTmux::Command;
+    throws-like { $client.choose('unknown', :pane<%1>) }, X::LibTmux::Command;
+    throws-like { $client.refresh(:part<status>, :amount(1)) }, X::LibTmux::Command;
+    my $old = $client.clone(:incarnation(Incarnation.new(:endpoint-key($endpoint.key),
+        :boot-id<test>, :pid(1), :start-ticks(1), :start-time(1), :daemon-version<3.3a>)));
+    throws-like { await $old.menu-async([MenuItem.new(:label(''))], :pane<%1>,
+        :timeout-ms(900), :style<default>) }, X::LibTmux::Unsupported;
+    throws-like { await $old.popup-async(:shell-command<true>, :pane<%1>, :timeout-ms(900),
+        :close-on-key) }, X::LibTmux::Unsupported;
+    throws-like { await $old.prompt-async(CommandTemplate.new(:source<display-message>),
+        :timeout-ms(900), :literal-commas) }, X::LibTmux::Unsupported;
+    throws-like { LibTmux::Attachment.new }, X::LibTmux::Command;
+    my $file = '/dev/null'.IO.open(:rw);
+    LEAVE $file.close;
+    throws-like { LibTmux::Attachment.spawn(:$endpoint, :$incarnation,
+        :session<$0>, :terminal($file)) }, X::LibTmux::Command;
+};
+
+subtest 'invalid async client inputs return one broken Promise' => {
+    for (42, X::TypeCheck::Binding::Parameter, 'wrong typed input'),
+        (any(Str, 42), X::LibTmux::Command, 'Junction input') -> $case {
+        my Mu $returned;
+        my Exception $synchronous;
+        try {
+            $returned = $client.popup-async(:shell-command($case[0]), :pane<%1>, :timeout-ms(900));
+            CATCH { default { $synchronous = $_ } }
+        }
+        ok !$synchronous.defined && $returned.^isa(Promise) && $returned.status == Broken,
+            "{$case[2]} rejects through one Promise without synchronous failure";
+        if $returned.^isa(Promise) {
+            throws-like { await $returned }, $case[1], 'await preserves the validation exception';
+        }
+    }
+    throws-like {
+        await $client.display-panes-async(:timeout-ms(900), :timeuot-ms(900))
+    }, X::LibTmux::Command, :kind<argument>, :outcome(NotStarted),
+        'forwarded operation settings are validated before creating a runtime';
+    throws-like {
+        await $client.menu-async([MenuItem], :pane<%1>, :timeout-ms(900))
+    }, X::LibTmux::Command, :kind<argument>, :outcome(NotStarted),
+        'undefined menu entries are rejected before command construction';
+};
+
+subtest 'menu values preserve supplied command identity and validate clones' => {
+    my $command = Invocation.new(:argv(['display-message', '-p', '#{pane_id};']));
+    my $item = MenuItem.new(:label('literal #{pane_id}'), :key<x>, :$command);
+    is $item.command, $command;
+    is MenuItem.new(:label('')).label, '';
+    throws-like { $item.clone(:label('-hidden')) }, X::LibTmux::Command;
+};
+
+done-testing;

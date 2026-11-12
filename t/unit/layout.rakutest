@@ -1,0 +1,101 @@
+use v6.d;
+use Test;
+use JSON::Fast;
+use LibTmux::Layout;
+use LibTmux::Types;
+use LibTmux::Exceptions;
+
+my $fixtures = from-json($?FILE.IO.parent.parent.add('fixtures/format/layouts.json').slurp)<captures>;
+my $classic = $fixtures.first(*.<version> eq '3.3a')<tiled>;
+my $modern = $fixtures.first(*.<version> eq '3.8');
+
+subtest 'captured layouts require decoder-owned construction' => {
+    throws-like {
+        LayoutNode.new(:kind<bogus>, :width(1), :height(1), :x(0), :y(0),
+            :children((42,).List))
+    }, X::LibTmux::Decode, 'invalid kind and child cannot enter an observed tree';
+    throws-like {
+        LayoutNode.new(:kind<pane>, :width(1), :height(1), :x(0), :y(0))
+    }, X::LibTmux::Decode, 'a pane leaf cannot be fabricated without its identity';
+    throws-like {
+        Layout.new(:raw(Blob.new), :profile<invented>, :known)
+    }, X::LibTmux::Decode, 'a known layout cannot be fabricated without decoding its bytes';
+};
+
+subtest 'source-captured classic tree and JSON floating placements' => {
+    my $old = decode-layout($classic, :profile<classic>);
+    ok $old.known, 'classic checksum and grammar accepted';
+    is-deeply $old.root.panes.map(*.pane-id).List, ('%0', '%1'), 'physical IDs retained';
+    is $old.root.kind, 'horizontal', 'classic braces describe horizontal split';
+    is $old.floating.elems, 0, 'classic captured tree has only tiled panes';
+    my $empty = decode-layout('0000,', :profile<classic>);
+    ok $empty.known && !$empty.root.defined && !$empty.tiled.elems,
+        'classic compatibility sentinel has no represented tiled cells';
+    my $new = decode-layout($modern<floating-modal>, :profile<json>,
+        :modal-pane-id($modern<modal-pane-id>));
+    is $new.tiled.elems, 2, 'floating leaves do not become tiled panes';
+    is-deeply $new.floating.map(*.z).List, (0, 1), 'stacking is preserved in source order';
+    is $new.modal.pane-id, '%3', 'modal identity comes from separate captured field';
+    is-deeply $new.raw, Blob.new($modern<floating-modal>.encode('utf8').list),
+        'raw layout is retained exactly';
+    dies-ok { $new.root.children[0] = $new.root.children[1] }, 'children are immutable membership';
+    throws-like { $new.clone(:raw(Buf.new(1))) }, X::LibTmux::Decode,
+        'native clone cannot substitute mutable bytes behind a decoded layout';
+    throws-like { $new.root.clone(:children(($new.root,).List)) }, X::LibTmux::Decode,
+        'native clone cannot substitute an unvalidated child tree';
+    throws-like { decode-layout($modern<tiled>, :profile<json>).modal },
+        X::LibTmux::MissingData, :state(Unloaded), 'missing modal metadata is not false';
+    is decode-layout($modern<tiled>, :profile<json>, :modal-pane-id('')).modal-state,
+        KnownNull, 'known absence is explicit';
+};
+
+subtest 'malformed known layouts and bounded parsing' => {
+    throws-like { decode-layout('0000' ~ $classic.substr(4), :profile<classic>) },
+        X::LibTmux::Decode, 'wrong checksum fails';
+    throws-like {
+        decode-layout('81e5,80x24,0,0{40x24,0,0,0,39x24,41,0,1]', :profile<classic>)
+    }, X::LibTmux::Decode, :message('Malformed classic layout tree'),
+        'a valid checksum does not excuse mismatched split delimiters';
+    my @invalid =
+        $modern<tiled>.subst('"V":2', '"V":2,"V":2'),
+        $modern<tiled>.subst('"w":80', '"w":true'),
+        $modern<tiled>.subst('"w":80', '"w":0'),
+        $modern<tiled>.subst('"w":80', '"w":80.0'),
+        $modern<tiled>.subst('"w":80', '"w":8e1'),
+        $modern<tiled>.subst('"I":"%1"', '"I":"%0"'),
+        $modern<tiled>.subst('"i":1', '"i":0'),
+        $modern<tiled>.subst('"I":"%1"', '"a":true,"I":"%1"'),
+        $modern<tiled> ~ 'junk';
+    my @accepted;
+    for @invalid.kv -> $index, $text {
+        my $caught;
+        try {
+            decode-layout($text, :profile<json>);
+            CATCH { default { $caught = $_ } }
+        }
+        @accepted.push($index) unless $caught ~~ X::LibTmux::Decode;
+    }
+    is-deeply @accepted, [], 'duplicate keys/identities, invalid scalars and trailing input fail';
+    throws-like { decode-layout($modern<tiled>, :profile<json>, :max-bytes(10)) },
+        X::LibTmux::Decode, 'byte bound applies before JSON parse';
+    throws-like { decode-layout($modern<tiled>, :profile<json>, :max-depth(2)) },
+        X::LibTmux::Decode, 'nesting bound applies before recursive parse';
+    throws-like { decode-layout($modern<tiled>, :profile<json>, :max-nodes(2)) },
+        X::LibTmux::Decode, 'node bound applies during construction';
+};
+
+subtest 'future layouts remain inspectable without invented structure' => {
+    my $future = $modern<tiled>.subst('"V":2', '"V":99');
+    my $layout = decode-layout($future, :profile<json>);
+    nok $layout.known, 'unrecognized JSON version is not interpreted';
+    is $layout.version, 99, 'observed version is preserved';
+    is-deeply $layout.raw, Blob.new($future.encode('utf8').list), 'future raw bytes remain available';
+    throws-like { $layout.tiled }, X::LibTmux::MissingData, :state(Unsupported),
+        'unsupported structure is not an empty pane collection';
+    my $source = Buf.new(255, 0, 1);
+    my $unknown = decode-layout($source, :profile<future>);
+    $source[0] = 7;
+    is-deeply $unknown.raw, Blob.new(255, 0, 1), 'unknown raw layout copies mutable input bytes';
+};
+
+done-testing;

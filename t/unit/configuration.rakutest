@@ -1,0 +1,41 @@
+use v6.d;
+use Test;
+use LibTmux::Configuration :DEFAULT, :internal;
+use LibTmux::Engine;
+use LibTmux::Exceptions;
+
+my $endpoint = Endpoint.new(:binary('/nonexistent/no-configuration-io'), :socket-name<unused>);
+my $incarnation = Incarnation.new(:endpoint-key($endpoint.key), :boot-id<fixture>,
+    :pid(1), :start-ticks(0), :start-time(0), :daemon-version<3.8>);
+my $options = Options.new(:$endpoint, :$incarnation, :scope<session>, :target('$1'));
+is $options.describe('mouse').kind, 'flag', 'option metadata access performs no I/O';
+throws-like { $options.set('mouse', 1) }, X::LibTmux::Command, :kind<argument>,
+    'Boolean options reject numeric substitutes before launch';
+throws-like { $options.set('history-limit', True) }, X::LibTmux::Command, :kind<argument>,
+    'numeric options reject Booleans before launch';
+throws-like { $options.set('status', 'maybe') }, X::LibTmux::Command, :kind<argument>,
+    'choice operands are validated before launch';
+throws-like { $options.set('update-environment', 'DISPLAY') }, X::LibTmux::Command, :kind<argument>,
+    'array mutation requires an explicit index';
+throws-like { $options.describe('escape-time') }, X::LibTmux::Command, :kind<argument>,
+    'option scope is checked before launch';
+throws-like { $options.describe('typo') }, X::LibTmux::Unsupported,
+    'unknown native options require an explicit raw operation';
+throws-like { $options.clone(:target('%1')) }, X::LibTmux::Command, :kind<argument>,
+    'copied facades revalidate scope identity';
+subtest 'environment decoding repeats without retained cursor state' => {
+    my $wire = (<DISPLAY KRB5CCNAME SSH_AGENT_PID SSH_ASKPASS SSH_AUTH_SOCK
+        SSH_CONNECTION WINDOWID XAUTHORITY>.map({ "unset $_;\n" }).join
+        ~ "LIBTMUX_VALUE=\"x\"; export LIBTMUX_VALUE;\n").encode;
+    my @counts = (^100).map({ decode-environment($wire, 'none', False).elems });
+    is-deeply @counts.unique.List, (9,).List, 'each decode starts from the same immutable bytes';
+    my $bytes = Blob.new(1..255);
+    my $quoted = Blob.new($bytes.list.map({ $_ == any(36, 96, 34, 92) ?? (92, $_).Slip !! $_ }));
+    my $wire-bytes = Blob.new(|'VALUE="'.encode.list, |$quoted.list,
+        |"\"; export VALUE;\n".encode.list);
+    is-deeply decode-environment($wire-bytes, 'none', False)[0].bytes.list, $bytes.list,
+        'every non-NUL byte survives the declared environment encoding';
+    throws-like { decode-environment('A="x"; execute A;'.encode, 'none', False) },
+        X::LibTmux::Decode, 'non-native shell statements are rejected';
+};
+done-testing;

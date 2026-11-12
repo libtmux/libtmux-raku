@@ -1,0 +1,172 @@
+use v6.d;
+use Test;
+use LibTmux::Batch;
+use LibTmux::Engine;
+use LibTmux::Command;
+use LibTmux::Transport;
+use LibTmux::Types;
+use LibTmux::Control::Connection;
+use Test::LibTmux::Fixture;
+
+sub command(*@argv --> Invocation:D) { Invocation.new(:argv(@argv)) }
+sub quote(Str:D $value --> Str:D) { "'" ~ $value.subst("'", "'\\''", :g) ~ "'" }
+sub completed(Promise:D $promise, Str:D $message --> Nil) {
+    my $wait = try await Promise.anyof($promise, Promise.in(0.9));
+    is $promise.status, Kept, $message;
+    await $promise if $promise.status == Broken;
+}
+
+with-tmux(-> $fixture {
+    my $endpoint = Endpoint.new(:binary($fixture.binary), :socket-path($fixture.socket-path.Str));
+    my $runtime = Runtime.new(:$endpoint);
+    LEAVE $runtime.close if $runtime.defined;
+    my $incarnation = $runtime.observe.incarnation;
+    my $control = LibTmux::Control::Connection.connect(:$endpoint, :session-id<$0>, :$incarnation);
+    LEAVE $control.close if $control.defined;
+
+    for $runtime, $control -> $executor {
+        my $mode = $executor === $runtime ?? 'runtime' !! 'control';
+        my $limited = $mode eq 'runtime' ?? Runtime.new(:$endpoint, :max-command-bytes(256))
+            !! LibTmux::Control::Connection.connect(:$endpoint, :session-id<$0>, :$incarnation,
+                :max-command-bytes(256));
+        LEAVE $limited.close if $limited.defined;
+        my $first = Operation.new(:name<before-oversize>, :acknowledgement-only,
+            :command(command('set-option', '-g', '@batch-size', 'wrong')));
+        lives-ok { $limited.validate-command($first.command, :$incarnation) },
+            "$mode first command alone fits its exact encoding limit";
+        throws-like { Batch.new(:operations([$first,
+            Operation.new(:name<oversized>, :acknowledgement-only,
+                :command(command('display-message', '-p', 'x' x 512))),
+        ])).run(:executor($limited), :$incarnation) }, X::LibTmux::Command;
+        is $fixture.cmd('show-option', '-gqv', '@batch-size').trim, '',
+            "$mode validates later command sizes before the first effect";
+        subtest "$mode attributes each failed position" => {
+            for ^3 -> $failure {
+                $fixture.cmd('set-option', '-gu', "\@batch-$mode-$_") for ^3;
+                my @operations = (^3).map(-> $index {
+                    Operation.new(:name("step-$index"), :acknowledgement-only,
+                        :command($index == $failure ?? command('libtmux-batch-failure=')
+                            !! command('set-option', '-g', "\@batch-$mode-$index", 'observed')))
+                });
+                my $report = Batch.new(:operations(@operations))
+                    .run(:$executor, :$incarnation, :timeout-ms(900));
+                is-deeply $report.operations.map(*.outcome).List,
+                    ((Complete xx $failure), Failed, (Skipped xx (2 - $failure))).flat.List;
+                for ^3 -> $index {
+                    is $fixture.cmd('show-option', '-gqv', "\@batch-$mode-$index").trim,
+                        $index < $failure ?? 'observed' !! '',
+                        "position $index has the attributed effect";
+                }
+                is $report.operations[$failure].error-outcome, Failed;
+            }
+            lives-ok { $executor.execute(command('list-sessions'), :$incarnation) },
+                'batch failure leaves the caller-owned executor usable';
+        };
+
+        subtest "$mode distinguishes acknowledgement from an observed background effect" => {
+            for <ack effect cancel> -> $variant {
+                my $acknowledgement-only = $variant eq 'ack';
+                my $cancel = Cancellation.new;
+                my $tag = "$mode-$variant";
+                my $gate = "batch-$tag";
+                LEAVE try $fixture.cmd('wait-for', '-S', $gate);
+                my $armed = $fixture.directory.add("{$tag}-armed");
+                my $result = $fixture.directory.add("{$tag}-result");
+                my $partial = $fixture.directory.add("{$tag}-partial");
+                LEAVE { .unlink if .defined && .e for $armed, $result, $partial }
+                my $ready = Promise.new;
+                my $ready-vow = $ready.vow;
+                my $proof = Promise.new;
+                my $proof-vow = $proof.vow;
+                my $tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+                    if $event.path.IO.basename eq $armed.basename && $armed.e && $ready.status == Planned {
+                        $ready-vow.keep(True);
+                    }
+                    if $event.path.IO.basename eq $result.basename && $result.e && $proof.status == Planned {
+                        my $value = try $result.slurp;
+                        $proof-vow.keep(Evidence.new(:operation<background>,
+                            :description('Owned background job wrote its completion marker'),
+                            :satisfied($value.defined && $value eq 'completed'))) if $value.defined && $value.chars;
+                    }
+                });
+                LEAVE $tap.close if $tap.defined;
+                my $shell = 'printf armed > ' ~ quote($armed.Str) ~ '; '
+                    ~ quote($fixture.binary) ~ ' -S ' ~ quote($fixture.socket-path.Str)
+                    ~ ' wait-for ' ~ quote($gate) ~ '; printf completed > ' ~ quote($partial.Str)
+                    ~ '; mv ' ~ quote($partial.Str) ~ ' ' ~ quote($result.Str);
+                my %completion = $acknowledgement-only
+                    ?? %(acknowledgement-only => True) !! %(evidence => $proof);
+                my $batch = Batch.new(:operations([Operation.new(:name<background>,
+                    :command(command('run-shell', '-b', $shell)), |%completion)]));
+                my $running = $batch.run-async(:$executor, :$incarnation, :timeout-ms(900), :$cancel);
+                completed($ready, 'event proves the background operation started');
+                if $acknowledgement-only {
+                    completed($running, 'command-scope batch completes at acknowledgement');
+                    is $running.result.operations[0].completion-scope, 'command';
+                    nok $result.e, 'external effect is still incomplete after acknowledgement';
+                } else {
+                    is $running.status, Planned, 'effect-scope batch waits for specific external evidence';
+                }
+                if $variant eq 'cancel' {
+                    # The control queue's next barrier proves the earlier acknowledgement completed.
+                    $executor.execute(command('list-sessions'), :$incarnation) if $mode eq 'control';
+                    $cancel.cancel;
+                    completed($running, 'cancellation settles the batch while external work remains blocked');
+                    is $running.result.operations[0].outcome, Indeterminate;
+                    is $proof.status, Planned, 'caller-owned evidence Promise remains untouched';
+                }
+                $fixture.cmd('wait-for', '-S', $gate);
+                completed($proof, 'owned completion marker supplies independent evidence');
+                completed($running, 'batch completes within the same overall deadline');
+                is $running.result.operations[0].outcome, $variant eq 'cancel' ?? Indeterminate !! Complete;
+                is $running.result.operations[0].completion-scope,
+                    $acknowledgement-only ?? 'command' !! 'effect';
+            }
+        };
+
+        subtest "$mode stops admission after retained successful or failed output" => {
+            my @operations = (^2).map(-> $index {
+                Operation.new(:name("output-$index"), :acknowledgement-only,
+                    :command(command('display-message', '-p', '12345')))
+            });
+            @operations.push(Operation.new(:name<unsubmitted>, :acknowledgement-only,
+                :command(command('set-option', '-g', "\@batch-output-$mode", 'wrong'))));
+            my $full = Batch.new(:operations(@operations), :output-budget-bytes(10))
+                .run(:$executor, :$incarnation, :on-error<continue>);
+            is-deeply $full.operations.map(*.outcome).List, (Complete, Complete, Skipped).List;
+            is $full.output-bytes, 12, 'both complete response payloads are counted';
+            is $full.operations[1].acknowledgement.output-bytes, 6,
+                'the threshold-crossing response is preserved';
+            is $fixture.cmd('show-option', '-gqv', "\@batch-output-$mode").trim, '',
+                'no later side effect occurs after successful output crosses the threshold';
+
+            my $failed = Batch.new(:output-budget-bytes(1), :operations([
+                Operation.new(:name<failed-output>, :acknowledgement-only,
+                    :command(command('libtmux-batch-budget-failure='))),
+                Operation.new(:name<after-failure>, :acknowledgement-only,
+                    :command(command('set-option', '-g', "\@batch-failed-output-$mode", 'wrong'))),
+            ])).run(:$executor, :$incarnation, :on-error<continue>);
+            is-deeply $failed.operations.map(*.outcome).List, (Failed, Skipped).List;
+            ok $failed.output-bytes > 1, 'failed command output also reaches the admission threshold';
+            is $failed.operations[0].error-outcome, Failed;
+            is $failed.stop-error.kind, 'output-budget';
+            is $fixture.cmd('show-option', '-gqv', "\@batch-failed-output-$mode").trim, '',
+                'continue policy cannot bypass the retained-output threshold';
+        };
+
+        my $gate = "batch-timeout-$mode";
+        LEAVE try $fixture.cmd('wait-for', '-S', $gate);
+        my $timed = Batch.new(:operations([
+            Operation.new(:name<inflight>, :command(command('wait-for', $gate)), :acknowledgement-only),
+            Operation.new(:name<unsubmitted>, :command(command('set-option', '-g', '@batch-timeout', 'wrong')),
+                :acknowledgement-only),
+        ])).run(:$executor, :$incarnation, :timeout-ms(80));
+        is-deeply $timed.operations.map(*.outcome).List, (Indeterminate, Skipped).List,
+            "$mode preserves uncertainty for an in-flight timeout";
+        is $timed.operations[0].error-outcome, Indeterminate;
+        is $fixture.cmd('show-option', '-gqv', '@batch-timeout').trim, '',
+            "$mode never dispatches the suffix after timeout";
+        $fixture.cmd('wait-for', '-S', $gate);
+    }
+});
+done-testing;

@@ -1,0 +1,97 @@
+use v6.d;
+use Test;
+use LibTmux::Types;
+use LibTmux::Exceptions;
+use LibTmux::Command :DEFAULT, :internals;
+
+subtest 'tmux syntax boundaries preserve literal data' => {
+    my $special = Invocation.new(:argv(['set-option', '-g', '@value', "~\$HOME\n\"\\"]));
+    is $special.source, q["set-option" "-g" "@value" "\176\044HOME\012\042\134"],
+        'tilde and expansion-sensitive bytes receive exact octal escapes';
+    my $invalid = Blob.new(255).decode('utf8-c8');
+    is Invocation.new(:argv(['display-message', $invalid])).source,
+        q["display-message" "\377"], 'raw FF never reaches the tmux command lexer';
+    is-deeply Invocation.new(:argv(['send-keys', 'x;', 'x\;'])).as-argv,
+        ('send-keys', 'x\;', 'x\\\\;'), 'literal final separators are protected once';
+};
+
+subtest 'admission errors precede dispatch' => {
+    for [], [''], ['display-message', Str], ['display-message', 42],
+        ['display-message', "bad\0value"] -> @argv {
+        throws-like { Invocation.new(:@argv) }, X::LibTmux::Command,
+            :kind<argument>, :outcome(NotStarted);
+    }
+    throws-like { Invocation.new(:argv<display-message hello>, :max-bytes(4)) },
+        X::LibTmux::Command, :outcome(NotStarted), 'encoded size is bounded';
+    throws-like { Invocation.new(:argv<display-message hello>, :max-byte(4)) },
+        X::LibTmux::Command, :kind<argument>, :outcome(NotStarted),
+        'a misspelled size limit cannot silently select the default';
+    throws-like { Invocation.new(:argv(['display-message', any('alpha', 'beta')])) },
+        X::LibTmux::Command, :kind<argument>, :outcome(NotStarted),
+        'a command operand must be one string, not a Junction';
+    throws-like { Invocation.new(:argv<display-message hello>, :max-bytes(any(100, 200))) },
+        X::LibTmux::Command, :kind<argument>, :outcome(NotStarted),
+        'a size limit must be one integer';
+    my @argv = 'display-message', 'before';
+    my $command = Invocation.new(:@argv);
+    @argv[1] = 'after';
+    is $command.argv[1], 'before', 'captured command is independent';
+    dies-ok { $command.argv[1] = 'changed' }, 'captured membership has no writer';
+};
+
+my Int $binding-effects = 0;
+class SingleOperationProbe {
+    has Int $.calls is rw = 0;
+    method typed(Str:D $value, Str:D :socket-name(:$socket) = 'default' --> Str:D)
+            is single-operation { $!calls++; $value ~ $socket }
+    method untyped($value = 'default' --> Str:D) is single-operation { $!calls++; $value.Str }
+    method forwarded(*%options --> Map:D) is single-operation { $!calls++; %options.Map }
+    method binding(Str:D $value where { ++$binding-effects; True }
+            = do { ++$binding-effects; 'default' } --> Str:D) is single-operation { $value }
+    method async(Str:D $value --> Promise:D) is single-operation('async') {
+        $!calls++;
+        X::LibTmux::Decode.new(:message('body failure')).throw if $value eq 'fail';
+        Promise.kept($value)
+    }
+}
+class InheritedOperationProbe is SingleOperationProbe { }
+
+subtest 'single operation capture precedes typed binding and preserves signatures' => {
+    my $probe = InheritedOperationProbe.new;
+    for -> { $probe.typed(any('a', 'b')) },
+        -> { $probe.typed('a', :socket(any('a', 'b'))) },
+        -> { $probe.untyped(any('a', 'b')) },
+        -> { $probe.typed('a', :socket-nam<wrong>) } -> &call {
+        throws-like { call() }, X::LibTmux::Command, :kind<argument>, :outcome(NotStarted);
+    }
+    is $probe.calls, 0, 'invalid calls never enter the inherited body';
+    is $probe.typed('a', :socket-name<work>), 'awork', 'declared alias binds normally';
+    is $probe.typed('a', :socket<work>), 'awork', 'variable name alias binds normally';
+    is $probe.untyped, 'default', 'omitted argument retains its default';
+    is-deeply $probe.forwarded(:extra<value>), Map.new(:extra<value>),
+        'explicit forwarding remains available';
+    is $probe.calls, 4, 'valid calls execute once';
+    my $signature = InheritedOperationProbe.^lookup('typed').signature;
+    is $signature.params[1].type, Str, 'native parameter type remains inspectable';
+    like $signature.raku, / 'Str:D $value' /, 'definedness remains inspectable';
+    is $signature.returns, Str:D, 'native return type remains inspectable';
+    is $probe.binding, 'default', 'native defaults and constraints bind normally';
+    is $binding-effects, 2, 'default and constraint each execute once';
+};
+
+subtest 'async operation guard returns one Promise and preserves body failures' => {
+    my $probe = SingleOperationProbe.new;
+    for -> { $probe.async(any('a', 'b')) }, -> { $probe.async(7) },
+        -> { $probe.async() }, -> { $probe.async('ok', :unknown) } -> &call {
+        my Mu $result = call();
+        isa-ok $result, Promise, 'invalid invocation returns a Promise';
+        throws-like { await $result }, Exception, 'argument failure breaks that Promise';
+    }
+    is $probe.calls, 0, 'invalid async arguments never enter the body';
+    is await($probe.async('ok')), 'ok', 'valid async result passes through';
+    throws-like { await $probe.async('fail') }, X::LibTmux::Decode,
+        :message('body failure'), 'body exceptions retain their type';
+    is $probe.calls, 2, 'accepted invocations run once, including the failing body';
+};
+
+done-testing;

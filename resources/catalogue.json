@@ -1,0 +1,7303 @@
+{
+  "schema": "libtmux.catalogue/v1",
+  "fields": [
+    {
+      "entity": "session",
+      "name": "id",
+      "wire-name": "id",
+      "format": "session_id",
+      "context": "session",
+      "kind": "session-id",
+      "nullable": false,
+      "decoder": "session-id",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c"
+    },
+    {
+      "entity": "session",
+      "name": "name",
+      "wire-name": "name",
+      "format": "session_name",
+      "context": "session",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "session",
+      "name": "windows-count",
+      "wire-name": "windowsCount",
+      "format": "session_windows",
+      "context": "session",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "session",
+      "name": "attached-count",
+      "wire-name": "attachedCount",
+      "format": "session_attached",
+      "context": "session",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "session",
+      "name": "created",
+      "wire-name": "created",
+      "format": "session_created",
+      "context": "session",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "session",
+      "name": "activity",
+      "wire-name": "activity",
+      "format": "session_activity",
+      "context": "session",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "session",
+      "name": "path",
+      "wire-name": "path",
+      "format": "session_path",
+      "context": "session",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "session",
+      "name": "grouped",
+      "wire-name": "grouped",
+      "format": "session_grouped",
+      "context": "session",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c"
+    },
+    {
+      "entity": "session",
+      "name": "group-name",
+      "wire-name": "groupName",
+      "format": "session_group",
+      "context": "session",
+      "kind": "text",
+      "nullable": true,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with",
+        "is-null"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "null-when": "not-grouped",
+      "pushdown": [],
+      "null-dependency": "grouped"
+    },
+    {
+      "entity": "window-link",
+      "name": "session-id",
+      "wire-name": "sessionId",
+      "format": "session_id",
+      "context": "window-link",
+      "kind": "session-id",
+      "nullable": false,
+      "decoder": "session-id",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c"
+    },
+    {
+      "entity": "window-link",
+      "name": "window-id",
+      "wire-name": "windowId",
+      "format": "window_id",
+      "context": "window-link",
+      "kind": "window-id",
+      "nullable": false,
+      "decoder": "window-id",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c"
+    },
+    {
+      "entity": "window-link",
+      "name": "index",
+      "wire-name": "index",
+      "format": "window_index",
+      "context": "window-link",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/tmux.h",
+      "pushdown-minimum": 0,
+      "pushdown-maximum": 2147483647
+    },
+    {
+      "entity": "window-link",
+      "name": "active",
+      "wire-name": "active",
+      "format": "window_active",
+      "context": "window-link",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c"
+    },
+    {
+      "entity": "window-link",
+      "name": "last",
+      "wire-name": "last",
+      "format": "window_last_flag",
+      "context": "window-link",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "window-link",
+      "name": "activity",
+      "wire-name": "activity",
+      "format": "window_activity_flag",
+      "context": "window-link",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "window-link",
+      "name": "bell",
+      "wire-name": "bell",
+      "format": "window_bell_flag",
+      "context": "window-link",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "window-link",
+      "name": "silence",
+      "wire-name": "silence",
+      "format": "window_silence_flag",
+      "context": "window-link",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "window",
+      "name": "id",
+      "wire-name": "id",
+      "format": "window_id",
+      "context": "window",
+      "kind": "window-id",
+      "nullable": false,
+      "decoder": "window-id",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c"
+    },
+    {
+      "entity": "window",
+      "name": "name",
+      "wire-name": "name",
+      "format": "window_name",
+      "context": "window",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "window",
+      "name": "width",
+      "wire-name": "width",
+      "format": "window_width",
+      "context": "window",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/tmux.h",
+      "pushdown-minimum": 0,
+      "pushdown-maximum": 4294967295
+    },
+    {
+      "entity": "window",
+      "name": "height",
+      "wire-name": "height",
+      "format": "window_height",
+      "context": "window",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/tmux.h",
+      "pushdown-minimum": 0,
+      "pushdown-maximum": 4294967295
+    },
+    {
+      "entity": "window",
+      "name": "panes-count",
+      "wire-name": "panesCount",
+      "format": "window_panes",
+      "context": "window",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "window",
+      "name": "layout",
+      "wire-name": "layout",
+      "format": "window_layout",
+      "context": "window",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "window",
+      "name": "visible-layout",
+      "wire-name": "visibleLayout",
+      "format": "window_visible_layout",
+      "context": "window",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "window",
+      "name": "zoomed",
+      "wire-name": "zoomed",
+      "format": "window_zoomed_flag",
+      "context": "window",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c"
+    },
+    {
+      "entity": "window",
+      "name": "linked",
+      "wire-name": "linked",
+      "format": "window_linked",
+      "context": "window-link",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "window",
+      "name": "modal-pane-id",
+      "wire-name": "modalPaneId",
+      "format": "window_modal_pane",
+      "context": "window",
+      "kind": "pane-id",
+      "nullable": true,
+      "decoder": "pane-id",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "is-null"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/format.c",
+      "since": "3.8",
+      "pushdown": [],
+      "null-when": "empty"
+    },
+    {
+      "entity": "pane",
+      "name": "id",
+      "wire-name": "id",
+      "format": "pane_id",
+      "context": "pane",
+      "kind": "pane-id",
+      "nullable": false,
+      "decoder": "pane-id",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c"
+    },
+    {
+      "entity": "pane",
+      "name": "window-id",
+      "wire-name": "windowId",
+      "format": "window_id",
+      "context": "pane",
+      "kind": "window-id",
+      "nullable": false,
+      "decoder": "window-id",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c"
+    },
+    {
+      "entity": "pane",
+      "name": "index",
+      "wire-name": "index",
+      "format": "pane_index",
+      "context": "pane",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "active",
+      "wire-name": "active",
+      "format": "pane_active",
+      "context": "pane",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c"
+    },
+    {
+      "entity": "pane",
+      "name": "width",
+      "wire-name": "width",
+      "format": "pane_width",
+      "context": "pane",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/tmux.h",
+      "pushdown-minimum": 0,
+      "pushdown-maximum": 4294967295
+    },
+    {
+      "entity": "pane",
+      "name": "height",
+      "wire-name": "height",
+      "format": "pane_height",
+      "context": "pane",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/tmux.h",
+      "pushdown-minimum": 0,
+      "pushdown-maximum": 4294967295
+    },
+    {
+      "entity": "pane",
+      "name": "left",
+      "wire-name": "left",
+      "format": "pane_left",
+      "context": "pane",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "top",
+      "wire-name": "top",
+      "format": "pane_top",
+      "context": "pane",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "pid",
+      "wire-name": "pid",
+      "format": "pane_pid",
+      "context": "pane",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "tty",
+      "wire-name": "tty",
+      "format": "pane_tty",
+      "context": "pane",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "title",
+      "wire-name": "title",
+      "format": "pane_title",
+      "context": "pane",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "current-command",
+      "wire-name": "currentCommand",
+      "format": "pane_current_command",
+      "context": "pane",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "current-path",
+      "wire-name": "currentPath",
+      "format": "pane_current_path",
+      "context": "pane",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "start-command",
+      "wire-name": "startCommand",
+      "format": "pane_start_command",
+      "context": "pane",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "start-path",
+      "wire-name": "startPath",
+      "format": "pane_start_path",
+      "context": "pane",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "dead",
+      "wire-name": "dead",
+      "format": "pane_dead",
+      "context": "pane",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "pushdown-source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c"
+    },
+    {
+      "entity": "pane",
+      "name": "dead-status",
+      "wire-name": "deadStatus",
+      "format": "pane_dead_status",
+      "context": "pane",
+      "kind": "uint",
+      "nullable": true,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte",
+        "is-null"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [],
+      "null-when": "empty"
+    },
+    {
+      "entity": "pane",
+      "name": "dead-signal",
+      "wire-name": "deadSignal",
+      "format": "pane_dead_signal",
+      "context": "pane",
+      "kind": "text",
+      "nullable": true,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with",
+        "is-null"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [],
+      "null-when": "empty"
+    },
+    {
+      "entity": "pane",
+      "name": "dead-time",
+      "wire-name": "deadTime",
+      "format": "pane_dead_time",
+      "context": "pane",
+      "kind": "uint",
+      "nullable": true,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte",
+        "is-null"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [],
+      "null-when": "empty"
+    },
+    {
+      "entity": "pane",
+      "name": "in-mode",
+      "wire-name": "inMode",
+      "format": "pane_in_mode",
+      "context": "pane",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "mode",
+      "wire-name": "mode",
+      "format": "pane_mode",
+      "context": "pane",
+      "kind": "text",
+      "nullable": true,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with",
+        "is-null"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": [],
+      "null-when": "empty"
+    },
+    {
+      "entity": "pane",
+      "name": "pipe",
+      "wire-name": "pipe",
+      "format": "pane_pipe",
+      "context": "pane",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "synchronized",
+      "wire-name": "synchronized",
+      "format": "pane_synchronized",
+      "context": "pane",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "floating",
+      "wire-name": "floating",
+      "format": "pane_floating_flag",
+      "context": "pane",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/format.c",
+      "since": "3.7",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "modal",
+      "wire-name": "modal",
+      "format": "pane_modal_flag",
+      "context": "pane",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/format.c",
+      "since": "3.8",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "x",
+      "wire-name": "x",
+      "format": "pane_x",
+      "context": "pane",
+      "kind": "int",
+      "nullable": false,
+      "decoder": "int",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/format.c",
+      "since": "3.7",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "y",
+      "wire-name": "y",
+      "format": "pane_y",
+      "context": "pane",
+      "kind": "int",
+      "nullable": false,
+      "decoder": "int",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/format.c",
+      "since": "3.7",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "z",
+      "wire-name": "z",
+      "format": "pane_z",
+      "context": "pane",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/format.c",
+      "since": "3.7",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "command-running",
+      "wire-name": "commandRunning",
+      "format": "pane_command_running",
+      "context": "pane",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/format.c",
+      "since": "3.8",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "command-status",
+      "wire-name": "commandStatus",
+      "format": "pane_command_status",
+      "context": "pane",
+      "kind": "int",
+      "nullable": true,
+      "decoder": "int",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte",
+        "is-null"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/format.c",
+      "since": "3.8",
+      "pushdown": [],
+      "null-when": "empty"
+    },
+    {
+      "entity": "client",
+      "name": "name",
+      "wire-name": "name",
+      "format": "client_name",
+      "context": "client",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "client",
+      "name": "session-id",
+      "wire-name": "sessionId",
+      "format": "session_id",
+      "context": "client",
+      "kind": "session-id",
+      "nullable": false,
+      "decoder": "session-id",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "client",
+      "name": "session-name",
+      "wire-name": "sessionName",
+      "format": "client_session",
+      "context": "client",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "client",
+      "name": "tty",
+      "wire-name": "tty",
+      "format": "client_tty",
+      "context": "client",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "client",
+      "name": "pid",
+      "wire-name": "pid",
+      "format": "client_pid",
+      "context": "client",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "client",
+      "name": "width",
+      "wire-name": "width",
+      "format": "client_width",
+      "context": "client",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "client",
+      "name": "height",
+      "wire-name": "height",
+      "format": "client_height",
+      "context": "client",
+      "kind": "uint",
+      "nullable": true,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte",
+        "is-null"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c#L1283",
+      "pushdown": [],
+      "null-when": "empty"
+    },
+    {
+      "entity": "client",
+      "name": "created",
+      "wire-name": "created",
+      "format": "client_created",
+      "context": "client",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "client",
+      "name": "activity",
+      "wire-name": "activity",
+      "format": "client_activity",
+      "context": "client",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "client",
+      "name": "control-mode",
+      "wire-name": "controlMode",
+      "format": "client_control_mode",
+      "context": "client",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "client",
+      "name": "read-only",
+      "wire-name": "readOnly",
+      "format": "client_readonly",
+      "context": "client",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "client",
+      "name": "terminal-name",
+      "wire-name": "terminalName",
+      "format": "client_termname",
+      "context": "client",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "client",
+      "name": "key-table",
+      "wire-name": "keyTable",
+      "format": "client_key_table",
+      "context": "client",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "session-group",
+      "name": "name",
+      "wire-name": "name",
+      "format": "session_group",
+      "context": "grouped-session",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "session-group",
+      "name": "size",
+      "wire-name": "size",
+      "format": "session_group_size",
+      "context": "grouped-session",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "session-group",
+      "name": "attached-count",
+      "wire-name": "attachedCount",
+      "format": "session_group_attached",
+      "context": "grouped-session",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "buffer",
+      "name": "name",
+      "wire-name": "name",
+      "format": "buffer_name",
+      "context": "buffer",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "buffer",
+      "name": "size",
+      "wire-name": "size",
+      "format": "buffer_size",
+      "context": "buffer",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "buffer",
+      "name": "created",
+      "wire-name": "created",
+      "format": "buffer_created",
+      "context": "buffer",
+      "kind": "uint",
+      "nullable": false,
+      "decoder": "uint",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "lt",
+        "lte",
+        "gt",
+        "gte"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "buffer",
+      "name": "sample",
+      "wire-name": "sample",
+      "format": "buffer_sample",
+      "context": "buffer",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "key-binding",
+      "name": "table",
+      "wire-name": "table",
+      "format": "key_table",
+      "context": "key-binding",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "pushdown": [],
+      "since": "3.7",
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-list-keys.c"
+    },
+    {
+      "entity": "key-binding",
+      "name": "key",
+      "wire-name": "key",
+      "format": "key_string",
+      "context": "key-binding",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "pushdown": [],
+      "since": "3.7",
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-list-keys.c"
+    },
+    {
+      "entity": "key-binding",
+      "name": "repeat",
+      "wire-name": "repeat",
+      "format": "key_repeat",
+      "context": "key-binding",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "pushdown": [],
+      "since": "3.7",
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-list-keys.c"
+    },
+    {
+      "entity": "key-binding",
+      "name": "command-source",
+      "wire-name": "commandSource",
+      "format": "key_command",
+      "context": "key-binding",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "pushdown": [],
+      "since": "3.7",
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-list-keys.c"
+    },
+    {
+      "entity": "key-binding",
+      "name": "note",
+      "wire-name": "note",
+      "format": "key_note",
+      "context": "key-binding",
+      "kind": "text",
+      "nullable": false,
+      "decoder": "text",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in",
+        "contains",
+        "starts-with",
+        "ends-with"
+      ],
+      "pushdown": [],
+      "since": "3.7",
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-list-keys.c"
+    },
+    {
+      "entity": "pane",
+      "name": "at-top",
+      "wire-name": "atTop",
+      "format": "pane_at_top",
+      "context": "pane",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "at-bottom",
+      "wire-name": "atBottom",
+      "format": "pane_at_bottom",
+      "context": "pane",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "at-left",
+      "wire-name": "atLeft",
+      "format": "pane_at_left",
+      "context": "pane",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    },
+    {
+      "entity": "pane",
+      "name": "at-right",
+      "wire-name": "atRight",
+      "format": "pane_at_right",
+      "context": "pane",
+      "kind": "bool",
+      "nullable": false,
+      "decoder": "bool",
+      "operators": [
+        "equals",
+        "not-equals",
+        "in",
+        "not-in"
+      ],
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "pushdown": []
+    }
+  ],
+  "relations": [
+    {
+      "entity": "session",
+      "name": "window-links",
+      "wire-name": "windowLinks",
+      "target": "window-link",
+      "cardinality": "many",
+      "nullable": false
+    },
+    {
+      "entity": "session",
+      "name": "current-link",
+      "wire-name": "currentLink",
+      "target": "window-link",
+      "cardinality": "one",
+      "nullable": false
+    },
+    {
+      "entity": "session",
+      "name": "group",
+      "wire-name": "group",
+      "target": "session-group",
+      "cardinality": "one",
+      "nullable": true
+    },
+    {
+      "entity": "window-link",
+      "name": "session",
+      "wire-name": "session",
+      "target": "session",
+      "cardinality": "one",
+      "nullable": false
+    },
+    {
+      "entity": "window-link",
+      "name": "window",
+      "wire-name": "window",
+      "target": "window",
+      "cardinality": "one",
+      "nullable": false
+    },
+    {
+      "entity": "window",
+      "name": "panes",
+      "wire-name": "panes",
+      "target": "pane",
+      "cardinality": "many",
+      "nullable": false
+    },
+    {
+      "entity": "window",
+      "name": "links",
+      "wire-name": "links",
+      "target": "window-link",
+      "cardinality": "many",
+      "nullable": false
+    },
+    {
+      "entity": "window",
+      "name": "active-pane",
+      "wire-name": "activePane",
+      "target": "pane",
+      "cardinality": "one",
+      "nullable": false
+    },
+    {
+      "entity": "pane",
+      "name": "window",
+      "wire-name": "window",
+      "target": "window",
+      "cardinality": "one",
+      "nullable": false
+    },
+    {
+      "entity": "client",
+      "name": "session",
+      "wire-name": "session",
+      "target": "session",
+      "cardinality": "one",
+      "nullable": false
+    },
+    {
+      "entity": "session-group",
+      "name": "sessions",
+      "wire-name": "sessions",
+      "target": "session",
+      "cardinality": "many",
+      "nullable": false
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "managed-commands",
+      "name": "Qualified managed commands",
+      "handling": "refuse",
+      "reason": "Managed commands require an exact declared daemon release profile.",
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/cmd.c",
+      "commands": [],
+      "kind": "feature"
+    },
+    {
+      "id": "format-tilde",
+      "name": "Lossless tilde projection",
+      "handling": "refuse",
+      "reason": "Six ordered substitutions encode delimiters, backslashes and dollar signs.",
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c",
+      "commands": [],
+      "kind": "feature"
+    },
+    {
+      "id": "format-argument-quote",
+      "name": "Argument-token FORMAT quoting",
+      "handling": "fallback",
+      "reason": "q/a is introduced in 3.7; older profiles use the tested tilde codec.",
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/format.c",
+      "commands": [],
+      "since": "3.7",
+      "fallback": "format-tilde",
+      "kind": "feature"
+    },
+    {
+      "id": "format-output-vis",
+      "name": "Additional command-output escaping",
+      "handling": "repair",
+      "reason": "Reverse one VIS output layer before decoding the tilde field.",
+      "source": "https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/server-client.c",
+      "commands": [],
+      "releases": [
+        "3.4",
+        "3.5",
+        "3.5a"
+      ],
+      "kind": "defect"
+    },
+    {
+      "id": "layout-classic",
+      "name": "Classic layout decoding",
+      "handling": "refuse",
+      "reason": "Classic layouts remain available for old layouts and unnegotiated control clients.",
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/layout-custom.c",
+      "commands": [],
+      "kind": "feature"
+    },
+    {
+      "id": "layout-json",
+      "name": "JSON-subset layout decoding",
+      "handling": "refuse",
+      "reason": "JSON layouts include floating placements in the current profile.",
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/layout-custom.c",
+      "commands": [
+        "select-layout"
+      ],
+      "since": "3.8",
+      "kind": "feature"
+    },
+    {
+      "id": "control-mode",
+      "name": "Owned control connection",
+      "handling": "refuse",
+      "reason": "Control framing is available at the support floor.",
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/control.c",
+      "commands": [
+        "attach-session"
+      ],
+      "kind": "feature"
+    },
+    {
+      "id": "control-new-layouts",
+      "name": "New-layout control negotiation",
+      "handling": "refuse",
+      "reason": "Enable new-layouts explicitly before interpreting new control layouts.",
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/server-client.c",
+      "commands": [
+        "refresh-client"
+      ],
+      "since": "3.8",
+      "kind": "feature"
+    },
+    {
+      "id": "pane-floating",
+      "name": "Floating panes",
+      "handling": "refuse",
+      "reason": "Floating panes and their coordinates are available starting in 3.7.",
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-split-window.c",
+      "commands": [
+        "new-pane",
+        "resize-pane"
+      ],
+      "since": "3.7",
+      "kind": "feature"
+    },
+    {
+      "id": "pane-modal",
+      "name": "Modal panes",
+      "handling": "refuse",
+      "reason": "Modal panes and modal-window fields require 3.8.",
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/cmd-split-window.c",
+      "commands": [
+        "new-pane",
+        "select-pane"
+      ],
+      "since": "3.8",
+      "kind": "feature"
+    },
+    {
+      "id": "buffer-full",
+      "name": "Complete buffer FORMAT value",
+      "handling": "fallback",
+      "reason": "Use save-buffer when buffer_full is unavailable.",
+      "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/format.c",
+      "commands": [
+        "list-buffers"
+      ],
+      "since": "3.6",
+      "fallback": "buffer-save",
+      "kind": "feature"
+    },
+    {
+      "id": "buffer-save",
+      "name": "Binary buffer capture",
+      "handling": "refuse",
+      "reason": "Binary save-buffer capture is separate from FORMAT framing.",
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/cmd-save-buffer.c",
+      "commands": [
+        "save-buffer"
+      ],
+      "kind": "feature"
+    },
+    {
+      "id": "layout-mirrored-main",
+      "name": "Mirrored main layouts",
+      "handling": "refuse",
+      "reason": "Mirrored main-horizontal and main-vertical layouts require 3.5.",
+      "source": "https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/layout-set.c",
+      "commands": [
+        "select-layout"
+      ],
+      "since": "3.5",
+      "kind": "feature"
+    },
+    {
+      "id": "split-percent-defect",
+      "name": "Broken percent split option",
+      "handling": "refuse",
+      "reason": "split-window -p is broken in 3.4; use the explicit -l percentage form.",
+      "source": "https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/cmd-split-window.c",
+      "commands": [
+        "split-window"
+      ],
+      "releases": [
+        "3.4"
+      ],
+      "kind": "defect"
+    },
+    {
+      "id": "break-pane-name-defect",
+      "name": "Broken break-pane naming",
+      "handling": "refuse",
+      "reason": "tmux 3.7 ignores explicit break-pane names and dereferences a null name in the unnamed multi-pane path; refuse break-pane before dispatch.",
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-break-pane.c",
+      "commands": [
+        "break-pane"
+      ],
+      "releases": [
+        "3.7"
+      ],
+      "kind": "defect"
+    },
+    {
+      "id": "name-separator-defect",
+      "name": "Rejected separators in names",
+      "handling": "refuse",
+      "reason": "tmux 3.7 rejects colon and dot names; validate their capability before dispatch.",
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/tmux.c",
+      "commands": [
+        "new-session",
+        "new-window",
+        "rename-session",
+        "rename-window"
+      ],
+      "releases": [
+        "3.7"
+      ],
+      "kind": "defect"
+    },
+    {
+      "id": "session-name-separators",
+      "name": "Literal session name separators",
+      "kind": "feature",
+      "handling": "refuse",
+      "since": "3.7a",
+      "reason": "Literal dot and colon in session names require 3.7a; earlier releases replace or reject them.",
+      "source": "https://github.com/tmux/tmux/blob/0e418b62d259ce8da8970f75732cc6632ee4c3a0/tmux.c#L285",
+      "commands": [
+        "new-session",
+        "rename-session"
+      ]
+    },
+    {
+      "id": "window-name-separators",
+      "name": "Literal window name separators",
+      "kind": "feature",
+      "handling": "refuse",
+      "reason": "Literal dot and colon in window names are supported unless the declared separator defect applies.",
+      "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/window.c#L405",
+      "blocked-by": [
+        "name-separator-defect"
+      ],
+      "commands": [
+        "new-session",
+        "new-window",
+        "rename-window"
+      ]
+    },
+    {
+      "id": "pane-empty-flag",
+      "name": "Explicit empty pane flag",
+      "kind": "feature",
+      "handling": "refuse",
+      "since": "3.7",
+      "reason": "Explicit empty split panes use -E from 3.7; older releases require the declared empty-argument adapter.",
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-split-window.c",
+      "commands": [
+        "split-window",
+        "new-pane"
+      ]
+    },
+    {
+      "id": "window-empty",
+      "name": "Empty window creation",
+      "kind": "feature",
+      "handling": "refuse",
+      "since": "3.8",
+      "reason": "Empty window creation requires the new-window -E flag from 3.8.",
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/cmd-new-window.c",
+      "commands": [
+        "new-window"
+      ]
+    },
+    {
+      "id": "break-pane-single-print",
+      "name": "Printed identity for single-pane break",
+      "kind": "feature",
+      "handling": "refuse",
+      "since": "3.6",
+      "reason": "Breaking the only pane prints its returned identity from 3.6; older releases need an explicit scoped identity acquisition.",
+      "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/cmd-break-pane.c",
+      "commands": [
+        "break-pane"
+      ]
+    },
+    {
+      "id": "pane-floating-move",
+      "name": "Floating pane placement and stacking",
+      "kind": "feature",
+      "handling": "refuse",
+      "since": "3.8",
+      "reason": "Floating pane position and stack changes require move-pane placement flags from 3.8.",
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/cmd-join-pane.c",
+      "commands": [
+        "move-pane"
+      ]
+    },
+    {
+      "id": "control-job-output",
+      "name": "Control job output",
+      "kind": "feature",
+      "handling": "refuse",
+      "since": "3.5",
+      "reason": "Foreground run-shell job output is delivered to the command client from 3.5; earlier releases send it to pane view mode. This does not guarantee shell-output framing.",
+      "source": "https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/cmd-run-shell.c",
+      "commands": [
+        "run-shell"
+      ]
+    },
+    {
+      "id": "menu-appearance",
+      "name": "Menu appearance and initial choice",
+      "kind": "feature",
+      "handling": "refuse",
+      "since": "3.4",
+      "reason": "Menu border, style, selected style and initial choice flags are available from 3.4.",
+      "source": "https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/cmd-display-menu.c",
+      "commands": [
+        "display-menu"
+      ]
+    },
+    {
+      "id": "menu-mouse",
+      "name": "Menu mouse selection without a mouse trigger",
+      "kind": "feature",
+      "handling": "refuse",
+      "since": "3.5",
+      "reason": "The display-menu -M flag enables mouse selection without a triggering mouse event from 3.5.",
+      "source": "https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/cmd-display-menu.c",
+      "commands": [
+        "display-menu"
+      ]
+    },
+    {
+      "id": "popup-close-on-key",
+      "name": "Popup closes on any key",
+      "kind": "feature",
+      "handling": "refuse",
+      "since": "3.6",
+      "reason": "The display-popup -k flag requests close on any key from 3.6.",
+      "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/cmd-display-menu.c",
+      "commands": [
+        "display-popup"
+      ]
+    },
+    {
+      "id": "popup-reset-flags",
+      "name": "Reset flags while modifying a popup",
+      "kind": "feature",
+      "handling": "refuse",
+      "since": "3.6",
+      "reason": "The display-popup -N flag resets existing popup flags from 3.6; omitted flags otherwise preserve the existing popup policy.",
+      "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/cmd-display-menu.c",
+      "commands": [
+        "display-popup"
+      ]
+    },
+    {
+      "id": "prompt-literal-commas",
+      "name": "Single prompt with literal commas",
+      "kind": "feature",
+      "handling": "refuse",
+      "since": "3.6",
+      "reason": "The command-prompt -l flag retains commas in one prompt and initial input from 3.6.",
+      "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/cmd-command-prompt.c",
+      "commands": [
+        "command-prompt"
+      ]
+    },
+    {
+      "id": "key-binding-format",
+      "name": "Projected key binding metadata",
+      "kind": "feature",
+      "handling": "refuse",
+      "since": "3.7",
+      "reason": "Key table, key, repeat, note and native command source can be projected with list-keys -F from 3.7.",
+      "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-list-keys.c",
+      "commands": [
+        "list-keys"
+      ]
+    }
+  ],
+  "options": [
+    {
+      "name": "activity-action",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "none",
+            "any",
+            "current",
+            "other"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "after-bind-key",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-capture-pane",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-copy-mode",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-display-message",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-display-panes",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-kill-pane",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-list-buffers",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-list-clients",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-list-keys",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-list-panes",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-list-sessions",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-list-windows",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-load-buffer",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-lock-server",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-new-session",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-new-window",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-paste-buffer",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-pipe-pane",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-queue",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.8",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-refresh-client",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-rename-session",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-rename-window",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-resize-pane",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-resize-window",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-save-buffer",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-select-layout",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-select-pane",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-select-window",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-send-keys",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-set-buffer",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-set-environment",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-set-hook",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-set-option",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-show-environment",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-show-messages",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-show-options",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-split-window",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-swap-window",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "after-unbind-key",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "aggressive-resize",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "alert-activity",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "alert-bell",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "alert-silence",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "allow-passthrough",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.4",
+          "kind": "flag",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        },
+        {
+          "since": "3.4",
+          "source": "https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "on",
+            "all"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "allow-rename",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "allow-set-title",
+      "variants": [
+        {
+          "since": "3.5",
+          "source": "https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "alternate-screen",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "assume-paste-time",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "automatic-rename",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "automatic-rename-format",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "backspace",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "key",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "base-index",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "bell-action",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "none",
+            "any",
+            "current",
+            "other"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "buffer-limit",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "clear-on-attach",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "client-active",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "client-attached",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "client-closed",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "client-created",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "client-dark-theme",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "client-detached",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "client-focus-in",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "client-focus-out",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "client-light-theme",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "client-resized",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "client-session-changed",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "clock-mode-colour",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.8",
+          "kind": "colour",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        },
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "clock-mode-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.6",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "12",
+            "24"
+          ]
+        },
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "12",
+            "24",
+            "12-with-seconds",
+            "24-with-seconds"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "codepoint-widths",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": true,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "command-alias",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": true,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "command-error",
+      "variants": [
+        {
+          "since": "3.5",
+          "source": "https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "copy-command",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "copy-mode-current-line-number-style",
+      "variants": [
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "copy-mode-current-line-style",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "copy-mode-current-match-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "copy-mode-line-number-style",
+      "variants": [
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "copy-mode-line-numbers",
+      "variants": [
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "default",
+            "absolute",
+            "relative",
+            "hybrid"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "copy-mode-mark-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "copy-mode-match-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "copy-mode-position-format",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "copy-mode-position-style",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "copy-mode-selection-style",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "cursor-colour",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.8",
+          "kind": "colour",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        },
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "cursor-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "default",
+            "blinking-block",
+            "block",
+            "blinking-underline",
+            "underline",
+            "blinking-bar",
+            "bar"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dark-theme-black",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "dark-theme-blue",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "dark-theme-cyan",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "dark-theme-dark-grey",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "dark-theme-green",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "dark-theme-light-grey",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "dark-theme-magenta",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "dark-theme-red",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "dark-theme-white",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "dark-theme-yellow",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "default-client-command",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "default-command",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "default-shell",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "default-size",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "default-terminal",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "destroy-unattached",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.4",
+          "kind": "flag",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        },
+        {
+          "since": "3.4",
+          "source": "https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "on",
+            "keep-last",
+            "keep-group"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "detach-on-destroy",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.4",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "on",
+            "no-detached"
+          ]
+        },
+        {
+          "since": "3.4",
+          "source": "https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "on",
+            "no-detached",
+            "previous",
+            "next"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "display-panes-active-colour",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.8",
+          "kind": "colour",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        },
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "display-panes-border-style",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "display-panes-colour",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.8",
+          "kind": "colour",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        },
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "display-panes-format",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "display-panes-time",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.8",
+          "kind": "number",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "display-time",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "editor",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "escape-time",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "exit-empty",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "exit-unattached",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "extended-keys",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "on",
+            "always"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "extended-keys-format",
+      "variants": [
+        {
+          "since": "3.5",
+          "source": "https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "csi-u",
+            "xterm"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "fill-character",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "focus-events",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "focus-follows-mouse",
+      "variants": [
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "get-clipboard",
+      "variants": [
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "buffer",
+            "request",
+            "both"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "history-file",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "history-limit",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "initial-repeat-time",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2000000
+        }
+      ]
+    },
+    {
+      "name": "input-buffer-size",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 1048576,
+          "maximum": 4294967295
+        }
+      ]
+    },
+    {
+      "name": "key-table",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "light-theme-black",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "light-theme-blue",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "light-theme-cyan",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "light-theme-dark-grey",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "light-theme-green",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "light-theme-light-grey",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "light-theme-magenta",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "light-theme-red",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "light-theme-white",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "light-theme-yellow",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "lock-after-time",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "lock-command",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "main-pane-height",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "main-pane-width",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "marked-pane-changed",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "menu-border-lines",
+      "variants": [
+        {
+          "since": "3.4",
+          "source": "https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "single",
+            "double",
+            "heavy",
+            "simple",
+            "rounded",
+            "padded",
+            "none"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "menu-border-style",
+      "variants": [
+        {
+          "since": "3.4",
+          "source": "https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "menu-selected-style",
+      "variants": [
+        {
+          "since": "3.4",
+          "source": "https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "menu-style",
+      "variants": [
+        {
+          "since": "3.4",
+          "source": "https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "message-command-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "message-format",
+      "variants": [
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "message-limit",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "message-line",
+      "variants": [
+        {
+          "since": "3.4",
+          "source": "https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "message-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "mode-keys",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "emacs",
+            "vi"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "mode-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "monitor-activity",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "monitor-bell",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "monitor-silence",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "mouse",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "other-pane-height",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "other-pane-width",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-active-border-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.7",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        },
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "pane-activity",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-base-index",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 65535
+        }
+      ]
+    },
+    {
+      "name": "pane-bell",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-border-format",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-border-indicators",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "colour",
+            "arrows",
+            "both"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pane-border-lines",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.6",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "single",
+            "double",
+            "heavy",
+            "simple",
+            "number"
+          ]
+        },
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "before": "3.8",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "single",
+            "double",
+            "heavy",
+            "simple",
+            "number",
+            "spaces"
+          ]
+        },
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "single",
+            "double",
+            "heavy",
+            "simple",
+            "number",
+            "spaces",
+            "none"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pane-border-status",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.8",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "top",
+            "bottom"
+          ]
+        },
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "top",
+            "bottom",
+            "top-floating",
+            "bottom-floating"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pane-border-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.7",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        },
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "pane-colours",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "colour",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-command-finished",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-command-started",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-created",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-died",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-exited",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-focus-in",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-focus-out",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-mode-changed",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-mode-entered",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-mode-exited",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-moved",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-prompt-closed",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-prompt-opened",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-resized",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-scrollbars",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "before": "3.8",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "modal",
+            "on"
+          ]
+        },
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "modal",
+            "on",
+            "auto-hide"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pane-scrollbars-position",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "right",
+            "left"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pane-scrollbars-style",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "pane-scrollbars-timeout",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "pane-set-clipboard",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-shell-prompt",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "pane-status-current-style",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "pane-status-style",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "pane-title-changed",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "popup-border-lines",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "single",
+            "double",
+            "heavy",
+            "simple",
+            "rounded",
+            "padded",
+            "none"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "popup-border-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "popup-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "prefix",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "key",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "prefix-timeout",
+      "variants": [
+        {
+          "since": "3.5",
+          "source": "https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "prefix2",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "key",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "prompt-command-cursor-colour",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "prompt-command-cursor-style",
+      "variants": [
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "default",
+            "blinking-block",
+            "block",
+            "blinking-underline",
+            "underline",
+            "blinking-bar",
+            "bar"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "prompt-cursor-colour",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "before": "3.8",
+          "kind": "colour",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        },
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "prompt-cursor-style",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "default",
+            "blinking-block",
+            "block",
+            "blinking-underline",
+            "underline",
+            "blinking-bar",
+            "bar"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "prompt-history-limit",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "remain-on-exit",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.7",
+          "kind": "choice",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "on",
+            "failed"
+          ]
+        },
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "before": "3.8",
+          "kind": "choice",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "on",
+            "failed",
+            "key"
+          ]
+        },
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "on",
+            "failed",
+            "key",
+            "failed-key"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "remain-on-exit-format",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "renumber-windows",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "repeat-time",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "before": "3.6",
+          "kind": "number",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 32767
+        },
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2000000
+        }
+      ]
+    },
+    {
+      "name": "scroll-on-clear",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "session-added-to-group",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "session-closed",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "session-created",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "session-removed-from-group",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "session-renamed",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "session-status-current-style",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "session-status-style",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "session-window-changed",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "set-clipboard",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "external",
+            "on"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "set-titles",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "set-titles-string",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "silence-action",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "none",
+            "any",
+            "current",
+            "other"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "status",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "on",
+            "2",
+            "3",
+            "4",
+            "5"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "status-bg",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "colour",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "status-fg",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "colour",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "status-format",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "status-interval",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    {
+      "name": "status-justify",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "left",
+            "centre",
+            "right",
+            "absolute-centre"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "status-keys",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "emacs",
+            "vi"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "status-left",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "status-left-length",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 32767
+        }
+      ]
+    },
+    {
+      "name": "status-left-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "status-position",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "top",
+            "bottom"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "status-right",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "status-right-length",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 32767
+        }
+      ]
+    },
+    {
+      "name": "status-right-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "status-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "switch-mode-match-style",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "synchronize-panes",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "terminal-features",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": true,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "terminal-overrides",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": true,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "theme",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "detect",
+            "terminal",
+            "light",
+            "dark"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "tiled-layout-max-columns",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "number",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "minimum": 0,
+          "maximum": 65535
+        }
+      ]
+    },
+    {
+      "name": "tree-mode-border-style",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "tree-mode-preview-format",
+      "variants": [
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "tree-mode-preview-style",
+      "variants": [
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "tree-mode-selection-style",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "update-environment",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "user-keys",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "server"
+          ],
+          "array": true,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "variation-selector-always-wide",
+      "variants": [
+        {
+          "since": "3.6",
+          "source": "https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "server"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "visual-activity",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "on",
+            "both"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "visual-bell",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "on",
+            "both"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "visual-silence",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "off",
+            "on",
+            "both"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "window-active-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "window-closed",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-created",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-layout-changed",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-linked",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-pane-changed",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-pane-current-status-format",
+      "variants": [
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-pane-status-format",
+      "variants": [
+        {
+          "since": "3.7",
+          "source": "https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-renamed",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-resized",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-size",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "choice",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false,
+          "choices": [
+            "largest",
+            "smallest",
+            "manual",
+            "latest"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "window-status-activity-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "window-status-bell-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "window-status-current-format",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-status-current-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "window-status-format",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-status-last-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "window-status-separator",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-status-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "window-style",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "window",
+            "pane"
+          ],
+          "array": false,
+          "hook": false,
+          "style": true
+        }
+      ]
+    },
+    {
+      "name": "window-unlinked",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "session"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-unzoomed",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "window-zoomed",
+      "variants": [
+        {
+          "since": "3.8",
+          "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c",
+          "kind": "command",
+          "scopes": [
+            "window"
+          ],
+          "array": true,
+          "hook": true,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "word-separators",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "string",
+          "scopes": [
+            "session"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "wrap-search",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    },
+    {
+      "name": "xterm-keys",
+      "variants": [
+        {
+          "since": "3.3a",
+          "source": "https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c",
+          "kind": "flag",
+          "scopes": [
+            "window"
+          ],
+          "array": false,
+          "hook": false,
+          "style": false
+        }
+      ]
+    }
+  ]
+}

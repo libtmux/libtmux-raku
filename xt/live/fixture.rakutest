@@ -13,6 +13,28 @@ sub pidfd_open(int32, uint32 --> int32) is native { * }
 sub poll(ExitEvent, size_t, int32 --> int32) is native { * }
 sub close(int32 --> int32) is native { * }
 
+subtest 'binary selection fails before temporary setup or process creation' => {
+    my %environment = %*ENV;
+    my $uncreated = $*TMPDIR.add("libtmux-raku-uncreated-parent-$*PID");
+    die 'negative fixture parent unexpectedly exists' if $uncreated.e;
+    my $callback-ran = False;
+    {
+        my $*TMPDIR = $uncreated;
+        for '', $*EXECUTABLE.IO.relative($*CWD), $*CWD.add('META6.json').Str -> $binary {
+            my %*ENV = %environment;
+            %*ENV<LIBTMUX_TEST_TMUX> = $binary;
+            %*ENV<LIBTMUX_TEST_TMUX>:delete unless $binary.chars;
+            throws-like { with-tmux(-> $ { $callback-ran = True }) }, FixtureError,
+                :message(/LIBTMUX_TEST_TMUX/), 'invalid binary is refused before mkdtemp';
+        }
+    }
+    nok $callback-ran, 'invalid selection cannot enter the owned callback';
+    nok $uncreated.e, 'invalid selection creates no temporary parent';
+    ok (%*ENV<LIBTMUX_TEST_TMUX>:exists) == (%environment<LIBTMUX_TEST_TMUX>:exists)
+        && (%*ENV<LIBTMUX_TEST_TMUX> // '') eq (%environment<LIBTMUX_TEST_TMUX> // ''),
+        'negative cases preserve the selected endpoint';
+};
+
 subtest 'successful callback releases its daemon and directory' => {
     my $fixture;
     my int32 $exit-fd = -1;

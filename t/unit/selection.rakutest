@@ -1,0 +1,75 @@
+use v6.d;
+use Test;
+use LibTmux::Types;
+use LibTmux::Exceptions;
+use LibTmux::Query;
+use LibTmux::Selection;
+
+class Pane {
+    has Str:D $.id is required;
+    has Bool:D $.active = False;
+    method entity { 'pane' }
+    method state($name) { Present }
+    method value($name) { $name eq 'id' ?? $!id !! $!active }
+}
+class Panes does Selection[Pane, 'pane'] { }
+
+subtest 'captured membership replays through native collection operations' => {
+    my $a = Pane.new(:id<%1>, :active);
+    my $b = Pane.new(:id<%2>);
+    my @source = $a, $b;
+    my @panes := Panes.new(:items(@source));
+    @source[0] = $b;
+    is @panes[0].id, '%1', 'capture removes source containers';
+    is-deeply @panes.map(*.id).List, < %1 %2 >, 'map has ordinary result values';
+    is-deeply @panes.map(*.id).List, < %1 %2 >, 'iteration replays';
+    isa-ok @panes.grep(*.active), Seq;
+    is-deeply @panes.grep(*.active, :kv).List, (0, $a), 'grep adverbs remain native';
+    isa-ok @panes.one, Junction, 'one remains a junction';
+    my @order;
+    my $filtered = @panes.filter({ @order.push(.id); .active });
+    isa-ok $filtered, Panes;
+    is $filtered.single.id, '%1', 'single retrieves the exact member';
+    is-deeply @order, ['%1', '%2'], 'callback runs once per member in order';
+    throws-like { @panes.single }, X::LibTmux::Cardinality, :count(2);
+    throws-like { @panes.filter({ fail X::LibTmux.new(:message<callback>) }) },
+        X::LibTmux, :message<callback>, 'returned Failure is thrown before truth testing';
+    my $list = @panes.List;
+    dies-ok { $list[0] = $b }, 'published membership cannot be replaced';
+    my @array = @panes.Array;
+    @array[0] = $b;
+    is @panes[0].id, '%1', 'array conversion has independent membership';
+    for @panes.Seq, @panes.Seq -> $seq {
+        is-deeply $seq.map(*.id).List, < %1 %2 >, 'each Seq starts a fresh traversal';
+    }
+    is-deeply @panes.grep(*.active, :k).List, (0,), 'grep keys remain native';
+    is-deeply @panes.grep(*.active, :p).List, (0 => $a,), 'grep pairs remain native';
+    is @panes.first(*.active), $a, 'first delegates to native matching';
+    is @panes[9], Nil, 'missing position has native lookup absence';
+    nok @panes[9]:exists, 'EXISTS-POS reports captured membership';
+    my $copy = @panes.clone(:items([$a]));
+    is $copy.single, $a, 'cloning revalidates membership through the constructor';
+    throws-like { @panes.clone(:items(['wrong member'])) }, X::LibTmux;
+    throws-like { Panes.new(:items([any($a, $b)])) }, X::LibTmux,
+        'Junction autothreading cannot satisfy the defined member contract';
+    throws-like { Panes.new(:items(any([$a], [$b]))) }, X::LibTmux,
+        'constructor admission rejects alternative membership collections';
+    throws-like { @panes.clone(:items(any([$a], [$b]))) }, X::LibTmux,
+        'clone admission rejects alternative membership collections';
+    throws-like { @panes.where(any(Filter.compile(%(), :entity<pane>),
+        Filter.compile(%(), :entity<pane>))) }, X::LibTmux::InvalidFilter,
+        'where accepts one compiled filter rather than an autothreaded Junction';
+    my $selected = @panes.where(%(active => True));
+    isa-ok $selected, Panes;
+    is $selected.single, $a, 'declarative filtering preserves the concrete selection';
+};
+
+subtest 'empty selection retains its schema and cardinality' => {
+    my $empty = Panes.new;
+    is $empty.single-or-nil, Nil;
+    throws-like { $empty.single }, X::LibTmux::Cardinality, :count(0);
+    throws-like { $empty.where(%(unknown => True)) }, X::LibTmux::InvalidFilter;
+    nok so $empty, 'empty selection Boolean value is false';
+};
+
+done-testing;

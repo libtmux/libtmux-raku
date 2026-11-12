@@ -1,0 +1,165 @@
+use v6.d;
+use Test;
+use JSON::Fast;
+use LibTmux::Format;
+use LibTmux::Capabilities;
+use LibTmux::Types;
+use LibTmux::Exceptions;
+
+sub bytes(Str:D $hex --> Blob:D) { Blob.new($hex.comb(2).map(*.parse-base(16))) }
+sub projection(Str:D $release, Str:D $entity = 'pane', @fields = <id active width title>) {
+    Projection.new(:$entity, :fields(@fields),
+        :capabilities(LibTmux::Capabilities.new(:daemon-version($release))))
+}
+sub wire(Projection:D $projection, @values --> Blob:D) {
+    my $out = Buf.new;
+    for ('LTM1', $projection.schema, $projection.codec-profile, |@values, 'END').kv
+        -> $index, $value {
+        $out.append(9) if $index;
+        $out.append($value ~~ Blob ?? $value.list !! $value.Str.encode('utf8').list);
+    }
+    $out.append(10);
+    Blob.new($out.list)
+}
+sub decode(Projection:D $projection, @values) {
+    my $decoder = FrameDecoder.new(:$projection);
+    my $row = $decoder.feed(wire($projection, @values))[0];
+    $decoder.finish;
+    $row
+}
+
+subtest 'independent captured tokens across codec and repair boundaries' => {
+    my $fixtures = from-json($?FILE.IO.parent.parent.add('fixtures/format/captured-tokens.json').slurp);
+    my %projections;
+    my @errors;
+    for $fixtures<cases>.List -> $case {
+        my $projection = %projections{$case<version>} //= projection($case<version>);
+        my $row = decode($projection, ['%0', '1', '80', bytes($case<token_hex>)]);
+        @errors.push($case<version operation label>.join('/'))
+            unless $row.bytes('title') eqv bytes($case<input_hex>);
+    }
+    is-deeply @errors, [], 'all 64 upstream captures decode to independently injected bytes';
+    my $projection = projection('3.8');
+    my $all = $fixtures<cases>.first({ .<version> eq '3.8' && .<label> eq 'all-non-NUL' });
+    my $record = wire($projection, ['%0', '0', '120', bytes($all<token_hex>)]);
+    my $decoder = FrameDecoder.new(:$projection);
+    my @rows;
+    @rows.append($decoder.feed(Blob.new($_))) for $record.list;
+    $decoder.finish;
+    is @rows.elems, 1, 'one-byte fragments produce exactly one record';
+    is-deeply @rows[0].bytes('title'), bytes($all<input_hex>), 'all non-NUL bytes survive fragmentation';
+    is-deeply @rows[0].value('active'), False, 'zero flag is Boolean false';
+    is @rows[0].value('width'), 120, 'dimension is typed';
+    throws-like { @rows[0].value('title') }, X::LibTmux::Decode,
+        :field<title>, 'invalid payload UTF-8 is retained but strict text conversion fails';
+    dies-ok { @rows[0].raw<title>[0] = 9 }, 'captured bytes have no writable elements';
+    dies-ok { @rows[0].raw<title> = Blob.new(9) }, 'field membership cannot be replaced';
+    throws-like { @rows[0].clone(:schema<forged>) }, X::LibTmux::Decode,
+        'native clone cannot detach decoded values from their schema';
+    throws-like {
+        DecodedRow.new(:schema($projection.schema), :row(1),
+            :raw(Map.new(title => Buf.new(97))), :scalars(Map.new),
+            :states(Map.new(title => Present)), :offsets(Map.new(title => 0)))
+    }, X::LibTmux::Decode, 'rows must be constructed through validated projection decoding';
+};
+
+subtest 'argument tokens reject malformed framing and quoting' => {
+    my $projection = projection('3.8');
+    my @invalid =
+        '', '"unterminated', '"a"b"', "'a'b'", 'a"b', 'two words',
+        '\q', '\12', '\400', '\000', '\ ', '\s',
+        "raw\rcontrol", "raw\tcontrol", "raw\ncontrol",
+        Blob.new(255), Blob.new(127), Blob.new(1), Blob.new(0);
+    my @accepted;
+    for @invalid.kv -> $index, $token {
+        my $caught;
+        try {
+            decode($projection, ['%0', '1', '80', $token]);
+            CATCH { default { $caught = $_ } }
+        }
+        @accepted.push($index) unless $caught ~~ X::LibTmux::Decode;
+    }
+    is-deeply @accepted, [], 'all malformed escape/quote/control classes fail with typed decoding errors';
+    my $decoder = FrameDecoder.new(:$projection);
+    my $bad = wire($projection, ['%0', '2', '80', "''"]);
+    throws-like { $decoder.feed($bad) }, X::LibTmux::Decode,
+        :schema($projection.schema), :row(1), :field<active>,
+        :offset('LTM1'.chars + 1 + $projection.schema.chars + 1 + 2 + 1 + 2 + 1),
+        'scalar diagnostics identify the absolute stream byte';
+    throws-like { $decoder.feed(wire($projection, ['%0', '1', '80', "''"])) },
+        X::LibTmux::Decode, 'a failed decoder cannot silently resume';
+};
+
+subtest 'closed schemas, legacy tokens, truncation and resource bounds' => {
+    my $projection = projection('3.3a');
+    my $record = wire($projection, ['%0', '1', '80', '~7E0A']);
+    is decode($projection, ['%0', '1', '80', '~7E0A']).value('title'), '~0A',
+        'legacy escapes decode once';
+    for <~ ~0 ~FF raw$dollar> -> $token {
+        throws-like { decode($projection, ['%0', '1', '80', $token]) },
+            X::LibTmux::Decode, 'invalid legacy token fails';
+    }
+    my $other = projection('3.3a', 'pane', <id width active title>);
+    throws-like { FrameDecoder.new(:projection($other)).feed($record) }, X::LibTmux::Decode,
+        'same field count with reordered schema is refused';
+    my $bound = Projection.new(:entity<pane>, :fields<id active width title>,
+        :capabilities(LibTmux::Capabilities.new(:daemon-version<3.3a>, :incarnation<daemon-one>)));
+    is $bound.incarnation, 'daemon-one', 'prepared projection retains daemon binding';
+    is decode($bound, ['%0', '1', '80', 'title']).incarnation, 'daemon-one',
+        'decoded row retains the acquiring daemon identity without its transport';
+    is $bound.schema, $projection.schema, 'daemon binding does not change the wire schema';
+    throws-like { $projection.clone(:schema<forged>) }, X::LibTmux::Decode,
+        'native clone cannot bypass projection construction';
+    throws-like { FrameDecoder.new(:$projection).clone }, X::LibTmux::Decode,
+        'incremental state cannot be shared by cloning';
+    my $truncated = FrameDecoder.new(:$projection);
+    $truncated.feed(Blob.new($record.list.head(*-1)));
+    throws-like { $truncated.finish }, X::LibTmux::Decode, 'missing record terminator fails';
+    throws-like {
+        FrameDecoder.new(:$projection, :max-buffer-bytes(10)).feed($record)
+    }, X::LibTmux::Decode, 'unfinished row memory is bounded';
+    throws-like {
+        FrameDecoder.new(:$projection, :max-rows(1)).feed(Blob.new(|$record.list, |$record.list))
+    }, X::LibTmux::Decode, 'row count is bounded across a single chunk';
+    throws-like {
+        FrameDecoder.new(:$projection, :max-bytes($record.elems)).feed(
+            Blob.new(|$record.list, |$record.list))
+    }, X::LibTmux::Decode, 'complete rows cannot bypass the total response bound';
+    throws-like {
+        FrameDecoder.new(:$projection, :max-field-bytes(100)).feed(
+            wire($projection, ['%0', '1', '80', 'x' x 101]))
+    }, X::LibTmux::Decode, 'encoded field size is bounded';
+    throws-like { projection('3.3a', 'pane', <id typo>) }, X::LibTmux::Unsupported,
+        'unknown field is refused before acquisition';
+    throws-like { Projection.new(:entity<pane>, :context<window>, :fields(['id']),
+        :capabilities(LibTmux::Capabilities.new(:daemon-version<3.3a>))) },
+        X::LibTmux::Decode, 'wrong acquisition context is refused';
+};
+
+subtest 'domain null is separate from empty text and zero' => {
+    my $pane = projection('3.8', 'pane', <id dead-status title>);
+    my $absent = decode($pane, ['%0', '', "''"]);
+    is $absent.state('dead-status'), KnownNull, 'declared empty exit status is domain null';
+    is $absent.state('title'), Present, 'empty title is present';
+    is $absent.value('title'), '', 'empty title retains its value';
+    is decode($pane, ['%0', '0', "''"]).value('dead-status'), 0, 'zero status remains zero';
+    throws-like { projection('3.8', 'session', <id group-name>) }, X::LibTmux::Decode,
+        'conditional null requires its explicitly projected dependency';
+    my $session = projection('3.8', 'session', <id group-name grouped>);
+    is decode($session, ['$0', "''", '0']).state('group-name'), KnownNull,
+        'dependency can appear after the nullable field';
+    is decode($session, ['$0', '', '0']).state('group-name'), KnownNull,
+        'callback NULL bypasses q/a quoting and follows the explicit null dependency';
+    throws-like { decode($session, ['$0', '', '1']) }, X::LibTmux::Decode,
+        'an empty raw token cannot stand for a present group name';
+    my $nullable-text = projection('3.8', 'pane', <id mode dead-signal>);
+    my $outside-mode = decode($nullable-text, ['%0', '', '']);
+    is-deeply <mode dead-signal>.map({ $outside-mode.state($_) }).List,
+        (KnownNull, KnownNull), 'nullable text callbacks retain domain null';
+    throws-like { decode($session, ['$0', 'group', '0']) }, X::LibTmux::Decode,
+        'contradictory domain evidence is not hidden';
+    throws-like { $absent.value('width') }, X::LibTmux::MissingData,
+        :state(Unloaded), 'omitted data remains unloaded';
+};
+
+done-testing;

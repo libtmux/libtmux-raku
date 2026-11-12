@@ -1,0 +1,113 @@
+use v6.d;
+use Test;
+use Test::LibTmux::Fixture;
+use LibTmux::Engine;
+use LibTmux::Model;
+use LibTmux::Query;
+use LibTmux::Query::Plan;
+use LibTmux::Exceptions;
+
+# Outer: differential source/local matching requires an isolated real daemon.
+with-tmux(-> $fixture {
+    my $runtime = Runtime.new(:endpoint(Endpoint.new(:binary($fixture.binary),
+        :socket-path($fixture.socket-path.Str), :config-file('/dev/null'))));
+    LEAVE $runtime.close if $runtime.defined;
+    $fixture.cmd('split-window', '-h', '-t', '%0', 'exec cat');
+    $fixture.cmd('resize-pane', '-t', '%0', '-x', '9');
+    $fixture.cmd('select-pane', '-t', '%0', '-T', 'build.a');
+    $fixture.cmd('select-pane', '-t', '%1', '-T', 'other');
+    $fixture.cmd('link-window', '-s', '@0', '-t', '$0:4');
+    my $snapshot = capture($runtime);
+    my $observation = $snapshot.observation;
+    is $snapshot.panes.where(%(id => '%0')).single.width, 9,
+        'numeric fixture distinguishes arithmetic from lexical comparison';
+
+    my @cases =
+        'empty predicate' => %(),
+        'exact ID' => %(id => '%0'),
+        'leading-zero ID' => %(id => '%00'),
+        'inactive flag' => %(active => False),
+        'numeric lower bound' => %(width => %(gte => 10)),
+        'numeric lexical counterexample' => %(width => %(lt => 120)),
+        'exact membership' => %(id => %(in => ['%0', '%99'])),
+        'empty membership' => %(id => %(in => [])),
+        'empty exclusion' => %(id => %(not-in => [])),
+        'numeric membership' => %(width => %(in => [9, 120])),
+        'signed operand' => %(width => %(gt => -1)),
+        'uint32 boundary' => %(width => %(lte => 4294967295)),
+        'safe integer boundary' => %(width => %(lt => 9007199254740991)),
+        'fractional residual' => %(width => %(gte => 9.5)),
+        'partial AND' => %(AND => [%(active => False), %(title => %(contains => 'build'))]),
+        'mixed OR' => %(OR => [%(active => True), %(title => 'build.a')]),
+        'mixed NOT' => %(NOT => %(active => True, title => 'other')),
+        'exact OR' => %(OR => [%(active => False), %(width => %(gt => 120))]),
+        'exact NOT' => %(NOT => %(active => True)),
+        'empty OR' => %(OR => []),
+        'empty AND' => %(AND => []),
+        'complete relation' => %(active => True,
+            window => %(is => %(panes => %(every => %(active => True)))));
+
+    subtest 'source restrictions preserve the full local result' => {
+        for @cases -> $case {
+            my $filter = Filter.compile($case.value, :entity<pane>);
+            my $plan = Plan.compile($filter, :capabilities($observation.capabilities));
+            my %candidate-ids;
+            if $plan.acquisition-mode eq 'full-graph' {
+                %candidate-ids = $snapshot.panes.map({ .id => True });
+            } else {
+                my @rows = $runtime.read($plan.projection, $plan.candidate-command,
+                    :incarnation($observation.incarnation));
+                %candidate-ids = @rows.map({ .value('id') => True });
+            }
+            my @actual = $snapshot.panes.grep({
+                (%candidate-ids{.id}:exists) && $plan.matches($_)
+            }).map(*.id).sort;
+            my @expected = $snapshot.panes.where($filter).map(*.id).sort;
+            is-deeply @actual, @expected, $case.key;
+            if $plan.fully-pushed {
+                is-deeply %candidate-ids.keys.sort.Array, @expected,
+                    $case.key ~ ': source result is exact before the local recheck';
+            }
+        }
+    };
+
+    subtest 'policies and contextual link identity' => {
+        my $filter = Filter.compile(%(active => False), :entity<pane>);
+        for <never require> -> $pushdown {
+            my $plan = Plan.compile($filter, :capabilities($observation.capabilities), :$pushdown);
+            my @rows = $runtime.read($plan.projection, $plan.candidate-command,
+                :incarnation($observation.incarnation));
+            my @ids = @rows.map({ .value('id') }).unique.sort;
+            is-deeply @ids, ($pushdown eq 'never' ?? ['%0', '%1'] !! ['%0']),
+                "$pushdown has its declared acquisition behavior";
+        }
+        my $links = Plan.compile(Filter.compile(%(index => %(gte => 4)), :entity<window-link>),
+            :capabilities($observation.capabilities), :pushdown<require>);
+        my @rows = $runtime.read($links.projection, $links.candidate-command,
+            :incarnation($observation.incarnation));
+        is-deeply @rows.map({ [.value('session-id'), .value('index'), .value('window-id')] }).Array,
+            [['$0', 4, '@0'],], 'index filter retains the session-relative link';
+        is $links.identity-normalization, 'session-index', 'link identity is not physical window identity';
+        is $snapshot.panes.where(@cases[*-1].value).elems, 0,
+            'the inactive sibling makes every(active) false despite the active candidate';
+    };
+
+    subtest 'source restrictions preserve residual errors in evaluation order' => {
+        my $directory = $fixture.directory.add(Blob.new(255).decode('utf8-c8'));
+        $directory.mkdir;
+        LEAVE $directory.rmdir if $directory.defined && $directory.d;
+        $fixture.cmd('split-window', '-d', '-t', '%1', '-c', $directory.Str, 'exec cat');
+        my $captured = capture($runtime);
+        my $filter = Filter.compile(%(AND => [%(current-path => %(contains => 'x')),
+            %(id => '%999999')]), :entity<pane>);
+        for <auto never> -> $pushdown {
+            my $plan = Plan.compile($filter, :capabilities($observation.capabilities), :$pushdown);
+            my @rows = $runtime.read($plan.projection, $plan.candidate-command,
+                :incarnation($observation.incarnation));
+            my %ids = @rows.map({ .value('id') => True });
+            throws-like { $captured.panes.grep({ (%ids{.id}:exists) && $plan.matches($_) }).Array },
+                X::LibTmux::Decode, "$pushdown preserves invalid UTF-8 in the earlier text predicate";
+        }
+    };
+});
+done-testing;

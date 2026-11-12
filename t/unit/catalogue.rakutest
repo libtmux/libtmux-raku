@@ -1,0 +1,143 @@
+use v6.d;
+use Test;
+use JSON::Fast;
+use LibTmux::Types;
+use LibTmux::Exceptions;
+use LibTmux::Catalogue;
+use LibTmux::Capabilities;
+
+subtest 'one ordered support policy and stable parsing' => {
+    my $support = support-policy();
+    is-deeply $support.endpoints.map(*.version).List,
+        ($support.minimum, $support.latest).unique.List, 'CI endpoints derive from policy';
+    my @versions = $support.releases.map({ parse-tmux-version(.version) });
+    ok all((1 ..^ @versions.elems).map({
+        @versions[$_].at-least(@versions[$_ - 1])
+            && @versions[$_].release ne @versions[$_ - 1].release
+    })), 'release profiles are strictly ordered';
+    my $matrix = run $*EXECUTABLE.Str, '-I.', 'tools/ci-matrix.raku', :out;
+    my $matrix-data = from-json($matrix.out.slurp(:close));
+    is $matrix.exitcode, 0, 'CI matrix tool succeeds';
+    is-deeply $matrix-data<include>, $support.endpoints.map({
+        %(tmux => .version, commit => .commit)
+    }).Array, 'CI matrix exactly matches the typed endpoint profiles';
+    ok parse-tmux-version('3.3a').at-least(parse-tmux-version('3.3')), 'letter release follows plain release';
+    ok parse-tmux-version('3.10').at-least(parse-tmux-version('3.8')), 'minor versions compare numerically';
+    is parse-tmux-version('tmux 3.8').release, '3.8', 'client banner parses';
+    nok parse-tmux-version('3.8-vendor').stable, 'vendor build is unqualified';
+    dies-ok { $support.releases[0] = $support.releases[*-1] }, 'release membership is immutable';
+    dies-ok { $support.releases[0].commit = 'changed' }, 'source commits are immutable';
+    is $support.releases[0].source,
+        'https://github.com/tmux/tmux/tree/' ~ $support.releases[0].commit,
+        'source URL derives from the immutable commit';
+};
+
+subtest 'schema lookup is independent of collection membership' => {
+    my $catalogue = catalogue();
+    is $catalogue.field('pane', 'active').kind, 'bool', 'flags have exact Boolean codecs';
+    is $catalogue.field('pane', 'dead-signal').kind, 'text', 'signal names are text';
+    ok $catalogue.field('pane', 'dead-status').nullable, 'exit absence is explicit';
+    ok $catalogue.field('client', 'height').nullable, 'unstarted terminal height is explicitly absent';
+    nok $catalogue.field('client', 'width').nullable, 'client width remains a captured dimension';
+    is $catalogue.field('pane', 'dead-status').null-when, 'empty', 'empty sentinel is an explicit source policy';
+    is $catalogue.field('session', 'group-name').null-dependency, 'grouped', 'group null policy names its evidence';
+    is $catalogue.field('pane', 'current-command').wire-name, 'currentCommand', 'wire spelling is declared';
+    is $catalogue.field('window-link', 'active').format, 'window_active', 'session-relative field belongs to a link';
+    nok $catalogue.field('window', 'index').defined, 'physical window has no session index';
+    nok $catalogue.field('pane', 'typo').defined, 'unknown field stays absent';
+    is $catalogue.relation('session', 'window-links').cardinality, 'many', 'relation multiplicity is declared';
+    throws-like { $catalogue.fields('typo') }, X::LibTmux::InvalidFilter,
+        'unknown entity fails before any traversal';
+    dies-ok { $catalogue.field('pane', 'active').operators[0] = 'smartmatch' },
+        'operator membership is immutable';
+    dies-ok { $catalogue.all-fields[0] = $catalogue.all-fields[*-1] },
+        'field membership is immutable';
+};
+
+subtest 'daemon version governs native support and explicit fallbacks' => {
+    my $old = LibTmux::Capabilities.new(:daemon-version<3.3a>, :client-version<3.8>, :incarnation<first>);
+    nok $old.supports('format-argument-quote'), 'modern client cannot upgrade an old daemon';
+    is $old.status('format-argument-quote').handling, 'fallback', 'fallback policy is visible';
+    is $old.status('format-argument-quote').fallback, 'format-tilde', 'fallback is named';
+    is $old.codec-profile, 't6', 'fallback profile is selected explicitly';
+    is $old.output-repair, 'none', 'floor does not require command-output repair';
+    throws-like { $old.require('format-argument-quote') }, X::LibTmux::Unsupported,
+        :state(NotSupported), :feature('format-argument-quote'), 'native require refuses the fallback';
+    throws-like { $old.require-field('pane', 'floating') }, X::LibTmux::Unsupported,
+        :state(NotSupported), 'new field is refused before acquisition';
+    for <3.4 3.5 3.5a> -> $version {
+        my $cap = LibTmux::Capabilities.new(:daemon-version($version));
+        is $cap.output-repair, 'vis', "$version declares extra output repair";
+        ok $cap.workaround('format-output-vis').applies, 'repair is needed, not reported executed';
+    }
+    my $current = LibTmux::Capabilities.new(:daemon-version<3.8>, :client-version<3.3a>);
+    is $current.codec-profile, 'qa', 'capable daemon selects argument-token codec';
+    is $current.layout-profile, 'json', 'layout dialect comes from capabilities';
+    my $control = $current.clone(:negotiated-features(<control-mode>.List));
+    is $control.layout-profile, 'classic', 'control layout remains classic before negotiation';
+    ok $control.supports('layout-json'), 'connection policy does not erase daemon support';
+    is $control.clone(:negotiated-features(<control-mode control-new-layouts>.List)).layout-profile,
+        'json', 'successful negotiation enables JSON control layouts';
+    nok $current.workaround('format-output-vis').applies, 'old repair does not apply';
+    ok $current.supports-field('pane', 'floating'), 'current daemon supports floating field';
+    is LibTmux::Capabilities.new(:daemon-version<3.6b>).codec-profile, 't6', 'q/a is absent before 3.7';
+    is LibTmux::Capabilities.new(:daemon-version<3.7>).codec-profile, 'qa', 'q/a begins at 3.7';
+};
+
+subtest 'unqualified versions remain unknown and observations are immutable' => {
+    for '', '3.8-vendor', '3.8a', '3.9', 'next-3.8' -> $version {
+        my $cap = LibTmux::Capabilities.new(:daemon-version($version), :client-version<3.8>);
+        is $cap.status('managed-commands').state, Unknown, "$version is unqualified";
+        nok $cap.supports('managed-commands'), 'unknown is never supported';
+        throws-like { $cap.codec-profile }, X::LibTmux::Unsupported,
+            :state(Unknown), 'unknown profile cannot select a managed codec';
+    }
+    is LibTmux::Capabilities.new(:daemon-version<3.3>).status('managed-commands').state,
+        NotSupported, 'plain 3.3 is below the floor';
+    my @flags = 'new-layouts';
+    my $cap = LibTmux::Capabilities.new(:daemon-version<3.8>, :incarnation<observed-epoch>,
+        :source<fixture>, :negotiated-features(@flags.List));
+    @flags[0] = 'changed';
+    is $cap.negotiated-features[0], 'new-layouts', 'constructor copies input membership';
+    dies-ok { $cap.negotiated-features[0] = 'changed' }, 'negotiated membership is immutable';
+    dies-ok { $cap.daemon-version = '3.3a' }, 'daemon observation has no writer';
+    is $cap.incarnation, 'observed-epoch', 'engine identity evidence is retained';
+    is $cap.status('format-argument-quote').evidence, 'fixture', 'decision retains observation provenance';
+    is $cap.status('typo').state, Unknown, 'unknown feature remains unknown';
+    is $cap.clone(:daemon-version<3.3a>).codec-profile, 't6',
+        'a copied observation recomputes its version evidence';
+};
+
+subtest 'literal name separators follow domain and daemon capability' => {
+    for ['3.3a', False, True], ['3.7', False, False],
+        ['3.7a', True, True], ['3.8', True, True] -> @case {
+        my $cap = LibTmux::Capabilities.new(:daemon-version(@case[0]));
+        is $cap.supports('session-name-separators'), @case[1],
+            "{@case[0]} session separators";
+        is $cap.supports('window-name-separators'), @case[2],
+            "{@case[0]} window separators";
+    }
+    my $blocked = LibTmux::Capabilities.new(:daemon-version<3.7>)
+        .status('window-name-separators');
+    like $blocked.reason, / 'name-separator-defect' /, 'refusal identifies the blocking defect';
+    is LibTmux::Capabilities.new(:daemon-version<3.8-vendor>)
+        .status('window-name-separators').state, Unknown, 'unknown versions remain unqualified';
+};
+
+subtest 'option schemas follow the declared daemon profile' => {
+    my $catalogue = catalogue();
+    is $catalogue.option('mouse', '3.3a').kind, 'flag', 'native flags have Boolean schemas';
+    is $catalogue.option('history-limit', '3.8').minimum, 0, 'numeric range comes from source';
+    is-deeply $catalogue.option('remain-on-exit', '3.3a').choices,
+        <off on failed>.List, 'old daemon gets its own choice vocabulary';
+    ok $catalogue.option('remain-on-exit', '3.8').choices.grep('failed-key').elems,
+        'modern daemon gets its expanded choices';
+    nok $catalogue.option('pane-scrollbars', '3.3a').defined,
+        'future options are absent on old profiles';
+    ok $catalogue.option('after-new-window', '3.8').is-hook,
+        'hooks retain their native option schema';
+    nok $catalogue.option('mouse', '3.8-vendor').defined,
+        'unqualified versions cannot acquire guessed option schemas';
+};
+
+done-testing;

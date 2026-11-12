@@ -1,0 +1,56 @@
+use v6.d;
+use Test;
+use LibTmux::Engine;
+use LibTmux::Exceptions;
+
+subtest 'endpoint configuration fixes command scope and environment' => {
+    my %environment = PATH => '/usr/bin', TMUX => 'borrowed', TMUX_PANE => '%9';
+    my $endpoint = Endpoint.new(:socket-path('/tmp/owned.sock'), :%environment);
+    %environment<PATH> = '/changed';
+    is $endpoint.environment<PATH>, '/usr/bin', 'environment is captured by value';
+    nok $endpoint.environment<TMUX>:exists, 'ambient tmux server is removed';
+    nok $endpoint.environment<TMUX_PANE>:exists, 'ambient pane is removed';
+    is-deeply $endpoint.argv, ('tmux', '-u', '-S', '/tmp/owned.sock').List,
+        'explicit endpoint is present in every argv';
+    dies-ok { $endpoint.environment<PATH> = '/mutated' }, 'environment membership is read-only';
+    my $copy = $endpoint.clone(:socket-path('/tmp/replacement.sock'));
+    is $copy.argv[*-1], '/tmp/replacement.sock', 'copy rebuilds its command scope';
+    isnt $copy.key, $endpoint.key, 'copy rebuilds its identity key';
+    throws-like { $endpoint.clone(:argv([])) }, X::LibTmux::Command,
+        'derived endpoint values cannot be overridden';
+    throws-like { Endpoint.new(:socket-name<name>, :socket-path('/tmp/socket')) },
+        X::LibTmux::Command, 'ambiguous socket settings fail before dispatch';
+    throws-like { Endpoint.new(:binary("tmux\0")) }, X::LibTmux::Command,
+        'invalid executable fails before dispatch';
+    throws-like { Endpoint.new(:socket-name('../elsewhere')) }, X::LibTmux::Command,
+        'socket names cannot escape the tmux socket directory';
+    throws-like { Endpoint.new(:socket-nam<unit>) }, X::LibTmux::Command,
+        :kind<argument>, 'a misspelled socket option cannot select the default server';
+    throws-like { Endpoint.new(:environment(Map.new(TEST => any('one', 'two')))) },
+        X::LibTmux::Command, :kind<argument>, 'nested environment values remain singular strings';
+};
+
+subtest 'async argument errors preserve the Promise contract' => {
+    my $runtime = Runtime.new(:endpoint(Endpoint.new));
+    LEAVE $runtime.close;
+    my $missing = $runtime.execute-async(Any);
+    isa-ok $missing, Promise, 'missing identity is reported asynchronously';
+    throws-like { await $missing }, X::LibTmux::Command, :kind<argument>,
+        'invalid command is an explicit admission failure';
+    throws-like { $runtime.clone }, X::LibTmux::Command,
+        'owning runtimes cannot share copied lifecycle state';
+    my $expired = $runtime.observe-async(:deadline(now - 1));
+    throws-like { await $expired }, X::LibTmux::Command, :kind<timeout>,
+        :outcome(LibTmux::Types::NotStarted), 'parent deadline expires before client launch';
+    my $invalid = $runtime.observe-async(:deadline<later>);
+    throws-like { await $invalid }, X::LibTmux::Command, :kind<argument>,
+        'invalid deadline is an asynchronous admission error';
+    my $junction = $runtime.observe-async(:deadline(any(now + 1, now + 2)));
+    ok $junction.^isa(Promise), 'a Junction deadline cannot fan out observation';
+    if $junction.^isa(Promise) {
+        throws-like { await $junction }, X::LibTmux::Command, :kind<argument>,
+            :outcome(LibTmux::Types::NotStarted);
+    }
+};
+
+done-testing;

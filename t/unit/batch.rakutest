@@ -1,0 +1,216 @@
+use v6.d;
+use Test;
+use LibTmux::Batch;
+use LibTmux::Engine;
+use LibTmux::Command;
+use LibTmux::Transport;
+use LibTmux::Types;
+use LibTmux::Exceptions;
+
+class Probe is Runtime {
+    has Int $.fail-at = -1;
+    has @.submitted;
+    has @.deadlines;
+    has @.answers;
+    has Cancellation $.stop-after-first;
+    method validate-command(Invocation:D $command, Incarnation:D :$incarnation! --> Nil) {
+        Invocation.new(:argv($command.argv), :max-bytes(self.max-command-bytes));
+    }
+    method execute-async($command, :$deadline!, :$cancel, :$incarnation!, *%) {
+        @!deadlines.push($deadline);
+        @!submitted.push($command.argv[0]);
+        $!stop-after-first.cancel if $!stop-after-first.defined && @!submitted.elems == 1;
+        if @!answers.elems >= @!submitted.elems {
+            my $answer = @!answers[@!submitted.elems - 1];
+            return $answer ~~ Exception ?? Promise.broken($answer) !! Promise.kept($answer);
+        }
+        @!submitted.elems - 1 == $!fail-at
+            ?? Promise.broken(X::LibTmux::Command.new(:kind<exit>, :outcome(Failed), :exitcode(1)))
+            !! Promise.kept(Result.new)
+    }
+}
+
+class InvalidReceiptCount does Receipt {
+    has Mu $.count;
+    method output-bytes { $!count }
+}
+
+my $endpoint = Endpoint.new(:socket-name<batch-unit>);
+my $incarnation = Incarnation.new(:endpoint-key($endpoint.key), :boot-id<test>,
+    :pid(1), :start-ticks(1), :start-time(1), :daemon-version<3.8>);
+sub operation(Int:D $index --> Operation:D) {
+    Operation.new(:name("step-$index"), :command(Invocation.new(:argv(["step-$index"]))),
+        :acknowledgement-only)
+}
+
+subtest 'validate all membership before dispatch without exhausting deferred input' => {
+    throws-like { Operation.new(:name<ambiguous>, :command(Invocation.new(:argv(['noop'])))) },
+        X::LibTmux::Command;
+    throws-like { Operation.new(:name<ambiguous>, :command(Invocation.new(:argv(['noop']))),
+        :acknowledgement-only, :evidence(Promise.new)) }, X::LibTmux::Command;
+    my $visits = 0;
+    my $deferred = (gather for ^1000 { ++$visits; take operation($_) }).List;
+    throws-like { Batch.new(:operations($deferred), :max-operations(3)) }, X::LibTmux::Command;
+    is $visits, 4, 'bounded traversal does not realize the entire deferred List';
+    throws-like { Batch.new(:operations([operation(0), 'wrong'])) }, X::LibTmux::Command;
+    throws-like { Batch.new(:operations([operation(0), operation(0)])) }, X::LibTmux::Command;
+    throws-like { Batch.new(:operations([]), :max-operations(any(1, 2))) }, X::LibTmux::Command;
+    throws-like { Batch.new(:operations([]), :output-budget-btyes(1)) }, X::LibTmux::Command,
+        'misspelled output budgets cannot silently retain the default';
+    my $executor = Probe.new(:$endpoint);
+    LEAVE $executor.close;
+    my $empty = Batch.new(:operations([])).run(:$executor, :$incarnation, :timeout-ms(100));
+    is $empty.operations.elems, 0;
+    is $executor.submitted.elems, 0, 'empty batch performs no execution';
+    my $misspelled = Batch.new(:operations([operation(0)]))
+        .run-async(:$executor, :$incarnation, :timeout-mss(1));
+    isa-ok $misspelled, Promise, 'unknown operation settings still return one Promise';
+    throws-like { await $misspelled }, X::LibTmux::Command, :kind<argument>,
+        :outcome(NotStarted), 'unknown operation settings fail during admission';
+    is $executor.submitted.elems, 0, 'misspelled operation limits never reach the executor';
+    throws-like { Batch.new(:operations([operation(0)]))
+        .run(:$executor, :$incarnation, :timeout-ms(any(100, 200))) }, X::LibTmux::Command;
+    my $limited = Probe.new(:$endpoint, :max-command-bytes(64));
+    LEAVE $limited.close;
+    my $oversized = Operation.new(:name<oversized>, :acknowledgement-only,
+        :command(Invocation.new(:argv(['command', 'x' x 100]))));
+    throws-like { Batch.new(:operations([operation(0), $oversized]))
+        .run(:executor($limited), :$incarnation) }, X::LibTmux::Command;
+    is $limited.submitted.elems, 0, 'a later size failure is rejected before the first dispatch';
+};
+
+subtest 'each failure has an exact prefix and skipped suffix' => {
+    for ^3 -> $failure {
+        my $executor = Probe.new(:$endpoint, :fail-at($failure));
+        LEAVE $executor.close;
+        my $report = Batch.new(:operations((^3).map(&operation).List))
+            .run(:$executor, :$incarnation, :timeout-ms(100));
+        is-deeply $report.operations.map(*.outcome).List,
+            ((Complete xx $failure), Failed, (Skipped xx (2 - $failure))).flat.List;
+        is $executor.submitted.elems, $failure + 1;
+        is $report.operations[$failure].error-outcome, Failed, 'original error outcome is retained';
+        nok $report.operations[*-1].error.defined if $failure < 2;
+        is $executor.deadlines.unique.elems, 1, 'every command receives the same deadline';
+    }
+    my $executor = Probe.new(:$endpoint, :fail-at(1));
+    LEAVE $executor.close;
+    my $report = Batch.new(:operations((^3).map(&operation).List))
+        .run(:$executor, :$incarnation, :timeout-ms(100), :on-error<continue>);
+    is-deeply $report.operations.map(*.outcome).List, (Complete, Failed, Complete).List;
+};
+
+subtest 'caller deadlines remain absolute and invalid receipts remain unacknowledged' => {
+    my $executor = Probe.new(:$endpoint);
+    LEAVE $executor.close if $executor.defined;
+    my $batch = Batch.new(:operations([operation(0)]));
+    my $deadline = now + 1;
+    my $report = $batch.run(:$executor, :$incarnation, :$deadline);
+    is-deeply $report.deadline, $deadline, 'report retains the supplied earlier Instant';
+    is-deeply $executor.deadlines[0], $deadline, 'executor receives that same absolute deadline';
+    my $local = $batch.run(:$executor, :$incarnation, :timeout-ms(100), :deadline(now + 60));
+    is-deeply $local.deadline, $local.started + 0.1,
+        'a later caller deadline cannot extend the local timeout budget';
+    my $before = $executor.submitted.elems;
+    my $expired = $batch.run(:$executor, :$incarnation, :deadline(now - 1));
+    is $expired.operations[0].outcome, Skipped, 'expired admission does not attempt work';
+    is $executor.submitted.elems, $before, 'no expired command reaches the executor';
+    throws-like { $batch.run(:$executor, :$incarnation, :deadline(any(now, now + 1))) },
+        X::LibTmux::Command, 'deadline Junctions cannot autothread execution';
+    my $invalid = Probe.new(:$endpoint, :answers(['not a receipt']));
+    LEAVE $invalid.close if $invalid.defined;
+    my $broken = $batch.run(:executor($invalid), :$incarnation);
+    is $broken.operations[0].outcome, Indeterminate, 'invalid adapter output preserves uncertainty';
+    nok $broken.operations[0].acknowledged, 'invalid adapter output is not an acknowledgement';
+    nok $broken.operations[0].acknowledgement.defined, 'invalid payload is not retained as a receipt';
+};
+
+subtest 'external evidence, uncertainty and cancellation stay distinct' => {
+    my $executor = Probe.new(:$endpoint);
+    LEAVE $executor.close;
+    my $proof = Promise.kept(Evidence.new(:operation<observed>, :description<observed-marker>, :satisfied));
+    my $step = Operation.new(:name<observed>, :command(Invocation.new(:argv(['noop']))), :evidence($proof));
+    my $report = Batch.new(:operations([$step])).run(:$executor, :$incarnation, :timeout-ms(100));
+    is $report.operations[0].outcome, Complete;
+    is $report.operations[0].completion-scope, 'effect';
+    my $negative = $step.clone(:evidence(Promise.kept(Evidence.new(
+        :operation<observed>, :description<absent>, :!satisfied))));
+    my $negative-report = Batch.new(:operations([$negative])).run(:$executor, :$incarnation, :timeout-ms(100));
+    is $negative-report.operations[0].outcome, Failed;
+    my $pending = Promise.new;
+    my $uncertain = $step.clone(:evidence($pending));
+    my $timed = Batch.new(:operations([$uncertain, operation(1)]))
+        .run(:$executor, :$incarnation, :timeout-ms(30));
+    is-deeply $timed.operations.map(*.outcome).List, (Indeterminate, Skipped).List;
+    is $pending.status, Planned, 'batch never cancels caller-owned evidence work';
+    ok $timed.operations[0].acknowledged, 'acknowledgement survives missing effect evidence';
+    my $wrong = $step.clone(:evidence(Promise.kept(Evidence.new(
+        :operation<other>, :description<unrelated>, :satisfied))));
+    my $wrong-report = Batch.new(:operations([$wrong])).run(:$executor, :$incarnation, :timeout-ms(100));
+    is $wrong-report.operations[0].outcome, Indeterminate, 'unrelated evidence cannot complete this operation';
+    my $broken = $step.clone(:evidence(Promise.broken(X::LibTmux.new(:message<observer-failed>))));
+    my $failed-proof = Batch.new(:operations([$broken])).run(:$executor, :$incarnation, :timeout-ms(100));
+    is $failed-proof.operations[0].outcome, Indeterminate;
+    is $failed-proof.operations[0].error.message, 'observer-failed', 'original evidence failure is retained';
+    my $observer = $step.clone(:evidence(Promise.broken(X::LibTmux::Command.new(
+        :kind<observer-command>, :outcome(Failed)))));
+    my $observer-report = Batch.new(:operations([$observer]))
+        .run(:$executor, :$incarnation, :timeout-ms(100));
+    is $observer-report.operations[0].outcome, Indeterminate,
+        'a failed observation command does not prove the original effect failed';
+    is $observer-report.operations[0].error-outcome, Failed, 'observation error outcome remains available';
+    my $cancel = Cancellation.new;
+    my $cancelling = Probe.new(:$endpoint, :stop-after-first($cancel));
+    LEAVE $cancelling.close;
+    my $stopped = Batch.new(:operations((^3).map(&operation).List))
+        .run(:executor($cancelling), :$incarnation, :$cancel, :timeout-ms(100));
+    is-deeply $stopped.operations.map(*.outcome).List, (Complete, Skipped, Skipped).List;
+};
+subtest 'retained output threshold stops admission after successes and failures' => {
+    my $receipt = Result.new(:stdout('abc'.encode), :stderr('de'.encode));
+    my $success = Probe.new(:$endpoint, :answers([$receipt, $receipt]));
+    LEAVE $success.close;
+    my $report = Batch.new(:operations((^3).map(&operation).List), :output-budget-bytes(10))
+        .run(:executor($success), :$incarnation, :on-error<continue>);
+    is-deeply $report.operations.map(*.outcome).List, (Complete, Complete, Skipped).List;
+    is $success.submitted.elems, 2;
+    is $report.output-bytes, 10;
+    ok $report.operations[1].acknowledgement === $receipt, 'threshold-crossing receipt is retained';
+    is $report.stop-error.kind, 'output-budget';
+
+    my $cause = X::LibTmux::Command.new(:stdout('shared'.encode), :outcome(Failed));
+    my $first = X::LibTmux::Command.new(:stderr('aa'.encode), :outcome(Failed), :$cause);
+    my $second = X::LibTmux::Command.new(:stderr('bb'.encode), :outcome(Failed), :$cause);
+    my $failure = Probe.new(:$endpoint, :answers([$first, $second]));
+    LEAVE $failure.close if $failure.defined;
+    my $failed = Batch.new(:operations((^3).map(&operation).List), :output-budget-bytes(9))
+        .run(:executor($failure), :$incarnation, :on-error<continue>);
+    is-deeply $failed.operations.map(*.outcome).List, (Failed, Failed, Skipped).List;
+    is $failure.submitted.elems, 2;
+    is $failed.output-bytes, 10, 'shared exception cause is counted once across operations';
+    is-deeply $failed.operations[1].error.stderr, $second.stderr,
+        'threshold-crossing error keeps its output after native await decoration';
+    ok $failed.operations[1].error.cause === $cause, 'original shared cause is retained';
+    is $failed.operations[1].error-outcome, Failed;
+};
+
+subtest 'malformed receipt counts retain partial outcomes without acknowledgement' => {
+    for -1, True, any(0, 1) -> Mu $count {
+        my $executor = Probe.new(:$endpoint,
+            :answers([InvalidReceiptCount.new(:$count)]));
+        LEAVE $executor.close;
+        my $report;
+        lives-ok { $report = Batch.new(:operations([operation(0), operation(1)]))
+            .run(:$executor, :$incarnation, :timeout-ms(100)) },
+            'invalid adapter accounting returns a report instead of failing its construction';
+        if $report.defined {
+            is-deeply $report.operations.map(*.outcome).List, (Indeterminate, Skipped).List;
+            is ($report.operations[0].error ~~ X::LibTmux::Command
+                ?? $report.operations[0].error.kind !! ''), 'receipt',
+                'the failed boundary remains explicit';
+            nok $report.operations[0].acknowledged, 'invalid accounting is not an accepted receipt';
+            is $report.output-bytes, 0, 'invalid counts do not corrupt retained-byte accounting';
+        }
+        is $executor.submitted.elems, 1, 'the invalid receipt stops the suffix';
+    }
+};
+done-testing;

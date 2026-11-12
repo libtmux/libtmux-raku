@@ -37,6 +37,33 @@ subtest 'cancellation is one shot and owns its notification promise' => {
         X::LibTmux::Command, :kind<cancelled>, :outcome(NotStarted);
 };
 
+subtest 'Junction inputs cannot multiply process admission' => {
+    my $executor = Executor.new;
+    LEAVE $executor.close;
+    my @cases =
+        { argv => any(['unstarted-program'], ['another-unstarted-program']) },
+        { argv => ['unstarted-program', any('alpha', 'beta')] },
+        { stdin => any(Blob.new, Blob.new(1)) },
+        { environment => any(Map.new, Map.new(TEST => 'value')) },
+        { environment => Map.new(TEST => any('alpha', 'beta')) },
+        { cwd => any($*CWD, $*CWD) },
+        { cancel => any(Cancellation.new, Cancellation.new) },
+        { check => any(True, False) },
+        { timeout-ms => any(100, 200) };
+    for @cases -> %case {
+        my $argv = %case<argv>:delete // ['unstarted-program'];
+        my $pending = $executor.execute-async($argv, |%case);
+        ok $pending.^isa(Promise), 'one call returns exactly one Promise';
+        if $pending.^isa(Promise) {
+            throws-like { await $pending }, X::LibTmux::Command,
+                :kind<argument>, :outcome(NotStarted), 'invalid input never starts work';
+        }
+    }
+    throws-like { $executor.execute(any(['unstarted-program'], ['another-unstarted-program'])) },
+        X::LibTmux::Command, :kind<argument>, :outcome(NotStarted),
+        'the synchronous wrapper also refuses fan-out';
+};
+
 subtest 'closing prevents future process admission' => {
     my $executor = Executor.new;
     my $first = $executor.close-async;

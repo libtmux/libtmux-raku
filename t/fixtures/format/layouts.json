@@ -1,0 +1,18 @@
+{
+  "source": "Live owned Linux tmux fixtures from pinned upstream releases; display-message -p window_layout after horizontal split and optional floating/modal new-pane commands.",
+  "captures": [
+    {
+      "version": "3.3a",
+      "commit": "0b355ae8114511e1ff6359272b164f1cdf718e80",
+      "tiled": "8205,80x24,0,0{40x24,0,0,0,39x24,41,0,1}"
+    },
+    {
+      "version": "3.8",
+      "commit": "7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53",
+      "modal-pane-id": "%3",
+      "floating-modal": "{\"V\":2,\"L\":{\"t\":\"h\",\"w\":80,\"h\":24,\"x\":0,\"y\":0,\"c\":[{\"t\":\"p\",\"w\":40,\"h\":24,\"x\":0,\"y\":0,\"l\":0,\"i\":0,\"I\":\"%0\"},{\"t\":\"p\",\"w\":13,\"h\":3,\"x\":4,\"y\":2,\"a\":true,\"i\":3,\"z\":0,\"I\":\"%3\"},{\"t\":\"p\",\"w\":18,\"h\":5,\"x\":3,\"y\":4,\"i\":2,\"z\":1,\"I\":\"%2\"},{\"t\":\"p\",\"w\":39,\"h\":24,\"x\":41,\"y\":0,\"i\":1,\"I\":\"%1\"}]}}",
+      "tiled": "{\"V\":2,\"L\":{\"t\":\"h\",\"w\":80,\"h\":24,\"x\":0,\"y\":0,\"c\":[{\"t\":\"p\",\"w\":40,\"h\":24,\"x\":0,\"y\":0,\"a\":true,\"i\":0,\"I\":\"%0\"},{\"t\":\"p\",\"w\":39,\"h\":24,\"x\":41,\"y\":0,\"i\":1,\"I\":\"%1\"}]}}"
+    }
+  ],
+  "upstream": "https://github.com/tmux/tmux"
+}

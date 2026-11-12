@@ -1,0 +1,178 @@
+use v6.d;
+use Test;
+use LibTmux::Types;
+use LibTmux::Exceptions;
+use LibTmux::Query;
+
+class View {
+    has Str:D $.entity is required;
+    has Map:D $.values = Map.new;
+    has Map:D $.states = Map.new;
+    has Map:D $.relations = Map.new;
+    method state(Str:D $name) {
+        $!states{$name} // (($!values{$name}:exists) || ($!relations{$name}:exists)
+            ?? Present !! Unloaded)
+    }
+    method value(Str:D $name) { $!values{$name} }
+    method relation(Str:D $name) { $!relations{$name} }
+}
+sub pane(*%values) { View.new(:entity<pane>, :values(%values.Map)) }
+
+subtest 'one filter admits one schema and one limits value' => {
+    throws-like { Filter.compile(%(), :entity(any('pane', 'window'))) },
+        X::LibTmux::InvalidFilter, 'schema Junctions cannot autothread compilation';
+    my $limits = any(Limits.new(:max-depth(8)), Limits.new(:max-depth(16)));
+    throws-like { Filter.compile(%(), :entity<pane>, :$limits) },
+        X::LibTmux::InvalidFilter, 'limit Junctions cannot autothread compilation';
+    my $json = '{"schema":"libtmux.where/v1","entity":"pane","where":{}}';
+    throws-like { Filter.from-json($json, :$limits) },
+        X::LibTmux::InvalidFilter, 'limit Junctions cannot autothread wire decoding';
+    throws-like { Filter.compile(%(), :entity<pane>, :limitz(Limits.new(:max-depth(1)))) },
+        X::LibTmux::InvalidFilter, 'misspelled limits cannot silently retain defaults';
+    throws-like { Filter.from-json($json, :limitz(Limits.new(:max-depth(1)))) },
+        X::LibTmux::InvalidFilter, 'wire decoding rejects unknown settings';
+};
+
+subtest 'compiled equality preserves scalar types and validates before evaluation' => {
+    my $active = Filter.compile(%(active => True), :entity<pane>);
+    ok $active.matches(pane(:active)), 'true matches true';
+    nok $active.matches(pane(:!active)), 'true does not smartmatch false';
+    ok pane(:active) ~~ $active, 'ACCEPTS uses the same evaluator';
+    for %(typo => 1), %(width => True), %(title => /editor/),
+        %(active => %(contains => '1')) -> $criteria {
+        throws-like { Filter.compile($criteria, :entity<pane>) },
+            X::LibTmux::InvalidFilter, 'invalid data fails during compilation';
+    }
+    my %criteria = width => %(gte => 120, lt => 240),
+        current-command => %(in => ['nvim', 'vim']);
+    my $filter = Filter.compile(%criteria, :entity<pane>);
+    %criteria<current-command><in>[0] = 'sleep';
+    ok $filter.matches(pane(:width(120), :current-command<nvim>)),
+        'compiled nested input is independent';
+    nok $filter.matches(pane(:width(240), :current-command<nvim>)),
+        'operators under one field are conjoined';
+};
+
+subtest 'Boolean identities, numeric ordering and Unicode literals are explicit' => {
+    my $item = pane(:width(120), :!active, :title("a\x[301]b"));
+    for (
+        [%(AND => []), True], [%(OR => []), False], [%(NOT => %()), False],
+        [%(width => %(in => [])), False], [%(width => %('not-in' => [])), True],
+        [%(width => %(gt => 119, lte => 120)), True],
+        [%(width => %(equals => 120, 'not-equals' => 119)), True],
+        [%(active => %(equals => False)), True],
+        [%(title => %(contains => 'á')), True],
+        [%(title => %('starts-with' => 'á', 'ends-with' => 'b')), True],
+        [%(title => %(contains => '.')), False],
+        [%(OR => [%(width => 0), %(active => False)]), True],
+    ) -> ($criteria, $expected) {
+        is Filter.compile($criteria, :entity<pane>).matches($item), $expected,
+            $criteria.raku;
+    }
+    my $null = View.new(:entity<pane>, :states(Map.new('dead-status' => KnownNull)));
+    ok Filter.compile(%('dead-status' => %('is-null' => True)), :entity<pane>).matches($null);
+    nok Filter.compile(%('dead-status' => %('not-equals' => 0)), :entity<pane>).matches($null),
+        'known null requires explicit null matching';
+    ok Filter.compile(%(NOT => %('dead-status' => %('not-equals' => 0))), :entity<pane>).matches($null),
+        'NOT negates the completed Boolean result, including null';
+    for Unsupported, Unavailable, Unloaded -> $state {
+        my $missing = View.new(:entity<pane>, :states(Map.new(width => $state)));
+        throws-like { Filter.compile(%(width => 0), :entity<pane>).matches($missing) },
+            X::LibTmux::MissingData, :$state;
+    }
+    ok Filter.compile(%(OR => [%(active => True), %(width => 0)]), :entity<pane>)
+        .matches(pane(:active)), 'successful OR branch does not read an unloaded later branch';
+};
+
+subtest 'relation quantifiers preserve one-child correlation and loaded emptiness' => {
+    my $window = View.new(:entity<window>, :relations(Map.new(panes =>
+        (pane(:width(80), :active), pane(:width(160), :!active)))));
+    nok Filter.compile(%(panes => %(some => %(width => 160, active => True))),
+        :entity<window>).matches($window), 'one some requires one matching child';
+    ok Filter.compile(%(AND => [%(panes => %(some => %(width => 160))),
+        %(panes => %(some => %(active => True)))]), :entity<window>).matches($window),
+        'separate existential subtrees may use different children';
+    my $empty = View.new(:entity<window>, :relations(Map.new(panes => ())));
+    for some => False, every => True, none => True -> $case {
+        is Filter.compile(%(panes => %($case.key => %())), :entity<window>).matches($empty),
+            $case.value, "loaded empty relation: {$case.key}";
+    }
+    throws-like { Filter.compile(%(panes => %(every => %())), :entity<window>)
+        .matches(View.new(:entity<window>)) }, X::LibTmux::MissingData;
+    my $session = View.new(:entity<session>, :states(Map.new(group => KnownNull)));
+    ok Filter.compile(%(group => %('is-null' => True)), :entity<session>).matches($session);
+    nok Filter.compile(%(group => %('is-not' => %(name => 'workers'))),
+        :entity<session>).matches($session), 'null does not satisfy is-not';
+    my $linked = View.new(:entity<pane>, :relations(Map.new(window =>
+        View.new(:entity<window>, :values(Map.new(name => 'main'))))));
+    ok Filter.compile(%(window => %(is => %(name => 'main'))), :entity<pane>).matches($linked);
+};
+
+subtest 'closed criteria reject cycles, executable values and resource excess' => {
+    my %cycle;
+    %cycle<NOT> := %cycle;
+    throws-like { Filter.compile(%cycle, :entity<pane>) }, X::LibTmux::InvalidFilter;
+    for any('a', 'b'), Str, -> { True }, Inf, NaN -> $value {
+        throws-like { Filter.compile(%(title => $value), :entity<pane>) },
+            X::LibTmux::InvalidFilter, 'runtime matcher or nonfinite value stays local';
+    }
+    throws-like { Filter.compile(%(title => Blob.new(255).decode('utf8-c8')), :entity<pane>) },
+        X::LibTmux::InvalidFilter, 'invalid bytes cannot become Unicode escape display';
+    throws-like { Filter.compile(%(width => %(in => [1, 2])), :entity<pane>,
+        :limits(Limits.new(:max-members(1)))) }, X::LibTmux::InvalidFilter;
+    throws-like { Filter.compile(%(NOT => %(NOT => %())), :entity<pane>,
+        :limits(Limits.new(:max-depth(1)))) }, X::LibTmux::InvalidFilter;
+    throws-like { Filter.compile(%(active => True), :entity<pane>,
+        :limits(Limits.new(:max-nodes(1)))) }, X::LibTmux::InvalidFilter;
+    my $visited = 0;
+    my $deferred = (gather { for ^1000 { ++$visited; take 1 } }).List;
+    throws-like { Filter.compile(%(width => %(in => $deferred)), :entity<pane>,
+        :limits(Limits.new(:max-nodes(16), :max-members(8)))) }, X::LibTmux::InvalidFilter;
+    cmp-ok $visited, '<=', 16, 'node bound stops deferred Lists before full materialization';
+    my $compiled = Filter.compile(%(width => %(gte => 1)), :entity<pane>);
+    dies-ok { $compiled.criteria<width><gte> = 2 }, 'normalized nested data is immutable';
+    dies-ok { $compiled.ast.children[0] = $compiled.ast }, 'AST membership is immutable';
+    throws-like { $compiled.clone(:criteria(%(unknown => 1))) }, X::LibTmux::InvalidFilter,
+        'native cloning cannot bypass compilation';
+};
+
+subtest 'wire encoding is bounded, schema mapped and precision preserving' => {
+    my $filter = Filter.compile(%(current-command => %('starts-with' => 'vi'),
+        width => %(gte => 0.5)), :entity<pane>);
+    my $json = $filter.to-json;
+    ok $json.contains('currentCommand') && $json.contains('startsWith'),
+        'wire names are separate from Raku names';
+    my $restored = Filter.from-json($json);
+    ok $restored.matches(pane(:current-command<vim>, :width(1))), 'wire predicate round trips';
+    throws-like { Filter.compile(%(width => %(gte => 1/3)), :entity<pane>).to-json },
+        X::LibTmux::InvalidFilter, 'exact rational is refused rather than rounded';
+    throws-like { Filter.compile(%(width => 2 ** 53), :entity<pane>).to-json },
+        X::LibTmux::InvalidFilter, 'unsafe integer is refused';
+    for '{"schema":"unknown","entity":"pane","where":{}}',
+        '{"schema":"libtmux.where/v1","entity":"pane","where":{"width":1e99999}}',
+        '{"schema":"libtmux.where/v1","entity":"pane","where":{"width":1e-324}}',
+        '{"schema":"libtmux.where/v1","entity":"pane","where":{"active":1}}',
+        '{"schema":"libtmux.where/v1","entity":"pane","where":{},"extra":0}' -> $invalid {
+        throws-like { Filter.from-json($invalid) }, X::LibTmux::InvalidFilter;
+    }
+    throws-like { Filter.from-json(Blob.new(255)) }, X::LibTmux::InvalidFilter;
+    throws-like { Filter.from-json($json, :limits(Limits.new(:max-wire-bytes(16)))) },
+        X::LibTmux::InvalidFilter, 'wire byte bound applies before decoding';
+    throws-like { Filter.from-json('[' x 40 ~ ']' x 40) }, X::LibTmux::InvalidFilter,
+        'wire depth bound applies before JSON parsing';
+    for <01 -01 -.5> -> $number {
+        throws-like { Filter.from-json('{"schema":"libtmux.where/v1","entity":"pane",' ~
+            '"where":{"width":' ~ $number ~ '}}') }, X::LibTmux::InvalidFilter,
+            "invalid JSON numeric spelling $number is refused";
+    }
+    for 0, 1, 13, 31 -> $control {
+        throws-like { Filter.from-json('{"schema":"libtmux.where/v1","entity":"pane",' ~
+            '"where":{"title":"' ~ $control.chr ~ '"}}') }, X::LibTmux::InvalidFilter,
+            "unescaped JSON control $control is refused";
+    }
+    ok Filter.from-json('{"schema":"libtmux.where/v1","entity":"pane",' ~
+        '"where":{"title":"\\u0000","width":1e+01}}').matches(pane(:title("\0"), :width(10))),
+        'escaped control and signed exponent remain valid JSON';
+};
+
+done-testing;

@@ -1,0 +1,84 @@
+use v6.d;
+use Test;
+use LibTmux::Query;
+use LibTmux::Query::Plan;
+use LibTmux::Capabilities;
+use LibTmux::Exceptions;
+
+my $capabilities = LibTmux::Capabilities.new(:daemon-version<3.8>, :incarnation<unit>);
+sub planned($criteria, *%options) {
+    Plan.compile(Filter.compile($criteria, :entity<pane>), :$capabilities, |%options)
+}
+
+subtest 'planner admission rejects Junctions before native autothreading' => {
+    my $filter = Filter.compile(%(active => True), :entity<pane>);
+    throws-like { Plan.compile($filter, :$capabilities, :pushdown(any(<auto never>))) },
+        X::LibTmux::InvalidFilter, 'policy must be one scalar choice';
+    throws-like { Plan.compile(any($filter, $filter), :$capabilities) },
+        X::LibTmux::InvalidFilter, 'one compiled filter supplies the plan';
+    throws-like { Plan.compile($filter, :capabilities(any($capabilities, $capabilities))) },
+        X::LibTmux::InvalidFilter, 'one daemon observation supplies the evidence';
+    throws-like { Plan.compile($filter, :$capabilities, :max-filter-bytes(any(64, 128))) },
+        X::LibTmux::InvalidFilter, 'one integer supplies the byte budget';
+};
+
+subtest 'exact restrictions compose conservatively' => {
+    my $plan = planned(%(AND => [%(active => True), %(width => %(gte => 120)),
+        %(title => %(contains => 'build'))]));
+    nok $plan.fully-pushed, 'literal text remains local';
+    like $plan.source-filter, / 'pane_active' /, 'exact flag restricts candidates';
+    like $plan.source-filter, / 'e|>=' /, 'numeric comparison uses arithmetic FORMAT';
+    unlike $plan.source-filter, / 'pane_title' /, 'text never enters source matching';
+    is planned(%(OR => [%(active => True), %(title => 'x')])).source-filter, '',
+        'one exact OR branch cannot restrict candidates';
+    is planned(%(NOT => %(active => True, title => 'x'))).source-filter, '',
+        'partial negation is not pushed';
+    ok planned(%(NOT => %(OR => [%(active => False), %(width => %(lt => 10))]))).fully-pushed,
+        'complete exact OR and NOT are eligible';
+    is planned(%(AND => [%(title => 'x'), %(id => '%999')])).source-filter, '',
+        'later restrictions cannot hide an earlier residual error';
+    my $nested = planned(%(AND => [%(AND => [%(id => '%0'), %(title => 'x')]), %(active => True)]));
+    like $nested.source-filter, / 'pane_id' /, 'a residual subtree can retain its safe prefix';
+    unlike $nested.source-filter, / 'pane_active' /, 'later siblings cannot cross the residual subtree';
+};
+
+subtest 'policies, numeric domains and immutable plans' => {
+    is planned(%(active => True), :pushdown<never>).source-filter, '', 'never keeps all work local';
+    throws-like { planned(%(title => 'x'), :pushdown<require>) }, X::LibTmux::Unsupported,
+        'require refuses an incomplete exact translation';
+    throws-like { planned(%(), :pushdown<typo>) }, X::LibTmux::InvalidFilter,
+        'unknown policies fail without I/O';
+    is planned(%(width => %(gte => 1/2))).source-filter, '', 'fractional operands stay local';
+    is planned(%(width => %(equals => 2**53))).source-filter, '', 'inexact integer operands stay local';
+    is planned(%(dead-time => %(equals => 0))).source-filter, '', 'nullable unbounded source values stay local';
+    is planned(%(id => %(in => ['%0', '%1'])), :max-filter-bytes(8)).source-filter, '',
+        'oversized expressions remain local';
+    throws-like { planned(%(id => '%0'), :max-filter-bytes(8), :pushdown<require>) },
+        X::LibTmux::Unsupported, 'require refuses an expression beyond the source budget';
+    my $plan = planned(%(active => False));
+    like $plan.source-filter, / ',0}' /, 'false means exact zero';
+    throws-like { $plan.clone(:source-filter('1')) }, X::LibTmux::InvalidFilter,
+        'prepared plans cannot be altered through native clone';
+    dies-ok { $plan.projection.fields[0] = $plan.projection.fields[1] }, 'projection membership is immutable';
+};
+
+subtest 'relations require complete data independently of candidate restrictions' => {
+    for <auto never> -> $pushdown {
+        throws-like { Plan.compile(Filter.compile(%(AND => [%(linked => True), %(id => '@999')]),
+            :entity<window>), :$capabilities, :$pushdown) },
+            X::LibTmux::MissingData, :state(LibTmux::Types::Unavailable),
+            "$pushdown refuses a field outside the root acquisition context";
+        throws-like { planned(%(window => %(is => %(linked => True))), :$pushdown) },
+            X::LibTmux::MissingData, :state(LibTmux::Types::Unavailable),
+            "$pushdown refuses an unavailable nested relationship field";
+    }
+    my $plan = planned(%(AND => [%(active => True),
+        %(window => %(is => %(panes => %(every => %(active => True)))))]));
+    ok $plan.complete-graph-required, 'relationship evaluation requires a complete graph';
+    is $plan.required-relations.elems, 2, 'nested relation paths remain inspectable';
+    is $plan.source-filter, '', 'complete graph acquisition defers source restrictions';
+    is $plan.acquisition-mode, 'full-graph', 'the executor must acquire one complete graph';
+    like $plan.steps.expression, / 'pane_active' /, 'eligible scalar work remains visible in the explanation';
+    is $plan.identity-normalization, 'scoped-id', 'physical pane identity is explicit';
+};
+done-testing;

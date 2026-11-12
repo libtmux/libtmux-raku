@@ -158,9 +158,9 @@ class Fixture is export {
 }
 
 sub make-fixture(--> Fixture:D) {
-    my $binary = %*ENV<LIBTMUX_TMUX> // '';
-    die FixtureError.new(:message('LIBTMUX_TMUX must name the live-test tmux executable'))
-        unless $binary.chars && $binary.IO.f && $binary.IO.x;
+    my $binary = %*ENV<LIBTMUX_TEST_TMUX> // '';
+    die FixtureError.new(:message('LIBTMUX_TEST_TMUX must name an absolute live-test tmux executable'))
+        unless $binary.chars && $binary.IO.is-absolute && $binary.IO.f && $binary.IO.x;
     my $template = $*TMPDIR.add('libtmux-raku-XXXXXX').Str.encode('utf8');
     my $bytes = CArray[uint8].new(|$template.list, 0);
     die FixtureError.new(:message('could not create owned fixture directory'))

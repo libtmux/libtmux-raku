@@ -1,0 +1,82 @@
+use v6.d;
+use Test;
+use Test::LibTmux::Fixture;
+use LibTmux::Engine;
+use LibTmux::Command;
+use LibTmux::Format;
+use LibTmux::Exceptions;
+use LibTmux::Catalogue;
+
+# Outer: daemon identity, command queue guards and socket reuse require real tmux.
+with-tmux(-> $fixture {
+    my $runtime = Runtime.new(:endpoint(Endpoint.new(:binary($fixture.binary),
+        :socket-path($fixture.socket-path.Str), :config-file('/dev/null'))));
+    LEAVE $runtime.close;
+    $fixture.cmd('set-hook', '-g', 'after-display-message',
+        'set-option -g @display-probed yes');
+    my $before = $runtime.observe;
+    is $before.incarnation.pid, $fixture.pid, 'identity is the actual owned daemon';
+    ok $before.capabilities.supports('managed-commands'), 'daemon profile establishes support';
+    is $before.capabilities.incarnation, $before.incarnation.key,
+        'capability evidence is bound to its observed incarnation';
+    is $fixture.cmd('show-options', '-gqv', '@display-probed'), '',
+        'identity acquisition does not invoke a display hook';
+    my $projection = Projection.new(:entity<session>, :fields<id name>,
+        :capabilities($before.capabilities));
+    my $listing = Invocation.new(:argv(['list-sessions']));
+    my $other-profile = support-policy().releases.map({
+        $before.capabilities.clone(:daemon-version(.version))
+    }).first({ .codec-profile ne $before.capabilities.codec-profile });
+    ok $other-profile.defined, 'declared profiles include the alternate codec for this regression';
+    my $incompatible = Projection.new(:entity<session>, :fields<id name>,
+        :capabilities($other-profile));
+    throws-like { $runtime.read($incompatible, $listing, :incarnation($before.incarnation)) },
+        X::LibTmux::Decode, 'identity alone cannot authorize a projection with another codec';
+    my @rows = $runtime.read($projection, $listing, :incarnation($before.incarnation));
+    is @rows[0].value('name'), 'fixture', 'declared records decode through guarded execution';
+    my $rename = Invocation.new(:argv(['rename-session', '-t', '$0', 'observatory']));
+    $runtime.execute($rename, :incarnation($before.incarnation));
+    is $fixture.cmd('list-sessions', '-F', '#{session_name}'), "observatory\n",
+        'guarded command performs its intended effect';
+    my $input = Buf.new('original'.encode.list);
+    my $load = $runtime.execute-async(
+        Invocation.new(:argv(['load-buffer', '-b', 'captured', '-'])),
+        :incarnation($before.incarnation), :stdin($input));
+    $input[0] = 'X'.ord;
+    my $loaded = await $load;
+    is $fixture.cmd('save-buffer', '-b', 'captured', '-'), 'original',
+        'async admission captures mutable input before returning';
+
+    # Process preflight still succeeds, but the queue fence must refuse this identity.
+    my $wrong-time = $before.incarnation.clone(:start-time($before.incarnation.start-time + 1));
+    throws-like { $runtime.execute($rename, :incarnation($wrong-time)) },
+        X::LibTmux::StaleReference, 'queue guard refuses a mismatched tmux start time';
+    my $unknown = $before.incarnation.clone(:daemon-version('99.99'));
+    throws-like { $runtime.execute($rename, :incarnation($unknown)) },
+        X::LibTmux::Unsupported, 'undeclared daemon profile cannot dispatch a managed command';
+
+    $fixture.close;
+    ok $fixture.exited, 'old daemon exit is proven before socket reuse';
+    $fixture.directory.mkdir;
+    my $replacement = Fixture.new(:binary($fixture.binary),
+        :directory($fixture.directory), :socket-path($fixture.socket-path));
+    LEAVE $replacement.close if $replacement.defined;
+    $replacement.start;
+    throws-like { $runtime.execute($rename, :incarnation($before.incarnation)) },
+        X::LibTmux::StaleReference, 'old reference cannot mutate a replacement with reused IDs';
+    is $replacement.cmd('list-sessions', '-F', '#{session_name}'), "fixture\n",
+        'replacement session remains unchanged';
+    my $after = $runtime.observe;
+    isnt $after.incarnation.key, $before.incarnation.key, 'new observation has new identity';
+    isnt $after.capabilities.incarnation, $before.capabilities.incarnation,
+        'new capability evidence does not retain the old incarnation';
+    throws-like { $runtime.read($projection, $listing, :incarnation($after.incarnation)) },
+        X::LibTmux::StaleReference, 'prepared projection cannot migrate to a replacement';
+    $runtime.close;
+    my $closed = $runtime.observe-async;
+    isa-ok $closed, Promise, 'closed asynchronous admission still returns a Promise';
+    throws-like { await $closed }, X::LibTmux::Command, :kind<closed>,
+        'closed owner rejects new work';
+});
+
+done-testing;

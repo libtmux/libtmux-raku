@@ -1,0 +1,201 @@
+use v6.d;
+use Test;
+use LibTmux::Attachment;
+use LibTmux::Client;
+use LibTmux::Engine;
+use LibTmux::Command;
+use LibTmux::Exceptions;
+use LibTmux::Transport;
+use LibTmux::Operations;
+use Test::LibTmux::Fixture;
+use Test::LibTmux::Terminal;
+
+sub completed(Promise:D $event, Str:D $description,
+              LibTmux::Attachment :$attachment --> Nil) {
+    my @events = $event, Promise.in(0.9);
+    @events.push($attachment.when-exited) if $attachment.defined;
+    my $wait = try await Promise.anyof(|@events);
+    if $event.status != Kept && $attachment.defined
+            && $attachment.when-exited.status != Planned {
+        my $result = await $attachment.when-exited;
+        die FixtureError.new(:message("$description: attachment exited with "
+            ~ "exitcode={$result.exitcode} signal={$result.signal}; stderr="
+            ~ $result.stderr.decode('utf8-c8').raku));
+    }
+    is $event.status, Kept, $description;
+    await $event if $event.status == Broken;
+}
+
+sub quote(Str:D $value --> Str:D) { "'" ~ $value.subst("'", "'\\''", :g) ~ "'" }
+
+with-tmux(-> $fixture {
+    my $terminal = Terminal.new;
+    LEAVE $terminal.close if $terminal.defined;
+    my %environment = %*ENV;
+    %environment<TERM> = 'xterm-256color';
+    my $endpoint = Endpoint.new(:binary($fixture.binary), :socket-path($fixture.socket-path.Str),
+        :%environment);
+    my $runtime = Runtime.new(:$endpoint);
+    LEAVE $runtime.close if $runtime.defined;
+    my $incarnation = $runtime.observe.incarnation;
+    my $ready = $fixture.directory.add('attached');
+    my $partial = $fixture.directory.add('attached-partial');
+    LEAVE { .unlink if .defined && .e for $ready, $partial }
+    my $hook = 'printf ready > ' ~ quote($partial.Str) ~ '; mv '
+        ~ quote($partial.Str) ~ ' ' ~ quote($ready.Str);
+    $fixture.cmd('set-hook', '-g', 'client-attached',
+        Invocation.new(:argv(['run-shell', '-b', $hook])).source);
+    my $notice = Promise.new;
+    my $vow = $notice.vow;
+    my $tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+        $vow.keep(True) if $event.path.IO.basename eq $ready.basename && $ready.e
+            && $notice.status == Planned;
+    });
+    LEAVE $tap.close if $tap.defined;
+    my $attachment = LibTmux::Attachment.spawn(:$endpoint, :$incarnation,
+        :session<$0>, :terminal($terminal.handle));
+    LEAVE $attachment.close if $attachment.defined;
+    is $attachment.state, AttachmentPending, 'spawn does not claim attachment proof';
+    completed($notice, 'owned hook independently proves client attachment', :$attachment);
+    my $client = $attachment.inspect-client;
+    isa-ok $client, ClientTarget;
+    is $attachment.state, AttachmentAttached, 'explicit inspection records attached state';
+    is $client.pid, $attachment.pid, 'observation belongs to the owned child';
+    is $client.name, $terminal.path, 'only the supplied terminal was attached';
+
+    my $literal = '#{pane_id} %Y %H #[fg=red] ; $x ~ café';
+    is $client.display-message($literal, :pane<%0>, :print).stdout.decode('utf8'),
+        "$literal\n", 'literal message survives FORMAT and time interpolation';
+    throws-like { $client.display-message('no fallback', :pane<%999999>, :print) },
+        X::LibTmux::StaleReference;
+    throws-like { $client.clone(:created($client.created + 1)).refresh },
+        X::LibTmux::StaleReference;
+    lives-ok { $client.refresh(:part<status>) }, 'explicit client refresh completes';
+    lives-ok { $client.refresh(:part<left>, :amount(1)) }, 'viewport movement accepts an adjustment';
+
+    $fixture.cmd('new-session', '-d', '-s', 'other', 'exec cat');
+    $client.toggle-read-only;
+    is $fixture.cmd('list-clients', '-F', '#{session_id}/#{client_readonly}').trim,
+        '$0/1', 'read-only toggle preserves the attached session despite an unattached alternative';
+    $client.toggle-read-only;
+    is $fixture.cmd('list-clients', '-F', '#{session_id}/#{client_readonly}').trim,
+        '$0/0', 'the second toggle restores flags without switching sessions';
+    $client.switch('$1');
+    is $fixture.cmd('list-clients', '-F', '#{session_id}').trim, '$1',
+        'switch changes the observed client session';
+    $client.switch('$0');
+
+    $client.choose('tree', :pane<%0>);
+    is $fixture.cmd('display-message', '-p', '-t', '%0', '#{pane_mode}').trim,
+        'tree-mode', 'choose enters a shared pane mode';
+    $fixture.cmd('send-keys', '-t', '%0', 'q');
+
+    my $popup = $client.popup-async(:shell-command('exit 0'), :pane<%0>, :timeout-ms(900));
+    completed($popup, 'popup command completes after its child exits');
+    my $prompt-seen = $terminal.when-text('raku-prompt');
+    my $prompt = $client.prompt-async(CommandTemplate.new(
+        :source('set-option -g @raku-prompt "%1"')), :prompts<raku-prompt>, :timeout-ms(900));
+    completed($prompt-seen, 'terminal output proves prompt was displayed');
+    $terminal.send("accepted\r");
+    completed($prompt, 'prompt response completes the waiting request');
+    is $fixture.cmd('show-option', '-gv', '@raku-prompt').trim, 'accepted',
+        'the explicit prompt template consumed user input';
+
+    my $menu-seen = $terminal.when-text('raku-menu');
+    my %appearance = operation-capabilities($incarnation).supports('menu-appearance')
+        ?? %(style => 'default', starting-choice => 0) !! %();
+    my $menu = $client.menu-async([MenuItem.new(:label<raku-menu>, :key<x>,
+        :command(Invocation.new(:argv(['set-option', '-g', '@raku-menu', '#{pane_id}']))))],
+        :pane<%0>, :timeout-ms(900), |%appearance);
+    completed($menu-seen, 'terminal output proves the menu was displayed');
+    $terminal.send('x');
+    completed($menu, 'menu request completes');
+    my $menu-done = $terminal.when-text('raku-confirm');
+    my $confirmation = $client.confirm-async(Invocation.new(
+        :argv(['set-option', '-g', '@raku-confirm', 'yes'])),
+        :prompt<raku-confirm>, :timeout-ms(900));
+    completed($menu-done, 'confirmation is displayed after menu input');
+    is $fixture.cmd('show-option', '-gv', '@raku-menu').trim, '#{pane_id}',
+        'menu command preserves its literal argument across FORMAT expansion';
+    $terminal.send('y');
+    completed($confirmation, 'confirmation response completes the request');
+    is $fixture.cmd('show-option', '-gv', '@raku-confirm').trim, 'yes',
+        'confirmed command has an independently observed effect';
+
+    my $popup-seen = $terminal.when-text('raku-cancellable');
+    my $cancel = Cancellation.new;
+    my $waiting = $client.popup-async(:shell-command('printf raku-cancellable; exec cat'),
+        :pane<%0>, :timeout-ms(900), :close<manual>, :$cancel);
+    completed($popup-seen, 'popup output proves the interactive command is running');
+    $cancel.cancel;
+    throws-like { await $waiting }, X::LibTmux::Command, :kind<cancelled>;
+    lives-ok { $client.close-popup }, 'caller explicitly removes the surviving overlay';
+
+    $client.detach;
+    completed($attachment.when-exited, 'detachment is followed by owned child exit');
+    is $attachment.state, AttachmentExited, 'exit changes attachment state';
+    is $attachment.when-exited.result.exitcode, 0, 'detached client exited successfully';
+    ok $terminal.handle.opened, 'attachment leaves the caller terminal open';
+    throws-like { $client.refresh }, X::LibTmux::StaleReference;
+    lives-ok { $attachment.close; $attachment.close }, 'owner cleanup is idempotent';
+
+    my $active = LibTmux::Attachment.spawn(:$endpoint, :$incarnation,
+        :session<$0>, :terminal($terminal.handle));
+    LEAVE $active.close if $active.defined;
+    throws-like { $active.clone }, X::LibTmux::Command;
+    $active.close;
+    is $active.when-exited.status, Kept, 'closing an active owner joins its child';
+    ok $active.when-exited.result.reaped, 'closed child is reaped';
+    ok $terminal.handle.opened, 'active close preserves the caller handle';
+    is $fixture.cmd('display-message', '-p', '#{pid}').trim.Int, $fixture.pid,
+        'active close preserves the borrowed daemon';
+
+    my $wrapper = $fixture.directory.add('vanishing-tmux');
+    LEAVE $wrapper.unlink if $wrapper.defined && $wrapper.e;
+    $wrapper.spurt("#!/usr/bin/env python3\nimport os,sys\n"
+        ~ "if any('list-sessions' in a for a in sys.argv[1:]): os.unlink(__file__)\n"
+        ~ 'os.execv(' ~ $fixture.binary.raku ~ ', [' ~ $fixture.binary.raku ~ "] + sys.argv[1:])\n");
+    $wrapper.chmod(0o700);
+    my $vanishing = $endpoint.clone(:binary($wrapper.Str));
+    my $changed = Incarnation.new(:endpoint-key($vanishing.key), :boot-id($incarnation.boot-id),
+        :pid($incarnation.pid), :start-ticks($incarnation.start-ticks),
+        :start-time($incarnation.start-time), :daemon-version($incarnation.daemon-version));
+    throws-like { LibTmux::Attachment.spawn(:endpoint($vanishing), :incarnation($changed),
+        :session<$0>, :terminal($terminal.handle)) }, X::LibTmux::Command, :kind<spawn>;
+    ok $terminal.handle.opened, 'failed OS spawn leaves the supplied handle open';
+
+    $wrapper.spurt("#!/usr/bin/env python3\nimport os,sys\n"
+        ~ "if any('attach-session' in a for a in sys.argv[1:]):\n"
+        ~ "    os.write(2,b'x'*1024)\n    sys.exit(0)\n"
+        ~ 'os.execv(' ~ $fixture.binary.raku ~ ', [' ~ $fixture.binary.raku ~ "] + sys.argv[1:])\n");
+    $wrapper.chmod(0o700);
+    my $noisy = LibTmux::Attachment.spawn(:endpoint($vanishing), :incarnation($changed),
+        :session<$0>, :terminal($terminal.handle), :max-stderr-bytes(64));
+    LEAVE $noisy.close if $noisy.defined;
+    throws-like { await $noisy.when-exited }, X::LibTmux::Command,
+        :kind<output-limit>, :reaped({ $_ === True });
+    lives-ok { $noisy.close }, 'stderr overflow still joins the owned child';
+
+    my $moved = $fixture.directory.add('socket.saved');
+    my $flags = $fixture.directory.add('attachment-flags');
+    LEAVE {
+        $moved.rename($fixture.socket-path) if $moved.defined && $moved.e;
+        $flags.unlink if $flags.defined && $flags.e;
+    }
+    $wrapper.spurt("#!/usr/bin/env python3\nimport os,sys\n"
+        ~ "if any('attach-session' in a for a in sys.argv[1:]):\n"
+        ~ '    open(' ~ $flags.Str.raku ~ ", 'w').write(str('-N' in sys.argv[1:]))\n"
+        ~ '    os.rename(' ~ $fixture.socket-path.Str.raku ~ ', ' ~ $moved.Str.raku ~ ")\n"
+        ~ 'os.execv(' ~ $fixture.binary.raku ~ ', [' ~ $fixture.binary.raku ~ "] + sys.argv[1:])\n");
+    my $absent = LibTmux::Attachment.spawn(:endpoint($vanishing), :incarnation($changed),
+        :session<$0>, :terminal($terminal.handle));
+    LEAVE $absent.close if $absent.defined;
+    completed($absent.when-exited, 'missing socket after preflight terminates the owned client');
+    isnt $absent.when-exited.result.exitcode, 0, 'missing daemon is an unsuccessful attachment';
+    is $flags.slurp, 'True', 'interactive argv explicitly forbids server bootstrap';
+    nok $fixture.socket-path.e, 'attachment did not create a replacement socket';
+    $moved.rename($fixture.socket-path);
+    is $fixture.cmd('display-message', '-p', '#{pid}').trim.Int, $fixture.pid,
+        'the original borrowed daemon remains independently reachable';
+});
+done-testing;

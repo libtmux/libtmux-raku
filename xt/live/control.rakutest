@@ -1,0 +1,139 @@
+use v6.d;
+use Test;
+use Test::LibTmux::Fixture;
+use LibTmux::Control;
+use LibTmux::Control::Connection;
+use LibTmux::Engine;
+use LibTmux::Command;
+use LibTmux::Format;
+use LibTmux::Transport;
+use LibTmux::Types;
+use LibTmux::Exceptions;
+
+# Outer: control protocol, real pane events, request settlement and owned client exit.
+with-tmux(-> $fixture {
+    my $endpoint = Endpoint.new(:binary($fixture.binary), :socket-path($fixture.socket-path.Str));
+    my $control = LibTmux::Control::Connection.connect(:$endpoint, :session-id<$0>);
+    LEAVE $control.close if $control.defined;
+    my $identity = $control.observation.incarnation;
+    is $identity.pid, $fixture.pid, 'connection identity matches the owned daemon';
+    ok $control.events.live, 'events belong to a shared live source';
+    my $projection = Projection.new(:entity<pane>, :fields<id title active>,
+        :capabilities($control.observation.capabilities));
+    my @rows = $control.read($projection, Invocation.new(:argv(['list-panes', '-a'])),
+        :incarnation($identity));
+    is @rows[0].value('id'), '%0', 'declared projected reads use the connection';
+    my $snapshot = $control.snapshot;
+    is $snapshot.sessions.single.name, 'fixture', 'control acquisition builds the same snapshot graph';
+    ok $snapshot.windows.single.decoded-layout.known, 'negotiated layout bytes decode locally';
+    my $nested = $control.execute(Invocation.new(:argv(['if-shell', '-F', '1',
+        'list-panes -F NESTED'])));
+    is $nested.payload.decode, "NESTED\n", 'nested commands stay within one request barrier';
+    is $nested.records.elems, 2, 'outer and nested guard blocks retain attribution';
+    throws-like { $control.execute(Invocation.new(:argv(['no-such-libtmux-command']))) },
+        X::LibTmux::Command, :kind<control-command>, 'command failure is correlated';
+    my $after = $control.execute(Invocation.new(:argv(['list-sessions', '-F', '#{session_id}'])));
+    is $after.payload.decode, "\$0\n", 'ordinary command failure does not poison connection';
+
+    my $observed = Promise.new;
+    my $event-vow = $observed.vow;
+    my $tap = $control.events.tap(-> $event {
+        $event-vow.keep($event) if $event ~~ PaneOutput && $observed.status == Planned;
+    }, :quit({ $event-vow.break($_) if $observed.status == Planned }));
+    LEAVE $tap.close if $tap.defined;
+    $control.execute(Invocation.new(:argv(['send-keys', '-l', '-t', '%0', 'meteor'])));
+    await Promise.anyof($observed, Promise.in(2));
+    is $observed.status, Kept, 'a real pane output notification reaches the subscriber';
+    is $observed.result.pane-id, '%0';
+
+    my $cancel = Cancellation.new;
+    $cancel.cancel;
+    throws-like { await $control.execute-async(Invocation.new(:argv(['kill-session', '-t', '$0'])),
+        :$cancel) }, X::LibTmux::Command, :kind<cancelled>, :outcome(NotStarted);
+    is $fixture.cmd('list-sessions', '-F', '#{session_id}'), "\$0\n",
+        'pre-cancelled command was never dispatched';
+    my $job = $control.execute(Invocation.new(:argv(['run-shell', 'printf ASYNC-PAYLOAD'])));
+    ok $job.records.elems >= 1, 'queue barrier waits for the foreground job';
+    if $control.observation.capabilities.supports('control-job-output') {
+        is $job.payload.decode, "ASYNC-PAYLOAD\n", 'capable daemon returns job output after its guard';
+    } else {
+        is $job.payload.elems, 0, 'older daemon keeps job output in its pane view mode';
+        is $fixture.cmd('display-message', '-p', '-t', '%0', '#{pane_in_mode}'), "1\n",
+            'legacy job-output destination is observed explicitly';
+    }
+    my $pid = $control.pid;
+    my $a = $control.close-async;
+    my $b = $control.close-async;
+    ok $a === $b, 'concurrent close returns the same completion';
+    await $a;
+    ok $control.reaped, 'owned control child is reaped';
+    nok "/proc/$pid".IO.e, 'control client process has exited';
+    is $fixture.cmd('list-sessions', '-F', '#{session_id}'), "\$0\n",
+        'connection close leaves the borrowed daemon alive';
+    my $legacy = LibTmux::Control::Connection.connect(:$endpoint, :session-id<$0>, :!new-layouts);
+    LEAVE $legacy.close if $legacy.defined;
+    is $legacy.observation.capabilities.layout-profile, 'classic',
+        'explicit legacy negotiation selects the actual control dialect';
+    is $legacy.snapshot.windows.single.decoded-layout.profile, 'classic',
+        'legacy control layout remains decodable on a modern daemon';
+});
+
+with-tmux(-> $fixture {
+    my $endpoint = Endpoint.new(:binary($fixture.binary), :socket-path($fixture.socket-path.Str));
+    my $control = LibTmux::Control::Connection.connect(:$endpoint, :session-id<$0>, :max-pending(2));
+    LEAVE $control.close if $control.defined;
+    $fixture.cmd('wait-for', '-L', 'control-test-gate');
+    LEAVE try $fixture.cmd('wait-for', '-U', 'control-test-gate');
+    my $entered = Promise.new;
+    my $entered-vow = $entered.vow;
+    my $tap = $control.events.tap(-> $event {
+        $entered-vow.keep(True) if $event.kind eq 'window-renamed'
+            && $event.raw.decode('utf8-c8').ends-with(' blocked') && $entered.status == Planned;
+    }, :quit({ $entered-vow.break($_) if $entered.status == Planned }));
+    LEAVE $tap.close if $tap.defined;
+    my $cancel = Cancellation.new;
+    my $blocked = $control.execute-async(Invocation.new(:argv(['if-shell', '-F', '1',
+        'rename-window -t @0 blocked ; wait-for -L control-test-gate'])), :$cancel);
+    await Promise.anyof($entered, Promise.in(2));
+    is $entered.status, Kept, 'notification proves the compound request reached the server';
+    my $queued-cancel = Cancellation.new;
+    my $queued = $control.execute-async(Invocation.new(:argv(['rename-window', '-t', '@0', 'wrong'])),
+        :cancel($queued-cancel));
+    $queued-cancel.cancel;
+    throws-like { await $queued }, X::LibTmux::Command, :kind<cancelled>, :outcome(NotStarted),
+        'queued cancellation is settled without dispatch';
+    throws-like { await $control.execute-async(Invocation.new(:argv(['list-sessions']))) },
+        X::LibTmux::Command, :kind<overflow>, :outcome(NotStarted),
+        'cancelled queue entries remain bounded until the worker consumes them';
+    $cancel.cancel;
+    throws-like { await $blocked }, X::LibTmux::Command, :kind<cancelled>, :outcome(Indeterminate),
+        'dispatched cancellation preserves uncertain effects';
+    $control.close;
+    ok $control.reaped, 'cancelled control client is reaped';
+    is $fixture.cmd('list-windows', '-F', '#{window_name}'), "blocked\n",
+        'queued mutation never ran';
+});
+
+with-tmux(-> $fixture {
+    my $endpoint = Endpoint.new(:binary($fixture.binary), :socket-path($fixture.socket-path.Str));
+    my $control = LibTmux::Control::Connection.connect(:$endpoint, :session-id<$0>);
+    LEAVE $control.close if $control.defined;
+    my $blocked = $control.execute-async(Invocation.new(:argv(['wait-for', 'control-never-signalled'])),
+        :deadline(now + 0.15));
+    throws-like { await $blocked }, X::LibTmux::Command, :kind<timeout>, :outcome(Indeterminate),
+        'the absolute deadline bounds a waiting server command';
+    $control.close;
+    ok $control.reaped, 'timed out client is reaped';
+    $fixture.cmd('wait-for', '-S', 'control-never-signalled');
+    my $later = LibTmux::Control::Connection.connect(:$endpoint, :session-id<$0>);
+    LEAVE $later.close if $later.defined;
+    isnt $later.epoch, $control.epoch, 'reconnection creates a new owner epoch';
+    $fixture.close;
+    await $later.closed;
+    ok $later.failure.defined, 'daemon exit is an explicit connection failure';
+    ok $later.reaped, 'disconnected child is reaped';
+    throws-like { $later.execute(Invocation.new(:argv(['list-sessions']))) },
+        X::LibTmux::Command, :kind<closed>, 'disconnected owner cannot resume admission';
+});
+
+done-testing;

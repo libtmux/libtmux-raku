@@ -24,9 +24,31 @@
     "LibTmux": "lib/LibTmux.rakumod",
     "LibTmux::Exceptions": "lib/LibTmux/Exceptions.rakumod",
     "LibTmux::Types": "lib/LibTmux/Types.rakumod",
-    "LibTmux::Transport": "lib/LibTmux/Transport.rakumod"
+    "LibTmux::Catalogue": "lib/LibTmux/Catalogue.rakumod",
+    "LibTmux::Capabilities": "lib/LibTmux/Capabilities.rakumod",
+    "LibTmux::Transport": "lib/LibTmux/Transport.rakumod",
+    "LibTmux::Command": "lib/LibTmux/Command.rakumod",
+    "LibTmux::Format": "lib/LibTmux/Format.rakumod",
+    "LibTmux::Layout": "lib/LibTmux/Layout.rakumod",
+    "LibTmux::Engine": "lib/LibTmux/Engine.rakumod",
+    "LibTmux::Query": "lib/LibTmux/Query.rakumod",
+    "LibTmux::Selection": "lib/LibTmux/Selection.rakumod",
+    "LibTmux::Model": "lib/LibTmux/Model.rakumod",
+    "LibTmux::Server": "lib/LibTmux/Server.rakumod",
+    "LibTmux::Fields": "lib/LibTmux/Fields.rakumod",
+    "LibTmux::Operations": "lib/LibTmux/Operations.rakumod",
+    "LibTmux::Control": "lib/LibTmux/Control.rakumod",
+    "LibTmux::Configuration": "lib/LibTmux/Configuration.rakumod",
+    "LibTmux::Control::Connection": "lib/LibTmux/Control/Connection.rakumod",
+    "LibTmux::Client": "lib/LibTmux/Client.rakumod",
+    "LibTmux::Attachment": "lib/LibTmux/Attachment.rakumod",
+    "LibTmux::Batch": "lib/LibTmux/Batch.rakumod",
+    "LibTmux::Query::Plan": "lib/LibTmux/Query/Plan.rakumod",
+    "LibTmux::Query::Execution": "lib/LibTmux/Query/Execution.rakumod"
   },
-  "resources": [],
+  "resources": [
+    "catalogue.json"
+  ],
   "tags": [
     "tmux",
     "terminal",

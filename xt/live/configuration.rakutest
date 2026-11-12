@@ -1,0 +1,85 @@
+use v6.d;
+use Test;
+use LibTmux::Configuration;
+use LibTmux::Engine;
+use LibTmux::Command;
+use LibTmux::Types;
+use LibTmux::Operations;
+use Test::LibTmux::Fixture;
+
+# Outer: native configuration commands and byte-preserving reads on an owned server.
+with-tmux(-> $fixture {
+    my $endpoint = Endpoint.new(:binary($fixture.binary), :socket-path($fixture.socket-path.Str));
+    my $runtime = Runtime.new(:$endpoint);
+    LEAVE $runtime.close if $runtime.defined;
+    my $incarnation = $runtime.observe.incarnation;
+    my $session = $fixture.cmd('list-sessions', '-F', '#{session_id}').trim;
+    my $options = Options.new(:$endpoint, :$incarnation, :scope<session>, :target($session));
+    nok $options.get('@not-created').defined, 'a missing validated user option is absent';
+    throws-like { $options.clone(:target<$999999>).get('@not-created') },
+        X::LibTmux::Command, :kind<exit>, 'a missing target is never option absence';
+    $options.set('mouse', True);
+    is-deeply $options.get('mouse'), True, 'flag roundtrip yields Bool';
+    $options.set('mouse', False);
+    is-deeply $options.get('mouse'), False, 'false is a captured value rather than absence';
+    my $text = Blob.new(1..255).decode('utf8-c8') ~ " literal #{'{pid}'}\t\n\"'\\ %~\$ " ~ Blob.new(255).decode('utf8-c8');
+    $options.set('status-left', $text);
+    is-deeply $options.get('status-left').encode('utf8-c8'), $text.encode('utf8-c8'),
+        'quoted option output preserves literal FORMAT, controls and invalid UTF-8';
+    $options.set('update-environment', 'WITH SPACE', :index(7));
+    is $options.get('update-environment', :index(7)), 'WITH SPACE', 'array index retains one value';
+    $options.unset('update-environment', :index(7));
+    nok $options.get('update-environment', :index(7)).defined, 'unset array member is absent';
+    my $global = $options.clone(:global, :target(''));
+    $global.set('status-left', 'inherited');
+    $options.unset('status-left');
+    ok $options.entries(:name<status-left>)[0].inherited, 'effective reads retain parent provenance';
+    is $options.get('status-left'), 'inherited', 'global value is read through explicit inheritance';
+    my $environment = Environment.new(:$endpoint, :$incarnation, :scope<session>, :target($session));
+    $environment.set('LIBTMUX_VALUE', $text);
+    is-deeply $environment.get('LIBTMUX_VALUE').bytes.list, $text.encode('utf8-c8').list,
+        'environment read decodes shell quoting without executing its contents';
+    $environment.remove('LIBTMUX_VALUE');
+    ok $environment.get('LIBTMUX_VALUE').removed, 'removed marker remains distinct from absence';
+    $environment.unset('LIBTMUX_VALUE');
+    nok $environment.get('LIBTMUX_VALUE').defined, 'unset removes the environment entry';
+    $environment.set('LIBTMUX_SECRET', 'value', :hidden);
+    nok $environment.get('LIBTMUX_SECRET').defined, 'normal listing excludes hidden variables';
+    is $environment.get('LIBTMUX_SECRET', :hidden).value, 'value', 'hidden listing is explicit';
+    $fixture.cmd('set-environment', '-t', $session, 'NON-PORTABLE', 'native');
+    is $environment.get('LIBTMUX_SECRET', :hidden).value, 'value',
+        'named lookup is independent of unrelated native variable names';
+    my $buffers = Buffers.new(:$endpoint, :$incarnation);
+    my $bytes = Blob.new(0..255);
+    $buffers.put('binary', $bytes);
+    is-deeply $buffers.get('binary'), $bytes, 'paste buffer bytes include NUL and invalid UTF-8';
+    is $buffers.list.first(*.name eq 'binary').size, 256, 'buffer metadata describes acquired content';
+    $buffers.rename('binary', 'renamed');
+    is-deeply $buffers.get('renamed'), $bytes, 'buffer rename retains content';
+    $buffers.delete('renamed');
+    nok $buffers.list.first(*.name eq 'renamed').defined, 'buffer deletion removes metadata';
+    my $hooks = Hooks.new(:$endpoint, :$incarnation, :scope<session>, :target($session));
+    my $hook-command = Invocation.new(:argv(['set-option', '-t', $session, '@hook-value', 'literal; value']));
+    $hooks.set('after-select-pane', $hook-command, :index(3));
+    is $hooks.list(:name<after-select-pane>)[0].index, 3, 'hook list retains an explicit index';
+    like $hooks.list(:name<after-select-pane>)[0].value, / 'set-option' /,
+        'hook command source is observed without executing it';
+    $hooks.unset('after-select-pane', :index(3));
+    is $hooks.list(:name<after-select-pane>).elems, 0, 'hook unset removes its member';
+    my $keys = KeyBindings.new(:$endpoint, :$incarnation);
+    $keys.bind(';', $hook-command, :table<libtmux-test>, :repeat, :note("literal\n#{'{pid}'}"));
+    my $binding = $keys.list(:table<libtmux-test>)[0];
+    is $binding.key, ';', 'binding key crosses native argument quoting';
+    ok $binding.repeat, 'repeat flag is captured';
+    like $binding.command-source, / 'set-option' /, 'bound command remains inspectable native source';
+    if operation-capabilities($incarnation).supports('key-binding-format') {
+        is $binding.note, "literal\n#{'{pid}'}", 'projected binding note retains literal text';
+    } else {
+        is $binding.note-state, Unloaded, 'legacy binding note availability is explicit';
+    }
+    $keys.unbind(';', :table<libtmux-test>);
+    $keys.bind('x', $hook-command, :table<libtmux-test>);
+    is $keys.list(:table<libtmux-test>).elems, 1, 'unbind removes the earlier key';
+    $keys.clear('libtmux-test');
+});
+done-testing;

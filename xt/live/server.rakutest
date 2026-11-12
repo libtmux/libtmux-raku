@@ -1,0 +1,251 @@
+use v6.d;
+use Test;
+use NativeCall;
+use LibTmux;
+use LibTmux::Exceptions;
+use LibTmux::Transport :!DEFAULT;
+use Test::LibTmux::Fixture;
+
+sub shell-quote(Str:D $text --> Str:D) { "'" ~ $text.subst("'", "'\\''", :g) ~ "'" }
+sub mkfifo(Str, uint32 --> int32) is native { * }
+
+# Outer: owned foreground daemons, exact names, acquisition and process teardown.
+my $binary = %*ENV<LIBTMUX_TEST_TMUX> // die 'LIBTMUX_TEST_TMUX is required';
+with-tmux(-> $fixture {
+    my $server = LibTmux::Server.new(:$binary, :socket-path($fixture.socket-path.Str));
+    LEAVE $server.close if $server.defined;
+    subtest 'captured pane edges retain border-status semantics' => {
+        for <top bottom off> -> $status {
+            $fixture.cmd('set-option', '-w', '-t', '@0', 'pane-border-status', $status);
+            my $pane = $server.snapshot.panes.single;
+            ok $pane.at-top && $pane.at-bottom && $pane.at-left && $pane.at-right,
+                "the sole pane touches every edge with $status border status";
+        }
+    };
+    subtest 'explicit environment, exact existence and bounded server jobs' => {
+        my $imported = LibTmux::Server.from-env(:$binary,
+            :environment(%(TMUX => $fixture.socket-path.Str ~ ',' ~ $fixture.pid ~ ',0',
+                TMUX_PANE => '%0')));
+        LEAVE $imported.close if $imported.defined;
+        ok !$imported.owned, 'environment import borrows the verified daemon';
+        is $imported.environment-pane-id, '%0', 'explicit environment retains the pane identity';
+        is $imported.environment-session-id, '$0', 'explicit environment retains the session identity';
+        my $inside = $imported.snapshot;
+        my $origin = $inside.panes.where(%(id => $imported.environment-pane-id)).single;
+        is $origin.window.id, '@0', 'environment pane composes with local window traversal';
+        is $inside.sessions.where(%(id => $imported.environment-session-id)).single.id,
+            '$0', 'environment session resolves through captured exact cardinality';
+        ok !($imported.endpoint.environment<TMUX>:exists), 'child environment remains isolated';
+        throws-like {
+            LibTmux::Server.from-env(:$binary,
+                :environment(%(TMUX => $fixture.socket-path.Str ~ ',' ~ ($fixture.pid + 1) ~ ',0')))
+        }, X::LibTmux::StaleReference, 'environment PID mismatch is not absence or fallback';
+        ok $server.has-session(:id<$0>) && $server.has-session(:name<fixture>),
+            'existence accepts exact IDs and literal names';
+        nok $server.has-session(:name<fix>), 'existence does not use tmux prefix matching';
+        my $output = $fixture.directory.add('job-output');
+        my $config = $fixture.directory.add('config*[?]\\name');
+        LEAVE {
+            $output.unlink if $output.defined && $output.e;
+            $config.unlink if $config.defined && $config.e;
+        }
+        $server.run-shell(q[printf '%s' '#{pid}' > ] ~ shell-quote($output.Str));
+        is $output.slurp, '#{pid}', 'shell source preserves literal FORMAT-looking text';
+        my $yes = Invocation.new(:argv(['set-option', '-s', '@raku-condition', 'yes']));
+        my $no = Invocation.new(:argv(['set-option', '-s', '@raku-condition', 'no']));
+        $server.if-shell('exit 1', $yes, :otherwise($no));
+        is $server.options.get('@raku-condition'), 'no', 'shell status selects the encoded alternate';
+        $server.if-shell('1', $yes, :format);
+        is $server.options.get('@raku-condition'), 'yes', 'explicit FORMAT condition selects its command';
+        $config.spurt("set-option -s @raku-source captured\n");
+        $server.source-file($config.Str);
+        is $server.options.get('@raku-source'), 'captured', 'source-file treats glob metacharacters literally';
+        $server.wait-for('raku-ready', :action<signal>);
+        lives-ok { $server.wait-for('raku-ready') }, 'native remembered signal resolves without polling';
+        $server.wait-for('raku-lock', :action<lock>);
+        lives-ok { $server.wait-for('raku-lock', :action<unlock>) }, 'typed lock and unlock share a channel';
+    };
+    ok $server.capabilities.supports('managed-commands'), 'borrowed capabilities come from its daemon';
+    for '#{pid}', '#[fg=blue]', '##[fg=blue]', 'cash$~;quote"', 'snowman☃' -> $name {
+        my $session = $server.new-session(:$name, :shell-command('exec cat'));
+        isa-ok $session, SessionRef, 'creation returns an identity-scoped reference';
+        is $fixture.cmd('list-sessions', '-f', '#{==:#{session_id},' ~ $session.id ~ '}',
+            '-F', '#{session_name}'), "$name\n", 'creation preserves the literal name';
+    }
+    my $snapshot = $server.snapshot;
+    is $snapshot.sessions.elems, 6, 'snapshot captures the borrowed graph explicitly';
+    my $options = $server.options;
+    $options.set('@raku-facade', 'nebula');
+    is $options.get('@raku-facade'), 'nebula', 'server option facade keeps a typed daemon identity';
+    $server.environment.set('LIBTMUX_RAKU_REVIEW', 'starlight');
+    is $server.environment.get('LIBTMUX_RAKU_REVIEW').value, 'starlight',
+        'global environment factory supplies the explicit global scope';
+    my $buffers = $server.buffers;
+    $buffers.put('raku-review', Blob.new(0, 10, 255));
+    is-deeply $buffers.get('raku-review'), Blob.new(0, 10, 255),
+        'server buffer facade preserves binary values';
+    my $input = Buf.new('before'.encode.list);
+    my $pending = $server.command-async(
+        Invocation.new(:argv(['load-buffer', '-b', 'raku-admission', '-'])), :stdin($input));
+    $input[0] = 'a'.ord;
+    await $pending;
+    is $buffers.get('raku-admission').decode, 'before',
+        'asynchronous command owns input bytes before the caller can mutate them';
+    my $report = $server.run-batch(Batch.new(:operations([
+        Operation.new(:name<phase>, :acknowledgement-only,
+            :command(Invocation.new(:argv(['set-option', '-s', '@raku-phase', 'orbit'])))),
+    ])));
+    is $report.outcome, Complete, 'server batch returns the declared command-scope result';
+    is $options.get('@raku-phase'), 'orbit', 'independent lookup observes the batch effect';
+    my $connection = $server.open-control(:session-id<$0>);
+    LEAVE $connection.close if $connection.defined;
+    is $connection.snapshot.sessions.elems, 6, 'public control factory acquires the same captured graph';
+    my $cancel = Cancellation.new;
+    $cancel.cancel;
+    throws-like { await $server.snapshot-async(:$cancel) }, X::LibTmux::Command, :kind<cancelled>,
+        'public snapshot cancellation reaches the acquisition owner';
+    $server.close;
+    is $connection.snapshot.sessions.elems, 6, 'separately owned control survives borrowed facade close';
+    $connection.close;
+    is $fixture.cmd('list-sessions', '-F', '#{session_id}').lines.elems, 6,
+        'closing borrowed facade preserves the daemon';
+    my $absent-path = $fixture.directory.add('absent').Str;
+    my $absent = LibTmux::Server.new(:$binary, :socket-path($absent-path));
+    LEAVE $absent.close if $absent.defined;
+    throws-like { $absent.new-session(:name<absent>) }, X::LibTmux::Command, :kind<identity>,
+        'borrowed creation does not bootstrap a missing daemon';
+    throws-like { $absent.has-session(:name<fixture>) }, X::LibTmux::Command, :kind<identity>,
+        'session existence preserves a missing-daemon acquisition error';
+    ok !$absent-path.IO.e, 'failed borrowed creation leaves its socket absent';
+
+    my $wrapper = $fixture.directory.add('startup-wrapper');
+    my $record = $fixture.directory.add('startup-record');
+    LEAVE { $wrapper.unlink if $wrapper.defined && $wrapper.e; $record.unlink if $record.defined && $record.e }
+    $wrapper.spurt('#!/bin/sh' ~ "\n" ~ 'if [ "$1" = -V ]; then exec ' ~ shell-quote($binary)
+        ~ ' "$@"; fi' ~ "\n" ~ 'printf \'%s\\n%s\\n\' "$$" "$3" > '
+        ~ shell-quote($record.Str) ~ "\nexit 17\n");
+    $wrapper.chmod(0o700);
+    throws-like { LibTmux::Server.start(:binary($wrapper.Str)) }, X::LibTmux::Command,
+        :kind<spawn>, 'foreground startup failure is reported';
+    my ($failed-pid, $failed-socket) = $record.lines;
+    ok !"/proc/$failed-pid".IO.e && !$failed-socket.IO.parent.e,
+        'startup failure reaps the owned child and removes the empty directory';
+    $record.unlink;
+    my $fifo = $fixture.directory.add('startup-pipe');
+    my $partial = $fixture.directory.add('startup-partial');
+    LEAVE { $fifo.unlink if $fifo.defined && $fifo.e; $partial.unlink if $partial.defined && $partial.e }
+    die 'could not create startup FIFO' if mkfifo($fifo.Str, 0o600);
+    $wrapper.spurt('#!/bin/sh' ~ "\n" ~ 'if [ "$1" = -V ]; then exec ' ~ shell-quote($binary)
+        ~ ' "$@"; fi' ~ "\n" ~ 'printf \'%s\\n%s\\n\' "$$" "$3" > '
+        ~ shell-quote($partial.Str) ~ "\nmv " ~ shell-quote($partial.Str) ~ ' '
+        ~ shell-quote($record.Str) ~ "\nexec /bin/cat " ~ shell-quote($fifo.Str) ~ "\n");
+    $cancel = Cancellation.new;
+    my $tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+        $cancel.cancel if $event.path.IO.basename eq $record.basename && $record.e;
+    });
+    LEAVE $tap.close if $tap.defined;
+    throws-like { LibTmux::Server.start(:binary($wrapper.Str), :$cancel, :timeout-ms(1_000)) },
+        X::LibTmux::Command, :kind<cancelled>, 'startup cancellation follows a launch notification';
+    my ($cancelled-pid, $cancelled-socket) = $record.lines;
+    ok !"/proc/$cancelled-pid".IO.e && !$cancelled-socket.IO.parent.e,
+        'startup cancellation reaps the process and removes its empty directory';
+    $tap.close;
+    $record.unlink;
+    my $counter = $fixture.directory.add('version-counter');
+    my $observing = $fixture.directory.add('observing');
+    LEAVE { $counter.unlink if $counter.defined && $counter.e; $observing.unlink if $observing.defined && $observing.e }
+    $wrapper.spurt('#!/bin/sh' ~ "\n" ~ 'if [ "$1" = -V ]; then' ~ "\n"
+        ~ 'if [ -e ' ~ shell-quote($counter.Str) ~ ' ]; then' ~ "\n"
+        ~ 'printf ready > ' ~ shell-quote($partial.Str) ~ "\nmv " ~ shell-quote($partial.Str)
+        ~ ' ' ~ shell-quote($observing.Str) ~ "\nexec /bin/cat " ~ shell-quote($fifo.Str)
+        ~ "\nfi\n: > " ~ shell-quote($counter.Str) ~ "\nexec " ~ shell-quote($binary)
+        ~ ' "$@"' ~ "\nfi\n" ~ 'printf \'%s\\n%s\\n\' "$$" "$3" > '
+        ~ shell-quote($record.Str) ~ "\nexec " ~ shell-quote($binary) ~ ' "$@"' ~ "\n");
+    my $late-cancel = Cancellation.new;
+    my $late-tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+        $late-cancel.cancel if $event.path.IO.basename eq $observing.basename && $observing.e;
+    });
+    LEAVE $late-tap.close if $late-tap.defined;
+    throws-like {
+        LibTmux::Server.start(:binary($wrapper.Str), :cancel($late-cancel), :timeout-ms(1_000))
+    }, X::LibTmux::Command, :kind<cancelled>,
+        'startup cancellation after listening interrupts the identity observation';
+    my ($late-pid, $late-socket) = $record.lines;
+    ok !"/proc/$late-pid".IO.e && !$late-socket.IO.parent.e,
+        'post-listen cancellation reaps the daemon and removes its socket directory';
+    LEAVE {
+        if $late-socket.defined {
+            $late-socket.IO.unlink if $late-socket.IO.e;
+            $late-socket.IO.parent.rmdir if $late-socket.IO.parent.e;
+        }
+    }
+    $late-tap.close;
+    $record.unlink;
+    $wrapper.spurt("#!/bin/sh\nprintf 'tmux future-vendor\\n'\n");
+    throws-like { LibTmux::Server.start(:binary($wrapper.Str)) }, X::LibTmux::Unsupported,
+        :feature<owned-start>, 'unknown executables are refused before launch';
+    $wrapper.spurt('#!/bin/sh' ~ "\n" ~ 'if [ "$1" = -V ]; then rm -- "$0"; exec '
+        ~ shell-quote($binary) ~ ' -V; fi' ~ "\nexit 31\n");
+    my $child-code = q:to/CHILD/;
+        use LibTmux::Server;
+        use LibTmux::Exceptions;
+        temp $*TMPDIR = @*ARGS[1].IO;
+        my $error;
+        try {
+            LibTmux::Server.start(:binary(@*ARGS[0]));
+            CATCH { default { $error = $_ } }
+        }
+        die 'missing typed spawn failure' unless $error ~~ X::LibTmux::Command
+            && $error.kind eq 'spawn';
+        say 'caught spawn';
+        CHILD
+    my $executor = LibTmux::Transport::Executor.new(:timeout-ms(5_000));
+    LEAVE $executor.close if $executor.defined;
+    my $child = $executor.execute(($*EXECUTABLE.Str, '-I.', '-e', $child-code,
+        $wrapper.Str, $fixture.directory.Str).List, :!check);
+    is $child.exitcode, 0, 'post-version spawn failure remains catchable in the caller';
+    is $child.stdout.decode, "caught spawn\n", 'spawn failure does not escape from a stream callback';
+    my @left = $fixture.directory.dir.grep(*.basename.starts-with('libtmux-owned-'));
+    LEAVE { .rmdir for @left.grep({ .d && !.dir.elems }) }
+    is @left.elems, 0, 'post-version spawn failure removes its empty owned directory';
+});
+
+my $owned = LibTmux::Server.start(:$binary, :name<observatory>, :shell-command('exec cat'));
+LEAVE $owned.close if $owned.defined;
+ok $owned.owned, 'start creates an explicitly owned daemon';
+my $snapshot = await $owned.snapshot-async;
+is $snapshot.sessions.single.name, 'observatory', 'owned start returns a usable initial session';
+my $pid = $snapshot.incarnation.pid;
+my $directory = $owned.endpoint.socket-path.IO.parent;
+$owned.kill-server;
+$owned.close;
+ok !"/proc/$pid".IO.e, 'owned foreground daemon has exited and been reaped';
+ok !$directory.e, 'original socket and empty owned directory are removed';
+throws-like { $snapshot.sessions.single.ref.rename('stale') }, X::LibTmux::StaleReference,
+    'retained references cannot operate after owned shutdown';
+
+my $preserved = LibTmux::Server.start(:$binary, :name<files>, :shell-command('exec cat'));
+LEAVE $preserved.close if $preserved.defined;
+my $folder = $preserved.endpoint.socket-path.IO.parent;
+my $extra = $folder.add('user-data');
+LEAVE { $extra.unlink if $extra.defined && $extra.e; $folder.rmdir if $folder.defined && $folder.e }
+$extra.spurt('retain');
+with-tmux(-> $replacement {
+    my $socket = $preserved.endpoint.socket-path.IO;
+    my $original = $folder.add('original-socket');
+    $socket.rename($original);
+    $replacement.socket-path.rename($socket);
+    LEAVE {
+        $socket.rename($replacement.socket-path) if $socket.e;
+        $original.unlink if $original.e;
+    }
+    throws-like { $preserved.capabilities }, X::LibTmux::StaleReference,
+        'owned facade refuses a replacement daemon';
+    $preserved.close;
+    ok $socket.e, 'cleanup preserves the replacement socket';
+    $socket.rename($replacement.socket-path);
+    is $replacement.cmd('list-sessions', '-F', '#{session_name}'), "fixture\n",
+        'cleanup leaves the replacement daemon running';
+});
+is $extra.slurp, 'retain', 'owned cleanup preserves unknown files';
+done-testing;

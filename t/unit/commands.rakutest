@@ -1,0 +1,107 @@
+use v6.d;
+use Test;
+use LibTmux::Types;
+use LibTmux::Engine;
+use LibTmux::Model;
+use LibTmux::Operations;
+use LibTmux::Exceptions;
+use LibTmux::Configuration;
+use LibTmux::Client;
+use LibTmux::Command;
+use LibTmux::Transport;
+
+my $endpoint = Endpoint.new(:binary('/does/not/exist'), :socket-path('/unused'));
+sub identity(Str:D $version = '3.8', Str:D $boot = 'unit' --> Incarnation:D) {
+    Incarnation.new(:endpoint-key($endpoint.key), :boot-id($boot),
+        :pid(1), :start-ticks(1), :start-time(1), :daemon-version($version))
+}
+my $incarnation = identity();
+my $pane = PaneRef.new(:$endpoint, :$incarnation, :id<%1>);
+my $window = WindowRef.new(:$endpoint, :$incarnation, :id<@1>);
+my $session = SessionRef.new(:$endpoint, :$incarnation, :id('$1'));
+
+subtest 'inherited reference operations validate once before dispatch' => {
+    my $invocation = Invocation.new(:argv(['list-sessions']));
+    for $session, $window -> $reference {
+        throws-like { $reference.command($invocation) }, X::LibTmux::StaleReference,
+            'precompiled role methods reach their private runtime helper';
+        throws-like { $reference.command(any($invocation, $invocation)) },
+            X::LibTmux::Command, :kind<argument>, :outcome(NotStarted),
+            'role command admission refuses a Junction before typed dispatch';
+        throws-like { $reference.inspect(:unknown-option) }, X::LibTmux::Command,
+            :kind<argument>, :outcome(NotStarted),
+            'role inspection admission refuses unknown named input';
+    }
+    my class CountedPane is PaneRef {
+        has Int $.dispatches = 0;
+        method command(Invocation:D $command, *%options --> Result:D) {
+            $!dispatches++;
+            Result.new
+        }
+    }
+    my $target = CountedPane.new(:$endpoint, :$incarnation, :id<%1>);
+    throws-like { $target.set-title(any('first', 'second')) }, X::LibTmux::Command,
+        :kind<argument>, :outcome(NotStarted), 'a title Junction is one rejected operation';
+    throws-like { $target.set-title('title', :unknown-option) }, X::LibTmux::Command,
+        :kind<argument>, :outcome(NotStarted), 'unknown named input is rejected before dispatch';
+    is $target.dispatches, 0, 'rejected inherited calls dispatch no commands';
+    $target.set-title('one title');
+    is $target.dispatches, 1, 'ordinary typed input still dispatches exactly once';
+};
+
+subtest 'configuration facades retain only the addressed scope and identity' => {
+    for $session, $window, $pane -> $reference {
+        isa-ok $reference.options, Options, 'options are available without daemon I/O';
+        isa-ok $reference.hooks, Hooks, 'hooks are available without daemon I/O';
+        is $reference.options.scope, $reference.entity, 'options use the reference entity scope';
+        is $reference.options.target, $reference.id, 'options retain the stable ID';
+        is $reference.hooks.incarnation.key, $incarnation.key, 'hooks retain the observed daemon';
+    }
+    isa-ok $session.environment, Environment, 'session environment construction performs no I/O';
+    is $session.environment.target, $session.id, 'environment retains its session target';
+    isa-ok ClientRef.new(:$endpoint, :$incarnation, :name<client>, :pid(2), :created(1)),
+        ClientTarget, 'client references share the value-only command facade';
+};
+
+subtest 'literal FORMAT data and identity projections' => {
+    is literal-format('#[fg=red] #{session_name};'),
+        '#{a:35}[fg=red] #{a:35}{session_name};',
+        'hashes become literal without corrupting style-shaped text';
+    is created-id(Blob.new("LTM1-pane-%12\n".encode.list), 'pane'), '%12',
+        'creation consumes the returned pane identity';
+    throws-like { created-id(Blob.new("LTM1-pane-%12\n%13\n".encode.list), 'pane') },
+        X::LibTmux::Decode, 'extra output cannot silently choose the wrong object';
+    throws-like { created-id(Blob.new("LTM1-pane-\@12\n".encode.list), 'pane') },
+        X::LibTmux::Decode, 'entity-specific identity is validated';
+    throws-like { literal-format("bad\0data") }, X::LibTmux::Command,
+        :kind<argument>, :outcome(NotStarted);
+};
+
+subtest 'invalid effects fail before transport admission' => {
+    throws-like { spawn-arguments(:environment({ NAME => any('one', 'two') })) },
+        X::LibTmux::Command, :kind<argument>, :outcome(NotStarted),
+        'environment Junction values are rejected before string interpolation';
+    throws-like { $pane.split(:size(10), :percent(50)) }, X::LibTmux::Command,
+        :kind<argument>, :outcome(NotStarted), 'ambiguous size has no side effects';
+    throws-like { $pane.resize(:width(10), :direction<left>) }, X::LibTmux::Command,
+        :kind<argument>, :outcome(NotStarted), 'absolute and relative resize cannot mix';
+    throws-like { $pane.send-keys }, X::LibTmux::Command,
+        :kind<argument>, :outcome(NotStarted), 'empty key requests are rejected';
+    throws-like { $pane.join(PaneRef.new(:$endpoint, :incarnation(identity('3.8', 'other')),
+        :id<%2>)) }, X::LibTmux::StaleReference,
+        'cross-daemon pane movement fails before either daemon is contacted';
+    throws-like { $session.new-window(:empty, :shell-command<cat>) },
+        X::LibTmux::Command, :kind<argument>, :outcome(NotStarted);
+    throws-like { $window.select-layout('imaginary-layout') },
+        X::LibTmux::Command, :kind<argument>, :outcome(NotStarted);
+    throws-like { PaneRef.new(:$endpoint, :incarnation(identity('3.3a')), :id<%1>)
+        .new-floating(:width(20), :height(10)) }, X::LibTmux::Unsupported,
+        :feature<pane-floating>, 'capability refusal precedes process creation';
+    my $broken-profile = identity('3.7');
+    throws-like { PaneRef.new(:$endpoint, :incarnation($broken-profile), :id<%1>).break(
+        SessionRef.new(:$endpoint, :incarnation($broken-profile), :id('$1'))) },
+        X::LibTmux::Unsupported, :feature<break-pane-name-defect>,
+        'the upstream unnamed break crash is refused before any effect';
+};
+
+done-testing;

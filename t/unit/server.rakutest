@@ -1,0 +1,70 @@
+use v6.d;
+use Test;
+use LibTmux;
+use LibTmux::Exceptions;
+use LibTmux::Command;
+use LibTmux::Transport;
+use LibTmux::Control::Connection;
+
+my $server = LibTmux::Server.new(:binary('/nonexistent/libtmux-no-io'),
+    :socket-path('/nonexistent/libtmux-owned.sock'));
+ok !$server.owned, 'construction captures a borrowed endpoint without I/O';
+is $server.endpoint.binary, '/nonexistent/libtmux-no-io', 'endpoint retains its configured binary';
+for Map.new, %(TMUX => 'relative,12,0'), %(TMUX => '/tmp/socket,0,0'),
+    %(TMUX => '/tmp/socket,12,no'), %(TMUX => '/tmp/socket,12,0', TMUX_PANE => '@1') -> $environment {
+    throws-like { LibTmux::Server.from-env(:$environment) }, X::LibTmux::Command,
+        :kind<argument>, :outcome(NotStarted), 'environment import rejects malformed identity before I/O';
+}
+throws-like { $server.has-session(:name(any(<a b>))) }, X::LibTmux::Command,
+    :kind<argument>, 'session existence rejects junction targets before observation';
+throws-like { $server.wait-for('channel', :action<unknown>) }, X::LibTmux::Command,
+    :kind<argument>, 'synchronization action is a closed native choice';
+for %(name => ''), %(max-output-bytes => 0), %(binary => "tmux\0") -> %invalid {
+    throws-like { LibTmux::Server.start(|%invalid) }, X::LibTmux::Command,
+        :kind<argument>, :outcome(NotStarted), 'invalid startup preserves its argument error';
+}
+for '', 'has.dot', 'has:colon', "has\\slash", "has\nline", "has\c[133]control" -> $name {
+    throws-like { $server.new-session(:$name) }, X::LibTmux::Command,
+        :kind<argument>, :outcome(NotStarted), 'normalized names fail before subprocess admission';
+}
+throws-like { $server.clone }, X::LibTmux::Command, 'an owning facade cannot be cloned';
+throws-like { $server.options(:scope<pane>) }, X::LibTmux::Command,
+    :kind<argument>, 'an untargeted server cannot expose pane options';
+throws-like { $server.environment(:globall) }, X::LibTmux::Command,
+    :kind<argument>, :outcome(NotStarted), 'an effectful facade rejects unknown settings before observation';
+my $invalid-query = $server.query-async('pane', :where(any(%(active => True), %(active => False))));
+isa-ok $invalid-query, Promise, 'junction criteria do not autothread the async facade';
+throws-like { await $invalid-query }, X::LibTmux::InvalidFilter,
+    'query data rejects junctions before any daemon observation';
+throws-like { $server.query-panes(:pushdown(any(<auto never>))) }, X::LibTmux::InvalidFilter,
+    'invalid source policy fails before the nonexistent daemon executable can run';
+throws-like { $server.query-panes(:wher(%(active => True))) }, X::LibTmux::Command,
+    :kind<argument>, :outcome(NotStarted), 'a misspelled filter cannot run an unfiltered query';
+subtest 'async facades reject fan-out before contacting the daemon' => {
+    my $commands = any(Invocation.new(:argv(['list-sessions'])), Invocation.new(:argv(['list-panes'])));
+    my $cancel = any(Cancellation.new, Cancellation.new);
+    for -> { $server.command-async($commands) },
+        -> { $server.snapshot-async(:$cancel) },
+        -> { $server.capabilities-async(:$cancel) },
+        -> { $server.query-async('pane', :$cancel) },
+        -> { $server.open-control-async(:session-id(any('$1', '$2'))) },
+        -> { LibTmux::Control::Connection.connect-async(:endpoint($server.endpoint),
+            :session-id(any('$1', '$2'))) } -> &request {
+        my $pending = request();
+        ok $pending.^isa(Promise), 'one API call returns one Promise';
+        if $pending.^isa(Promise) {
+            throws-like { await $pending }, X::LibTmux::Command,
+                :kind<argument>, :outcome(NotStarted);
+        }
+    }
+};
+my $first = $server.close-async;
+ok $first === $server.close-async, 'close callers share one completion';
+throws-like { $first.keep(True) }, X::Promise::Vowed,
+    'callers cannot forge close completion';
+await $first;
+my $snapshot = $server.snapshot-async;
+isa-ok $snapshot, Promise, 'closed snapshot admission remains asynchronous';
+throws-like { await $snapshot }, X::LibTmux::Command, :kind<closed>,
+    'closed facade refuses acquisition';
+done-testing;

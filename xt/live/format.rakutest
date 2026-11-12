@@ -1,0 +1,69 @@
+use v6.d;
+use Test;
+use Test::LibTmux::Fixture;
+use LibTmux::Format;
+use LibTmux::Layout;
+use LibTmux::Capabilities;
+use LibTmux::Command;
+use LibTmux::Types;
+
+# Outer: validates real list/display output and live layout observations.
+with-tmux(-> $fixture {
+    my $version = $fixture.cmd('display-message', '-p', '#{version}').chomp;
+    my $capabilities = LibTmux::Capabilities.new(:daemon-version($version));
+    my $projection = Projection.new(:entity<pane>, :fields<id active width title>,
+        :$capabilities);
+    my @payloads = Blob.new, Blob.new(1..255),
+        Blob.new("e\x[301] λ 🦋".encode('utf8').list),
+        Blob.new(q[ $HOME ~0A \\n #{pane_id} ;].encode('utf8').list),
+        |(34, 39, 36, 92, 126).map({ Blob.new($_) });
+    my @failures;
+    for @payloads.kv -> $index, $payload {
+        my $set = Invocation.new(:argv([
+            'set-option', '-g', '@libtmux-codec', $payload.decode('utf8-c8'),
+        ]));
+        $fixture.cmd(|$set.as-argv);
+        # A user option can hold bytes which tmux's title setter normalizes.
+        # Substitute only the test source variable, retaining the production codec.
+        my $template = $projection.template.subst('pane_title', '@libtmux-codec');
+        for ['list-panes', '-a', '-F', $template],
+            ['display-message', '-p', $template] -> @command {
+            my $decoder = FrameDecoder.new(:$projection);
+            my @rows = $decoder.feed($fixture.cmd(|@command, :bin));
+            $decoder.finish;
+            @failures.push("$index/{@command[0]}")
+                unless @rows.elems == 1 && @rows[0].bytes('title') eqv $payload;
+        }
+    }
+    is-deeply @failures, [], 'all non-NUL bytes and quoting cases survive both live command paths';
+
+    my @null-states;
+    for ['session', <id grouped group-name>, 'list-sessions'],
+        ['pane', <id mode dead-signal>, 'list-panes'] -> ($entity, $fields, $command) {
+        my $nullable = Projection.new(:$entity, :$fields, :$capabilities);
+        my $decoder = FrameDecoder.new(:projection($nullable));
+        my $row = $decoder.feed($fixture.cmd($command, '-F', $nullable.template, :bin))[0];
+        $decoder.finish;
+        @null-states.append($entity eq 'session' ?? $row.state('group-name')
+            !! <mode dead-signal>.map({ $row.state($_) }));
+    }
+    is-deeply @null-states, [KnownNull, KnownNull, KnownNull],
+        'real callback NULL values follow catalogue policies in both codec profiles';
+
+    $fixture.cmd('split-window', '-d', '-h', 'exec cat');
+    my $tiled = decode-layout($fixture.cmd('display-message', '-p', '#{window_layout}').chomp,
+        :profile($capabilities.layout-profile));
+    is $tiled.tiled.elems, 2, 'live split layout contains both tiled panes';
+    if $capabilities.supports('layout-json') {
+        $fixture.cmd('new-pane', '-d', '-O', '-x', '20', '-y', '7', 'exec cat');
+        my $modal = $fixture.cmd('display-message', '-p', '#{window_modal_pane}').chomp;
+        my $layout = decode-layout(
+            $fixture.cmd('display-message', '-p', '#{window_layout}').chomp,
+            :profile($capabilities.layout-profile), :modal-pane-id($modal));
+        is $layout.tiled.elems, 2, 'modal placement does not consume a tiled leaf';
+        is $layout.floating.elems, 1, 'live JSON represents the floating pane';
+        is $layout.modal.pane-id, $modal, 'separate modal identity resolves into the layout';
+    }
+});
+
+done-testing;

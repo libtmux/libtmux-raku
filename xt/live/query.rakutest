@@ -1,0 +1,61 @@
+use v6.d;
+use Test;
+use LibTmux;
+use Test::LibTmux::Fixture;
+
+# Outer: controlled graph, source/local agreement, both explicit acquisition owners.
+with-tmux(-> $fixture {
+    my $server = Server.new(:binary($fixture.binary), :socket-path($fixture.socket-path.Str));
+    LEAVE $server.close if $server.defined;
+    $fixture.cmd('split-window', '-d', '-t', '%0', 'exec cat');
+    $fixture.cmd('select-pane', '-t', '%0', '-T', 'blue');
+    $fixture.cmd('select-pane', '-t', '%1', '-T', 'red');
+    my $connection = $server.open-control(:session-id<$0>);
+    LEAVE $connection.close if $connection.defined;
+    my $captured = $server.snapshot;
+    my %criteria = id => %(in => ['%0', '%1']), width => %(gte => 1);
+    my @expected = $captured.panes.where(%criteria).map(*.id);
+    for $server, $connection -> $source {
+        subtest $source.^name => {
+            for <auto never require> -> $policy {
+                my $result = $source.query-panes(:where(%criteria), :pushdown($policy));
+                isa-ok $result, PaneSelection, "$policy returns a typed selection";
+                is-deeply $result.map(*.id).List, @expected.List,
+                    "$policy agrees with local evaluation over the controlled graph";
+                throws-like { $result[0].window }, X::LibTmux::MissingData,
+                    'scalar-only acquisition leaves unrelated graph data unloaded';
+            }
+            my %local = AND => [%(id => '%0'), %(title => %(contains => 'blue'))];
+            my $plan = $source.explain-panes(:where(%local));
+            ok $plan.source-filter.chars && !$plan.fully-pushed,
+                'exact ID conjunct restricts candidates while literal text remains local';
+            is $source.query-panes(:where(%local)).single.id, '%0',
+                'residual literal text evaluates on captured candidates';
+            my %every = id => '%0', window => %(is => %(panes => %(every => %(title => 'blue'))));
+            my $related = $source.explain-panes(:where(%every));
+            is $related.acquisition-mode, 'full-graph', 'relation plan declares full acquisition';
+            is $related.source-filter, '', 'relation plan defers source restrictions';
+            is $source.query-panes(:where(%every)).elems, 0,
+                'a filtered blue candidate cannot conceal its red sibling from every';
+            my %some = window => %(is => %(panes => %(some => %(title => 'red'))));
+            my $both = $source.query-panes(:where(%some));
+            is $both.elems, 2, 'complete relation data selects both physical panes';
+            is $both[0].window.panes.elems, 2, 'returned relation-query views retain the complete graph';
+            throws-like { $source.query-panes(:where(%every), :pushdown<require>) },
+                X::LibTmux::Unsupported, :feature<query-pushdown>;
+            my $empty = await $source.query-async('pane', :where(%(id => '%999999')));
+            isa-ok $empty, PaneSelection, 'async empty result preserves its schema';
+            is $empty.elems, 0, 'async acquisition returns an empty captured selection';
+            my %submitted = id => %(in => ['%999999']);
+            my $pending = $source.query-async('pane', :where(%submitted));
+            %submitted<id><in>[0] = '%0';
+            is (await $pending).elems, 0,
+                'async admission copies nested criteria before caller mutation';
+        };
+    }
+    my $selection = $server.query-panes(:where(%(id => '%0')));
+    $connection.close;
+    $server.close;
+    is $selection.single.title, 'blue', 'selection remains readable after its acquisition owners close';
+});
+done-testing;

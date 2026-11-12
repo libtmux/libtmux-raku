@@ -3,6 +3,7 @@ unit module LibTmux::Transport;
 
 use LibTmux::Types;
 use LibTmux::Exceptions;
+use LibTmux::Command :DEFAULT, :internals;
 
 class Executor { ... }
 
@@ -52,20 +53,35 @@ class Cancellation is export {
     }
 }
 
+#| Internal retained-output accounting shared by command executor adapters.
+role Receipt is export {
+    method output-bytes(--> Count:D) { ... }
+}
+
 #| Captured child output. Complete means process completion, not application effects.
-class Result is export {
+class Result does Receipt is export {
+    #| Captured stdout bytes; no text normalization or implicit decoding is applied.
     has Blob:D $.stdout = Blob.new;
+    #| Captured stderr bytes, drained concurrently with stdout.
     has Blob:D $.stderr = Blob.new;
+    #| Child exit status; inspect signal separately for signal termination.
     has Int:D $.exitcode = 0;
+    #| Terminating signal number, or zero for ordinary process exit.
     has Int:D $.signal = 0;
+    #| Owned client process ID associated with this result.
     has Int:D $.pid = 0;
+    #| Whether the owned client completion was joined.
     has Bool:D $.reaped = True;
+    #| Known command outcome; Complete does not prove an external application effect.
     has Outcome:D $.outcome = Complete;
 
     submethod TWEAK() {
         $!stdout = Blob.new($!stdout.list);
         $!stderr = Blob.new($!stderr.list);
     }
+
+    #| Retained stdout and stderr bytes, excluding fixed metadata and object overhead.
+    method output-bytes(--> Count:D) { $!stdout.elems + $!stderr.elems }
 
     #| Reconstruct copies through the constructor, including replacement byte buffers.
     method clone(*%changes --> Result:D) {
@@ -139,6 +155,7 @@ sub deadline(Stop:D $stop, Positive:D $milliseconds) {
 #| Owns bounded subprocess operations and joins all admitted work during close.
 class Executor is export {
     has Positive:D $.timeout-ms = 10_000;
+    #| Combined output-byte limit for one owned command response.
     has Positive:D $.max-output-bytes = 8 * 1024 * 1024;
     has Positive:D $.cleanup-timeout-ms = 1_000;
     has Lock $!lock .= new;
@@ -154,26 +171,29 @@ class Executor is export {
     #| Lifecycle owners cannot share mutable state through a shallow clone.
     method clone(|) { invalid('Executor cannot be cloned') }
     #| Await the same bounded operation used by execute-async.
-    method execute($argv, *%options --> Result:D) {
+    method execute(Mu $argv, *%options --> Result:D) is single-operation {
         await self.execute-async($argv, |%options)
     }
 
     #| Snapshot arguments and run one child; errors break the returned Promise.
-    method execute-async($argv, :$stdin = Blob.new,
-        :$environment = %*ENV, :$cwd = $*CWD,
-        :$cancel = Cancellation, :$check = True,
-        :$timeout-ms = $!timeout-ms --> Promise:D) {
-        my @arguments;
-        my $input;
-        my $env;
+    method execute-async(Mu $argv, Mu :$stdin = Blob.new,
+        Mu :$environment = %*ENV, Mu :$cwd = $*CWD,
+        Mu :$cancel = Cancellation, Mu :$check = True,
+        Mu :$timeout-ms = $!timeout-ms --> Promise:D) is single-operation('async') {
+        my Str @arguments;
+        my Blob $input;
+        my Environment $env;
         my IO::Path $directory;
         my $error;
         try {
+            for $argv, $stdin, $environment, $cwd, $cancel, $check, $timeout-ms -> Mu $value {
+                invalid('An operation argument cannot be a Junction') if $value.^isa(Junction);
+            }
             invalid('argv must be a nonempty positional collection')
                 unless $argv ~~ Positional:D && $argv.elems;
-            for $argv.list -> $argument {
+            for $argv.list -> Mu $argument {
                 invalid('every argv value must be a defined Str without NUL')
-                    unless $argument ~~ Str:D && !$argument.contains("\0");
+                    unless !$argument.^isa(Junction) && $argument ~~ Str:D && !$argument.contains("\0");
                 @arguments.push($argument.Str);
             }
             invalid('the executable must not be empty') unless @arguments[0].chars;
@@ -181,9 +201,10 @@ class Executor is export {
             $input = Blob.new($stdin.list);
             invalid('environment must be associative') unless $environment ~~ Associative:D;
             my %entries;
-            for $environment.kv -> $key, $value {
+            for $environment.kv -> Mu $key, Mu $value {
                 invalid('environment names and values must be defined NUL-free strings')
-                    unless $key ~~ Str:D && $key.chars && !$key.contains('=') &&
+                    unless !$key.^isa(Junction) && !$value.^isa(Junction) &&
+                        $key ~~ Str:D && $key.chars && !$key.contains('=') &&
                         !$key.contains("\0") && $value ~~ Str:D && !$value.contains("\0");
                 %entries{$key.Str} = $value.Str;
             }

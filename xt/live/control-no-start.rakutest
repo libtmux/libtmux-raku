@@ -1,0 +1,69 @@
+use v6.d;
+use Test;
+use Test::LibTmux::Fixture;
+use LibTmux::Control::Connection;
+use LibTmux::Engine;
+use LibTmux::Transport;
+
+# Outer: a Python pidfd seam removes only the fixture daemon immediately before attach.
+my $executor = Executor.new(:timeout-ms(2_000));
+LEAVE $executor.close if $executor.defined;
+my $python = try $executor.execute(['python3', '--version'], :!check);
+bail-out('Python 3 is required for the control startup seam')
+    unless $python.defined && !$python.exitcode && $python.stdout.decode.starts-with('Python 3.');
+
+with-tmux(-> $fixture {
+    my $marker = $fixture.directory.add('replacement-started');
+    my $config = $fixture.directory.add('replacement.conf');
+    my $wrapper = $fixture.directory.add('control-client');
+    $config.spurt("set-option -s exit-empty off\nrun-shell \"printf started > '$marker'\"\n");
+    my $python = q:to/PY/;
+#!/usr/bin/env python3
+import os, select, subprocess, sys
+binary, socket, pid = __BINARY__, __SOCKET__, __PID__
+if '-C' in sys.argv[1:] and 'attach-session' in sys.argv[1:]:
+    fd = os.pidfd_open(pid)
+    subprocess.run([binary, '-N', '-S', socket, 'kill-server'], check=True,
+                   stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert select.select([fd], [], [], 1)[0], 'original daemon did not exit'
+    os.close(fd)
+os.execv(binary, [binary] + sys.argv[1:])
+PY
+    # Fixture paths contain only the private mkdtemp prefix and safe suffixes.
+    $wrapper.spurt($python.subst('__BINARY__', "'{$fixture.binary}'")
+        .subst('__SOCKET__', "'{$fixture.socket-path}'").subst('__PID__', $fixture.pid.Str));
+    $wrapper.chmod(0o700);
+    my $endpoint = Endpoint.new(:binary($wrapper.Str), :socket-path($fixture.socket-path.Str),
+        :config-file($config.Str));
+    LEAVE { .unlink if .e for $marker, $config, $wrapper }
+    my $failure;
+    try {
+        LibTmux::Control::Connection.connect(:$endpoint, :session-id<$0>, :timeout-ms(5_000));
+        CATCH { default { $failure = $_ } }
+    }
+    ok $failure.defined, 'attach fails after its observed daemon exits';
+    my $check = $executor.execute([
+        $fixture.binary, '-N', '-S', $fixture.socket-path.Str,
+        'display-message', '-p', '#{pid}',
+    ], :!check, :environment($endpoint.environment));
+    ok so $check.exitcode, 'borrowed attach leaves no replacement daemon';
+    if !$check.exitcode {
+        my $replacement = $check.stdout.decode.trim.Int;
+        my $cleanup = q:to/PY/;
+import os, select, subprocess, sys
+pid, binary, socket = int(sys.argv[1]), sys.argv[2], sys.argv[3]
+fd = os.pidfd_open(pid)
+subprocess.run([binary, '-N', '-S', socket, 'kill-server'], check=False,
+               stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+assert select.select([fd], [], [], 1)[0], 'owned replacement daemon did not exit'
+os.close(fd)
+PY
+        $executor.execute(['python3', '-c', $cleanup,
+            $replacement.Str, $fixture.binary, $fixture.socket-path.Str],
+            :environment($endpoint.environment));
+    }
+    nok $marker.e, 'borrowed control attach must not start a replacement or execute its config';
+    nok "/proc/{$fixture.pid}".IO.e, 'the original owned daemon has exited after the pidfd barrier';
+});
+
+done-testing;
