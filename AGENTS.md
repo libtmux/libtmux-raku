@@ -37,7 +37,8 @@ Keep `libtmux/libtmux-raku` private. Do not push to the `tony` organization.
 Use only the repositories and operations authorized for the current task.
 The active core goal excludes package publication and changes to other ports.
 Do not push to public repositories or open a libtmux/docs PR while the user's
-hold remains active. Keep upstream `tmux/tmux` research read-only.
+hold remains active. The user permits a logo branch and PR in `libtmux/assets`.
+Keep upstream `tmux/tmux` research read-only.
 
 ## Merging pull requests
 

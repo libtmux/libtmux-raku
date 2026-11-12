@@ -93,19 +93,8 @@ The ordinary `t/` suite contains pure tests; `xt/live/` is an explicit outer
 gate. Required CI runs both endpoints and cannot treat skipped live tests as
 success. Test helpers under `t/lib/` are author code, not installed modules.
 
-Artwork generation has separate author dependencies. Install them outside
-validation loops:
-
-```console
-$ npm ci --prefix docs/assets
-```
-
-Check the generated images against their source geometry and palette:
-
-```console
-$ npm run check --prefix docs/assets
-```
-
+Logo exports and their upstream source provenance live in [docs/assets](../docs/assets/README.md).
+Keep artwork build dependencies in the upstream artwork project.
 
 Check tracked edits for whitespace errors:
 
@@ -159,6 +148,24 @@ These conventions follow the [distribution guide][distribution],
 [Mi6's author-test workflow][mi6-ci]. Active libraries sometimes retain old
 action versions or legacy metadata; evaluate those choices independently.
 
+## Formatting and additional analysis
+
+Keep formatter changes opt-in and review their diffs. A bounded evaluation on
+the pinned compiler tested grammars, regexes, heredocs, quote operators,
+comments, Pod and multi signatures:
+
+| Tool | Evaluated result | Repository policy |
+| --- | --- | --- |
+| [Raku Navigator 0.5.3][navigator] | Changed quoted string values and Pod indentation | Set `raku.formatting.enable` to `false`; navigation remains optional. |
+| [rakufmt 0.0.1][rakufmt] | Preserved 18 behavioral assertions, comments, Pod and repeated formatting | Experimental author tool; no required formatting gate. |
+| [static 0.0.1][static] | Detected a type mismatch accepted by plain compilation | Advisory default `fail-on-mismatch`; do not enforce uncertainty rejection. |
+
+These results apply to the linked source revisions and the bounded corpus,
+not every Raku program. Neither formatter success nor idempotence proves
+semantic preservation. Run affected behavioral tests after formatting.
+Compiler-backed formatting and analysis may execute compile-time code.
+Keep these tools outside runtime dependencies and timed unit loops.
+
 ## tmux isolation
 
 The runtime floor is tmux 3.3a on Linux. For tests and probes,
@@ -180,3 +187,6 @@ work. Repository privacy, pushes, and publication follow
 [zef-ci]: https://github.com/ugexe/zef/blob/a5289115b669adfe8afd2bea52d031320fed5d78/.github/workflows/tests.yml
 [rak-meta]: https://github.com/lizmat/App-Rak/blob/3123265d994a2067c32d93addc6295eb5554505b/META6.json
 [mi6-ci]: https://github.com/skaji/mi6/blob/235a052d7655b809d7a669ec1d57487b70afbf90/.github/workflows/test.yml
+[navigator]: https://github.com/bscan/RakuNavigator/tree/ccd511dbd156f396eed613f21adbcd8e38a8c784
+[rakufmt]: https://github.com/ugexe/Raku-rakufmt/tree/529a707df7d76feedfc536e50b9d52acc942c076
+[static]: https://github.com/FCO/static/tree/a3c731c5462a95ddba634a8d1e5903e0f415bca9

@@ -16,6 +16,6 @@ and tmux from the supported floor through the current endpoint. Compatibility
 is established by the required tests, not by this development description.
 
 See [contributing](.github/CONTRIBUTING.md) for setup and verification, and
-[writing](.github/WRITING.md) for documentation conventions. Logo geometry,
-palette, renderer and third-party notices live in [docs/assets](docs/assets).
+[writing](.github/WRITING.md) for documentation conventions. Logo assets
+and source provenance live in [docs/assets](docs/assets/README.md).
 The repository remains private; no package has been published.
