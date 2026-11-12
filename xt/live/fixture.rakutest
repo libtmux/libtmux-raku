@@ -1,0 +1,99 @@
+use v6.d;
+use Test;
+use NativeCall;
+use Test::LibTmux::Fixture;
+
+# Outer: starts owned daemons and verifies Linux process-exit events.
+class ExitEvent is repr('CStruct') {
+    has int32 $.fd is rw;
+    has int16 $.events is rw = 1;
+    has int16 $.revents is rw;
+}
+sub pidfd_open(int32, uint32 --> int32) is native { * }
+sub poll(ExitEvent, size_t, int32 --> int32) is native { * }
+sub close(int32 --> int32) is native { * }
+
+subtest 'successful callback releases its daemon and directory' => {
+    my $fixture;
+    my int32 $exit-fd = -1;
+    LEAVE {
+        $fixture.close if $fixture.defined;
+        close($exit-fd) if $exit-fd >= 0;
+    }
+    temp %*ENV<TMUX> = 'borrowed-marker';
+    temp %*ENV<TMUX_PANE> = '%987654321';
+    my $answer = with-tmux(-> $owned {
+        $fixture = $owned;
+        $exit-fd = pidfd_open($owned.pid, 0);
+        die 'could not independently watch daemon exit' if $exit-fd < 0;
+        is $owned.cmd('display-message', '-p', '#{session_name}').trim,
+            'fixture', 'owned server is ready for commands';
+        my $environment = $owned.cmd('show-environment', '-g');
+        nok $environment.contains('borrowed-marker'), 'ambient TMUX is absent';
+        nok $environment.contains('TMUX_PANE='), 'ambient pane is absent';
+        42
+    });
+    is $answer, 42, 'callback result survives cleanup';
+    is poll(ExitEvent.new(:fd($exit-fd)), 1, 0), 1,
+        'kernel reports daemon exit before the helper returns';
+    nok $fixture.directory.e, 'owned socket directory is removed';
+    ok $fixture.exited, 'fixture retains completed exit evidence';
+};
+
+class CallbackFailure is Exception { }
+
+subtest 'callback failure still releases the owned daemon' => {
+    my $fixture;
+    my int32 $exit-fd = -1;
+    LEAVE {
+        $fixture.close if $fixture.defined;
+        close($exit-fd) if $exit-fd >= 0;
+    }
+    my $expected = CallbackFailure.new;
+    my $caught;
+    try {
+        with-tmux(-> $owned {
+            $fixture = $owned;
+            $exit-fd = pidfd_open($owned.pid, 0);
+            die 'could not independently watch daemon exit' if $exit-fd < 0;
+            die $expected;
+        });
+        CATCH { default { $caught = $_ } }
+    }
+    ok $caught === $expected, 'original callback failure survives cleanup';
+    is poll(ExitEvent.new(:fd($exit-fd)), 1, 0), 1,
+        'kernel reports daemon exit on the exceptional path';
+    nok $fixture.directory.e, 'failed callback leaves no owned directory';
+};
+
+subtest 'cancellation releases a blocked command and its daemon' => {
+    my $ready = Promise.new;
+    my $cancel = Promise.new;
+    my $operation = start {
+        with-tmux(-> $owned {
+            $ready.keep($owned);
+            $owned.cmd('wait-for', '-S', 'admitted', ';', 'wait-for', 'held');
+        }, :$cancel)
+    };
+    await Promise.anyof($ready, $operation, Promise.in(3));
+    die 'fixture did not start' unless $ready.status == Kept;
+    my $fixture = $ready.result;
+    my int32 $exit-fd = pidfd_open($fixture.pid, 0);
+    die 'could not independently watch daemon exit' if $exit-fd < 0;
+    LEAVE { $fixture.close; close($exit-fd) }
+    $fixture.cmd('wait-for', 'admitted');
+    my @client-fds = $fixture.client-pids.map({ pidfd_open($_, 0) });
+    LEAVE { close($_) for @client-fds.grep(* >= 0) }
+    is @client-fds.elems, 1, 'one admitted command client is blocked';
+    die 'could not independently watch command exit' if @client-fds.grep(* < 0);
+    $cancel.keep(True);
+    throws-like { await $operation }, FixtureCancelled,
+        'cancellation has a distinct outcome after command admission';
+    is poll(ExitEvent.new(:fd($exit-fd)), 1, 0), 1,
+        'kernel reports daemon exit after cancellation';
+    is-deeply @client-fds.map({ poll(ExitEvent.new(:fd($_)), 1, 0) }).List,
+        (1,), 'kernel reports the blocked command client exited';
+    nok $fixture.directory.e, 'cancelled fixture leaves no owned directory';
+};
+
+done-testing;

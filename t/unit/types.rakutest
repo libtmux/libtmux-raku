@@ -1,0 +1,35 @@
+use v6.d;
+use Test;
+use LibTmux;
+use LibTmux::Types;
+
+subtest 'domain identifier boundaries' => {
+    ok '$12' ~~ SessionId, 'session ID';
+    ok '@12' ~~ WindowId, 'window ID';
+    ok '%12' ~~ PaneId, 'pane ID';
+    nok '%12' ~~ WindowId, 'pane cannot masquerade as a window';
+    nok '%١٢' ~~ PaneId, 'IDs require ASCII digits';
+    nok '%12 trailing' ~~ PaneId, 'entire input must match';
+    nok Str ~~ PaneId, 'undefined type object is not an identifier';
+};
+
+subtest 'numeric and availability distinctions' => {
+    ok 0 ~~ Count, 'zero is a valid count';
+    nok False ~~ Count, 'false is not a numeric operand';
+    nok True ~~ Positive, 'true is not a resource limit';
+    nok -1 ~~ Count, 'negative count rejected';
+    nok 0 ~~ Positive, 'zero limit rejected';
+    is ValueState.enums.elems, 5, 'availability states remain distinct';
+    isnt KnownNull, Unloaded, 'known absence differs from missing acquisition';
+};
+
+subtest 'operational failures are typed exceptions' => {
+    throws-like {
+        X::LibTmux::Command.new(:message('child failed'), :exitcode(7)).throw;
+    }, X::LibTmux::Command, :exitcode(7), :outcome(Indeterminate);
+    throws-like {
+        X::LibTmux::Cardinality.new(:count(2), :entity<pane>).throw;
+    }, X::LibTmux::Cardinality, :count(2);
+};
+
+done-testing;

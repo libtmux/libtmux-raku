@@ -1,7 +1,8 @@
 # Contributing
 
-This repository is a private scaffold. It has no library implementation,
-package release, or test suite yet. Keep changes within the current task.
+This private repository is implementing the Raku core library. The package
+foundation is testable; the complete API and compatibility gates remain in
+development. No package release has been published.
 Read [AGENTS.md](../AGENTS.md) for change discipline and
 [WRITING.md](WRITING.md) for prose and commit conventions.
 
@@ -32,11 +33,79 @@ Verify the selected compiler:
 $ mise exec -- raku --version
 ```
 
-The binary includes zef. No additional packages are needed for this scaffold.
+The binary includes zef. Install the declared dependencies before validation:
+
+```console
+$ mise exec -- zef install --deps-only .
+```
+
+Install author-only metadata and TAP tools separately:
+
+```console
+$ mise exec -- zef install App::Prove6 Test::META
+```
 Keep the compiler's default frontend enabled. Verify upstream releases
 before advancing the pin.
 
 ## Checks
+
+Run focused unit tests through the distribution mapping:
+
+```console
+$ mise exec -- prove6 -I. t/unit
+```
+
+Run the package test path used during installation:
+
+```console
+$ mise exec -- zef test .
+```
+
+Check package metadata with the author tool:
+
+```console
+$ mise exec -- raku xt/meta.rakutest
+```
+
+Compile the public import. Compilation executes BEGIN/CHECK code and is not
+an independent style linter:
+
+```console
+$ mise exec -- raku -I. -c lib/LibTmux.rakumod
+```
+
+Install into a temporary repository and load it from a fresh process outside
+the checkout. This outer check removes its temporary installation afterward:
+
+```console
+$ mise exec -- raku tools/check-install.raku
+```
+
+The outer live suite requires an explicit tmux binary and fails if it is
+missing. Set `LIBTMUX_TMUX` to the source-pinned endpoint binary prepared by
+the test environment; never point a fixture at an existing socket:
+
+```console
+$ mise exec -- prove6 -I. -It/lib xt/live
+```
+
+The ordinary `t/` suite contains pure tests; `xt/live/` is an explicit outer
+gate. Required CI runs both endpoints and cannot treat skipped live tests as
+success. Test helpers under `t/lib/` are author code, not installed modules.
+
+Artwork generation has separate author dependencies. Install them outside
+validation loops:
+
+```console
+$ npm ci --prefix docs/assets
+```
+
+Check the generated images against their source geometry and palette:
+
+```console
+$ npm run check --prefix docs/assets
+```
+
 
 Check tracked edits for whitespace errors:
 
@@ -51,10 +120,11 @@ $ git diff --cached --check
 ```
 
 Verify relative instruction links and the `CLAUDE.md` symlink when changing
-guides. Scaffold checks do not establish package or tmux compatibility.
+guides. Whitespace checks do not establish package or tmux compatibility.
 Report `PASS`, `FAIL`, `PARTIAL`, and `UNVERIFIED` distinctly.
 
-When tests exist, time the entire command, including startup and setup:
+Time the entire command, including startup and setup. These are pragmatic
+targets; record and justify adjustments rather than dropping required checks:
 
 | Loop | Scope | Budget | Target |
 | --- | --- | --- | --- |
@@ -64,11 +134,11 @@ When tests exist, time the entire command, including startup and setup:
 
 Keep network access, installations, builds, browsers, sleeps, and broad scans
 out of inner and mid loops. Tag slow checks with a reason and run them in
-the outer loop. Fix over-budget loops before adding tests. Investigate waits
+the outer loop. Investigate excessive setup before adding tests. Investigate waits
 over one second; prefer events and subscriptions. Benchmarks are separate:
 less than ten minutes per run and one hour per sweep.
 
-## Raku conventions for future implementation
+## Raku conventions
 
 - Use `META6.json` for package metadata, `.rakumod` for modules, `.rakutest`
   for tests, `.raku` for scripts, and RakuDoc/Pod for API documentation.
@@ -91,7 +161,7 @@ action versions or legacy metadata; evaluate those choices independently.
 
 ## tmux isolation
 
-The planned runtime floor is tmux 3.3a on Linux. For future tests and probes,
+The runtime floor is tmux 3.3a on Linux. For tests and probes,
 use unique owned sockets and temporary directories. Clear inherited `TMUX`
 and `TMUX_PANE`. Never use or stop the default server or a borrowed server.
 Clean up owned resources on success, failure, and cancellation, and verify

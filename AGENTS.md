@@ -1,8 +1,7 @@
 # Agent instructions
 
-This repository is the private Raku libtmux scaffold. Follow the existing
-conventions and keep changes scoped to the requested work. Implementation
-starts only when requested.
+This repository is the private Raku libtmux core library. Follow the existing
+conventions and keep changes scoped to the active implementation goal.
 
 ## Change discipline
 
@@ -36,8 +35,9 @@ Each guide is the single home for its subject. Keep both guides under
 
 Keep `libtmux/libtmux-raku` private. Do not push to the `tony` organization.
 Use only the repositories and operations authorized for the current task.
-Scaffold work does not authorize implementation, package publication, or
-changes to other ports. Keep upstream `tmux/tmux` research read-only.
+The active core goal excludes package publication and changes to other ports.
+Do not push to public repositories or open a libtmux/docs PR while the user's
+hold remains active. Keep upstream `tmux/tmux` research read-only.
 
 ## Merging pull requests
 
