@@ -1,0 +1,99 @@
+=begin pod
+
+=head1 Write and export API documentation
+
+Document public declarations with RakuDoc declarator comments directly above
+their definitions. Describe the result, whether the operation performs I/O,
+ownership and cleanup, and errors the caller can handle. Keep longer examples
+in the executable examples directory and link to them rather than maintaining
+an unchecked second copy.
+
+Use native code markup and links inside declarator comments:
+
+=begin code :lang<raku>
+#| Inspect a C<Snapshot>. See L<LibTmux::Model::Snapshot>.
+=end code
+
+Native links must resolve to one exported declaration or an
+explicit signature value type. Spell an ambiguous target fully. Unknown
+or ambiguous targets fail native extraction as well as the shared adapter.
+Resolution checks exact identities, exported aliases, the owner's scope, then
+a unique declaration name. The exporter validates targets without choosing
+website routes.
+Use link labels without square brackets; the current shared Markdown bridge
+cannot represent them, so native extraction rejects them explicitly.
+
+Use the RakuDoc V1 syntax supported by the pinned compiler. Native declarator
+comments, C<C> markup and C<L> links remain the authoring source; the shared site
+is a renderer of that source.
+
+=head2 Native extraction
+
+Run this command from the repository root after installing the declared
+dependencies and selecting the compiler pinned in C<.tool-versions>:
+
+=begin code :lang<console>
+$ mise exec -- raku -I. tools/export-docs.raku
+=end code
+
+The author tool writes C<docs/_build/api.json>. It parses trusted source with
+Rakudo's RakuAST and reads native RakuDoc nodes; parsing can execute compile-time
+code. The exporter reads the public import, independently public modules,
+signature value types, and typed exceptions. It copies inherited native
+declarations onto their public owners.
+Internal transport owners do not become public API merely because they occur
+in C<META6.json>.
+
+The artifact records exact native signatures, resolved type references,
+source lines, RakuDoc links, and the generated field catalogue. Library and
+exporter identities are separate, with content digests and dirty-tree flags.
+It embeds the captured module sources and refuses an input or HEAD change
+during extraction.
+
+Check the native extraction fixture separately:
+
+=begin code :lang<console>
+$ mise exec -- prove6 -I. xt/docs/export.rakutest
+=end code
+
+Check documentation coverage after a full export:
+
+=begin code :lang<console>
+$ jq --exit-status '(.missingDocumentation | type == "object" and length == 0)' docs/_build/api.json
+=end code
+
+Missing prose is reported by declaration with its source file and line.
+An empty report establishes coverage; it does not establish that the prose
+correctly describes behavior. Behavioral review remains required.
+
+=head2 Executable examples
+
+The L<quickstart|https://github.com/libtmux/libtmux-raku/blob/master/examples/quickstart.raku>,
+L<observatory example|https://github.com/libtmux/libtmux-raku/blob/master/examples/observatory.raku>
+and L<batch recovery example|https://github.com/libtmux/libtmux-raku/blob/master/examples/batch-recovery.raku>
+are the canonical programs. All three close their owned tmux resources. The
+runner verifies that the README quotes the complete quickstart and checks its
+exact output. The observatory and batch recovery programs assert their results
+and verify cleanup. Set C<LIBTMUX_TEST_TMUX> to the absolute endpoint executable
+and run:
+
+=begin code :lang<console>
+$ mise exec -- raku tools/check-examples.raku
+=end code
+
+Run the programs to validate their output; compilation alone checks syntax and
+compile-time behavior. RakuDoc code blocks have no automatic doctest gate.
+Link displayed programs to the tested files or check that their source matches.
+
+=head2 Shared rendering
+
+The shared documentation repository consumes the versioned
+C<libtmux.raku-api/v1> artifact. Its adapter validates input digests, parent
+relationships, native signature spans, and cross-links before rendering.
+The library exporter revision and shared adapter revision remain separate.
+
+A dirty source tree requires explicit local-preview mode. Source links in
+that preview open the exact captured files, and pages identify the preview
+as uncommitted. Follow the repository boundaries in C<AGENTS.md> for publication.
+
+=end pod

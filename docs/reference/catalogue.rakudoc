@@ -1,0 +1,4659 @@
+=begin pod
+
+=head1 LibTmux field and capability catalogue
+
+Generated from the packaged resources. Edit the resources and regenerate this file.
+
+Availability identifies source support; it does not establish acquisition completeness.
+
+=head2 session
+
+=item C<id> / C<id>
+
+FORMAT C<session_id>; session-id; context session; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+Exact source operators: equals, not-equals, in, not-in.
+
+
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<name> / C<name>
+
+FORMAT C<session_name>; text; context session; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<windows-count> / C<windowsCount>
+
+FORMAT C<session_windows>; uint; context session; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<attached-count> / C<attachedCount>
+
+FORMAT C<session_attached>; uint; context session; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<created> / C<created>
+
+FORMAT C<session_created>; uint; context session; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<activity> / C<activity>
+
+FORMAT C<session_activity>; uint; context session; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<path> / C<path>
+
+FORMAT C<session_path>; text; context session; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<grouped> / C<grouped>
+
+FORMAT C<session_grouped>; bool; context session; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+Exact source operators: equals, not-equals, in, not-in.
+
+
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<group-name> / C<groupName>
+
+FORMAT C<session_group>; text; context session; nullable True; since 3.3a.
+
+Null policy: not-grouped; dependency: grouped.
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with, is-null.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<window-links> relation
+
+many window-link; nullable False.
+
+=item C<current-link> relation
+
+one window-link; nullable False.
+
+=item C<group> relation
+
+one session-group; nullable True.
+
+=head2 window-link
+
+=item C<session-id> / C<sessionId>
+
+FORMAT C<session_id>; session-id; context window-link; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+Exact source operators: equals, not-equals, in, not-in.
+
+
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<window-id> / C<windowId>
+
+FORMAT C<window_id>; window-id; context window-link; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+Exact source operators: equals, not-equals, in, not-in.
+
+
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<index> / C<index>
+
+FORMAT C<window_index>; uint; context window-link; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+Exact source operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+Source numeric domain: 0 through 2147483647.
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/tmux.h>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<active> / C<active>
+
+FORMAT C<window_active>; bool; context window-link; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+Exact source operators: equals, not-equals, in, not-in.
+
+
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<last> / C<last>
+
+FORMAT C<window_last_flag>; bool; context window-link; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<activity> / C<activity>
+
+FORMAT C<window_activity_flag>; bool; context window-link; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<bell> / C<bell>
+
+FORMAT C<window_bell_flag>; bool; context window-link; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<silence> / C<silence>
+
+FORMAT C<window_silence_flag>; bool; context window-link; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<session> relation
+
+one session; nullable False.
+
+=item C<window> relation
+
+one window; nullable False.
+
+=head2 window
+
+=item C<id> / C<id>
+
+FORMAT C<window_id>; window-id; context window; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+Exact source operators: equals, not-equals, in, not-in.
+
+
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<name> / C<name>
+
+FORMAT C<window_name>; text; context window; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<width> / C<width>
+
+FORMAT C<window_width>; uint; context window; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+Exact source operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+Source numeric domain: 0 through 4294967295.
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/tmux.h>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<height> / C<height>
+
+FORMAT C<window_height>; uint; context window; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+Exact source operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+Source numeric domain: 0 through 4294967295.
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/tmux.h>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<panes-count> / C<panesCount>
+
+FORMAT C<window_panes>; uint; context window; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<layout> / C<layout>
+
+FORMAT C<window_layout>; text; context window; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<visible-layout> / C<visibleLayout>
+
+FORMAT C<window_visible_layout>; text; context window; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<zoomed> / C<zoomed>
+
+FORMAT C<window_zoomed_flag>; bool; context window; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+Exact source operators: equals, not-equals, in, not-in.
+
+
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<linked> / C<linked>
+
+FORMAT C<window_linked>; bool; context window-link; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<modal-pane-id> / C<modalPaneId>
+
+FORMAT C<window_modal_pane>; pane-id; context window; nullable True; since 3.8.
+
+Null policy: empty; dependency: none.
+
+Operators: equals, not-equals, in, not-in, is-null.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/format.c>
+
+=item C<panes> relation
+
+many pane; nullable False.
+
+=item C<links> relation
+
+many window-link; nullable False.
+
+=item C<active-pane> relation
+
+one pane; nullable False.
+
+=head2 pane
+
+=item C<id> / C<id>
+
+FORMAT C<pane_id>; pane-id; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+Exact source operators: equals, not-equals, in, not-in.
+
+
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<window-id> / C<windowId>
+
+FORMAT C<window_id>; window-id; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+Exact source operators: equals, not-equals, in, not-in.
+
+
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<index> / C<index>
+
+FORMAT C<pane_index>; uint; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<active> / C<active>
+
+FORMAT C<pane_active>; bool; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+Exact source operators: equals, not-equals, in, not-in.
+
+
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<width> / C<width>
+
+FORMAT C<pane_width>; uint; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+Exact source operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+Source numeric domain: 0 through 4294967295.
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/tmux.h>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<height> / C<height>
+
+FORMAT C<pane_height>; uint; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+Exact source operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+Source numeric domain: 0 through 4294967295.
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/tmux.h>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<left> / C<left>
+
+FORMAT C<pane_left>; uint; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<top> / C<top>
+
+FORMAT C<pane_top>; uint; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<pid> / C<pid>
+
+FORMAT C<pane_pid>; uint; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<tty> / C<tty>
+
+FORMAT C<pane_tty>; text; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<title> / C<title>
+
+FORMAT C<pane_title>; text; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<current-command> / C<currentCommand>
+
+FORMAT C<pane_current_command>; text; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<current-path> / C<currentPath>
+
+FORMAT C<pane_current_path>; text; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<start-command> / C<startCommand>
+
+FORMAT C<pane_start_command>; text; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<start-path> / C<startPath>
+
+FORMAT C<pane_start_path>; text; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<dead> / C<dead>
+
+FORMAT C<pane_dead>; bool; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+Exact source operators: equals, not-equals, in, not-in.
+
+
+
+Pushdown evidence: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<dead-status> / C<deadStatus>
+
+FORMAT C<pane_dead_status>; uint; context pane; nullable True; since 3.3a.
+
+Null policy: empty; dependency: none.
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte, is-null.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<dead-signal> / C<deadSignal>
+
+FORMAT C<pane_dead_signal>; text; context pane; nullable True; since 3.3a.
+
+Null policy: empty; dependency: none.
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with, is-null.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<dead-time> / C<deadTime>
+
+FORMAT C<pane_dead_time>; uint; context pane; nullable True; since 3.3a.
+
+Null policy: empty; dependency: none.
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte, is-null.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<in-mode> / C<inMode>
+
+FORMAT C<pane_in_mode>; uint; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<mode> / C<mode>
+
+FORMAT C<pane_mode>; text; context pane; nullable True; since 3.3a.
+
+Null policy: empty; dependency: none.
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with, is-null.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<pipe> / C<pipe>
+
+FORMAT C<pane_pipe>; bool; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<synchronized> / C<synchronized>
+
+FORMAT C<pane_synchronized>; bool; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<floating> / C<floating>
+
+FORMAT C<pane_floating_flag>; bool; context pane; nullable False; since 3.7.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/format.c>
+
+=item C<modal> / C<modal>
+
+FORMAT C<pane_modal_flag>; bool; context pane; nullable False; since 3.8.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/format.c>
+
+=item C<x> / C<x>
+
+FORMAT C<pane_x>; int; context pane; nullable False; since 3.7.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/format.c>
+
+=item C<y> / C<y>
+
+FORMAT C<pane_y>; int; context pane; nullable False; since 3.7.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/format.c>
+
+=item C<z> / C<z>
+
+FORMAT C<pane_z>; uint; context pane; nullable False; since 3.7.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/format.c>
+
+=item C<command-running> / C<commandRunning>
+
+FORMAT C<pane_command_running>; bool; context pane; nullable False; since 3.8.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/format.c>
+
+=item C<command-status> / C<commandStatus>
+
+FORMAT C<pane_command_status>; int; context pane; nullable True; since 3.8.
+
+Null policy: empty; dependency: none.
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte, is-null.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/format.c>
+
+=item C<at-top> / C<atTop>
+
+FORMAT C<pane_at_top>; bool; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<at-bottom> / C<atBottom>
+
+FORMAT C<pane_at_bottom>; bool; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<at-left> / C<atLeft>
+
+FORMAT C<pane_at_left>; bool; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<at-right> / C<atRight>
+
+FORMAT C<pane_at_right>; bool; context pane; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<window> relation
+
+one window; nullable False.
+
+=head2 client
+
+=item C<name> / C<name>
+
+FORMAT C<client_name>; text; context client; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<session-id> / C<sessionId>
+
+FORMAT C<session_id>; session-id; context client; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<session-name> / C<sessionName>
+
+FORMAT C<client_session>; text; context client; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<tty> / C<tty>
+
+FORMAT C<client_tty>; text; context client; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<pid> / C<pid>
+
+FORMAT C<client_pid>; uint; context client; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<width> / C<width>
+
+FORMAT C<client_width>; uint; context client; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<height> / C<height>
+
+FORMAT C<client_height>; uint; context client; nullable True; since 3.3a.
+
+Null policy: empty; dependency: none.
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte, is-null.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c#L1283>
+
+=item C<created> / C<created>
+
+FORMAT C<client_created>; uint; context client; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<activity> / C<activity>
+
+FORMAT C<client_activity>; uint; context client; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<control-mode> / C<controlMode>
+
+FORMAT C<client_control_mode>; bool; context client; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<read-only> / C<readOnly>
+
+FORMAT C<client_readonly>; bool; context client; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<terminal-name> / C<terminalName>
+
+FORMAT C<client_termname>; text; context client; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<key-table> / C<keyTable>
+
+FORMAT C<client_key_table>; text; context client; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<session> relation
+
+one session; nullable False.
+
+=head2 session-group
+
+=item C<name> / C<name>
+
+FORMAT C<session_group>; text; context grouped-session; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<size> / C<size>
+
+FORMAT C<session_group_size>; uint; context grouped-session; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<attached-count> / C<attachedCount>
+
+FORMAT C<session_group_attached>; uint; context grouped-session; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<sessions> relation
+
+many session; nullable False.
+
+=head2 buffer
+
+=item C<name> / C<name>
+
+FORMAT C<buffer_name>; text; context buffer; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<size> / C<size>
+
+FORMAT C<buffer_size>; uint; context buffer; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<created> / C<created>
+
+FORMAT C<buffer_created>; uint; context buffer; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, lt, lte, gt, gte.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<sample> / C<sample>
+
+FORMAT C<buffer_sample>; text; context buffer; nullable False; since 3.3a.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=head2 key-binding
+
+=item C<table> / C<table>
+
+FORMAT C<key_table>; text; context key-binding; nullable False; since 3.7.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-list-keys.c>
+
+=item C<key> / C<key>
+
+FORMAT C<key_string>; text; context key-binding; nullable False; since 3.7.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-list-keys.c>
+
+=item C<repeat> / C<repeat>
+
+FORMAT C<key_repeat>; bool; context key-binding; nullable False; since 3.7.
+
+
+
+Operators: equals, not-equals, in, not-in.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-list-keys.c>
+
+=item C<command-source> / C<commandSource>
+
+FORMAT C<key_command>; text; context key-binding; nullable False; since 3.7.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-list-keys.c>
+
+=item C<note> / C<note>
+
+FORMAT C<key_note>; text; context key-binding; nullable False; since 3.7.
+
+
+
+Operators: equals, not-equals, in, not-in, contains, starts-with, ends-with.
+
+
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-list-keys.c>
+
+=head2 Features and required handling
+
+=item C<managed-commands>
+
+feature; refuse; since 3.3a. Managed commands require an exact declared daemon release profile.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/cmd.c>
+
+=item C<format-tilde>
+
+feature; refuse; since 3.3a. Six ordered substitutions encode delimiters, backslashes and dollar signs.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/format.c>
+
+=item C<format-argument-quote>
+
+feature; fallback; since 3.7. q/a is introduced in 3.7; older profiles use the tested tilde codec.
+
+Fallback: C<format-tilde>.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/format.c>
+
+=item C<format-output-vis>
+
+defect; repair; exact releases 3.4, 3.5, 3.5a. Reverse one VIS output layer before decoding the tilde field.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/server-client.c>
+
+=item C<layout-classic>
+
+feature; refuse; since 3.3a. Classic layouts remain available for old layouts and unnegotiated control clients.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/layout-custom.c>
+
+=item C<layout-json>
+
+feature; refuse; since 3.8. JSON layouts include floating placements in the current profile.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/layout-custom.c>
+
+=item C<control-mode>
+
+feature; refuse; since 3.3a. Control framing is available at the support floor.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/control.c>
+
+=item C<control-new-layouts>
+
+feature; refuse; since 3.8. Enable new-layouts explicitly before interpreting new control layouts.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/server-client.c>
+
+=item C<pane-floating>
+
+feature; refuse; since 3.7. Floating panes and their coordinates are available starting in 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-split-window.c>
+
+=item C<pane-modal>
+
+feature; refuse; since 3.8. Modal panes and modal-window fields require 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/cmd-split-window.c>
+
+=item C<buffer-full>
+
+feature; fallback; since 3.6. Use save-buffer when buffer_full is unavailable.
+
+Fallback: C<buffer-save>.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/format.c>
+
+=item C<buffer-save>
+
+feature; refuse; since 3.3a. Binary save-buffer capture is separate from FORMAT framing.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/cmd-save-buffer.c>
+
+=item C<layout-mirrored-main>
+
+feature; refuse; since 3.5. Mirrored main-horizontal and main-vertical layouts require 3.5.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/layout-set.c>
+
+=item C<split-percent-defect>
+
+defect; refuse; exact releases 3.4. split-window -p is broken in 3.4; use the explicit -l percentage form.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/cmd-split-window.c>
+
+=item C<break-pane-name-defect>
+
+defect; refuse; exact releases 3.7. tmux 3.7 ignores explicit break-pane names and dereferences a null name in the unnamed multi-pane path; refuse break-pane before dispatch.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-break-pane.c>
+
+=item C<name-separator-defect>
+
+defect; refuse; exact releases 3.7. tmux 3.7 rejects colon and dot names; validate their capability before dispatch.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/tmux.c>
+
+=item C<session-name-separators>
+
+feature; refuse; since 3.7a. Literal dot and colon in session names require 3.7a; earlier releases replace or reject them.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0e418b62d259ce8da8970f75732cc6632ee4c3a0/tmux.c#L285>
+
+=item C<window-name-separators>
+
+feature; refuse; since 3.3a. Literal dot and colon in window names are supported unless the declared separator defect applies.
+
+
+
+Blocked by: name-separator-defect.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/window.c#L405>
+
+=item C<pane-empty-flag>
+
+feature; refuse; since 3.7. Explicit empty split panes use -E from 3.7; older releases require the declared empty-argument adapter.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-split-window.c>
+
+=item C<window-empty>
+
+feature; refuse; since 3.8. Empty window creation requires the new-window -E flag from 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/cmd-new-window.c>
+
+=item C<break-pane-single-print>
+
+feature; refuse; since 3.6. Breaking the only pane prints its returned identity from 3.6; older releases need an explicit scoped identity acquisition.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/cmd-break-pane.c>
+
+=item C<pane-floating-move>
+
+feature; refuse; since 3.8. Floating pane position and stack changes require move-pane placement flags from 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/cmd-join-pane.c>
+
+=item C<control-job-output>
+
+feature; refuse; since 3.5. Foreground run-shell job output is delivered to the command client from 3.5; earlier releases send it to pane view mode. This does not guarantee shell-output framing.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/cmd-run-shell.c>
+
+=item C<menu-appearance>
+
+feature; refuse; since 3.4. Menu border, style, selected style and initial choice flags are available from 3.4.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/cmd-display-menu.c>
+
+=item C<menu-mouse>
+
+feature; refuse; since 3.5. The display-menu -M flag enables mouse selection without a triggering mouse event from 3.5.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/cmd-display-menu.c>
+
+=item C<popup-close-on-key>
+
+feature; refuse; since 3.6. The display-popup -k flag requests close on any key from 3.6.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/cmd-display-menu.c>
+
+=item C<popup-reset-flags>
+
+feature; refuse; since 3.6. The display-popup -N flag resets existing popup flags from 3.6; omitted flags otherwise preserve the existing popup policy.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/cmd-display-menu.c>
+
+=item C<prompt-literal-commas>
+
+feature; refuse; since 3.6. The command-prompt -l flag retains commas in one prompt and initial input from 3.6.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/cmd-command-prompt.c>
+
+=item C<key-binding-format>
+
+feature; refuse; since 3.7. Key table, key, repeat, note and native command source can be projected with list-keys -F from 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/cmd-list-keys.c>
+
+=head2 Option types and scopes
+
+=item C<activity-action>
+
+choice; scope session; since 3.3a.
+
+Choices: none, any, current, other.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-bind-key>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-capture-pane>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-copy-mode>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-display-message>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-display-panes>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-kill-pane>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-list-buffers>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-list-clients>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-list-keys>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-list-panes>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-list-sessions>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-list-windows>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-load-buffer>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-lock-server>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-new-session>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-new-window>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-paste-buffer>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-pipe-pane>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-queue>
+
+command; scope session; since 3.3a, before 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-refresh-client>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-rename-session>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-rename-window>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-resize-pane>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-resize-window>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-save-buffer>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-select-layout>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-select-pane>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-select-window>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-send-keys>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-set-buffer>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-set-environment>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-set-hook>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-set-option>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-show-environment>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-show-messages>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-show-options>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-split-window>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<after-swap-window>
+
+command; scope session; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<after-unbind-key>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<aggressive-resize>
+
+flag; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<alert-activity>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<alert-bell>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<alert-silence>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<allow-passthrough>
+
+flag; scope window, pane; since 3.3a, before 3.4.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<allow-passthrough>
+
+choice; scope window, pane; since 3.4.
+
+Choices: off, on, all.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c>
+
+=item C<allow-rename>
+
+flag; scope window, pane; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<allow-set-title>
+
+flag; scope window, pane; since 3.5.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/options-table.c>
+
+=item C<alternate-screen>
+
+flag; scope window, pane; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<assume-paste-time>
+
+number; scope session; since 3.3a.
+
+
+
+Range: 0 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<automatic-rename>
+
+flag; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<automatic-rename-format>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<backspace>
+
+key; scope server; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<base-index>
+
+number; scope session; since 3.3a.
+
+
+
+Range: 0 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<bell-action>
+
+choice; scope session; since 3.3a.
+
+Choices: none, any, current, other.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<buffer-limit>
+
+number; scope server; since 3.3a.
+
+
+
+Range: 1 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<clear-on-attach>
+
+flag; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<client-active>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<client-attached>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<client-closed>
+
+command; scope session; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<client-created>
+
+command; scope session; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<client-dark-theme>
+
+command; scope session; since 3.6. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<client-detached>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<client-focus-in>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<client-focus-out>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<client-light-theme>
+
+command; scope session; since 3.6. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<client-resized>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<client-session-changed>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<clock-mode-colour>
+
+colour; scope window; since 3.3a, before 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<clock-mode-colour>
+
+string; scope window; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<clock-mode-style>
+
+choice; scope window; since 3.3a, before 3.6.
+
+Choices: 12, 24.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<clock-mode-style>
+
+choice; scope window; since 3.6.
+
+Choices: 12, 24, 12-with-seconds, 24-with-seconds.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<codepoint-widths>
+
+string; scope server; since 3.6. Array.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<command-alias>
+
+string; scope server; since 3.3a. Array.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<command-error>
+
+command; scope session; since 3.5. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/options-table.c>
+
+=item C<copy-command>
+
+string; scope server; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<copy-mode-current-line-number-style>
+
+string; scope window; since 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<copy-mode-current-line-style>
+
+string; scope window; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<copy-mode-current-match-style>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<copy-mode-line-number-style>
+
+string; scope window; since 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<copy-mode-line-numbers>
+
+choice; scope window; since 3.7.
+
+Choices: off, default, absolute, relative, hybrid.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<copy-mode-mark-style>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<copy-mode-match-style>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<copy-mode-position-format>
+
+string; scope window, pane; since 3.6.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<copy-mode-position-style>
+
+string; scope window; since 3.6.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<copy-mode-selection-style>
+
+string; scope window; since 3.6.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<cursor-colour>
+
+colour; scope window, pane; since 3.3a, before 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<cursor-colour>
+
+string; scope window, pane; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<cursor-style>
+
+choice; scope window, pane; since 3.3a.
+
+Choices: default, blinking-block, block, blinking-underline, underline, blinking-bar, bar.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<dark-theme-black>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<dark-theme-blue>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<dark-theme-cyan>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<dark-theme-dark-grey>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<dark-theme-green>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<dark-theme-light-grey>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<dark-theme-magenta>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<dark-theme-red>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<dark-theme-white>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<dark-theme-yellow>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<default-client-command>
+
+command; scope server; since 3.6.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<default-command>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<default-shell>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<default-size>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<default-terminal>
+
+string; scope server; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<destroy-unattached>
+
+flag; scope session; since 3.3a, before 3.4.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<destroy-unattached>
+
+choice; scope session; since 3.4.
+
+Choices: off, on, keep-last, keep-group.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c>
+
+=item C<detach-on-destroy>
+
+choice; scope session; since 3.3a, before 3.4.
+
+Choices: off, on, no-detached.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<detach-on-destroy>
+
+choice; scope session; since 3.4.
+
+Choices: off, on, no-detached, previous, next.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c>
+
+=item C<display-panes-active-colour>
+
+colour; scope session; since 3.3a, before 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<display-panes-active-colour>
+
+string; scope window; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<display-panes-border-style>
+
+string; scope window; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<display-panes-colour>
+
+colour; scope session; since 3.3a, before 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<display-panes-colour>
+
+string; scope window; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<display-panes-format>
+
+string; scope window; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<display-panes-time>
+
+number; scope session; since 3.3a, before 3.8.
+
+
+
+Range: 1 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<display-panes-time>
+
+number; scope window; since 3.8.
+
+
+
+Range: 1 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<display-time>
+
+number; scope session; since 3.3a.
+
+
+
+Range: 0 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<editor>
+
+string; scope server; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<escape-time>
+
+number; scope server; since 3.3a.
+
+
+
+Range: 0 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<exit-empty>
+
+flag; scope server; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<exit-unattached>
+
+flag; scope server; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<extended-keys>
+
+choice; scope server; since 3.3a.
+
+Choices: off, on, always.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<extended-keys-format>
+
+choice; scope server; since 3.5.
+
+Choices: csi-u, xterm.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/options-table.c>
+
+=item C<fill-character>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<focus-events>
+
+flag; scope server; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<focus-follows-mouse>
+
+flag; scope session; since 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<get-clipboard>
+
+choice; scope server; since 3.7.
+
+Choices: off, buffer, request, both.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<history-file>
+
+string; scope server; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<history-limit>
+
+number; scope session; since 3.3a.
+
+
+
+Range: 0 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<initial-repeat-time>
+
+number; scope session; since 3.6.
+
+
+
+Range: 0 through 2000000.
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<input-buffer-size>
+
+number; scope server; since 3.6.
+
+
+
+Range: 1048576 through 4294967295.
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<key-table>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<light-theme-black>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<light-theme-blue>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<light-theme-cyan>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<light-theme-dark-grey>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<light-theme-green>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<light-theme-light-grey>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<light-theme-magenta>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<light-theme-red>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<light-theme-white>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<light-theme-yellow>
+
+string; scope server; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<lock-after-time>
+
+number; scope session; since 3.3a.
+
+
+
+Range: 0 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<lock-command>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<main-pane-height>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<main-pane-width>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<marked-pane-changed>
+
+command; scope session; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<menu-border-lines>
+
+choice; scope window; since 3.4.
+
+Choices: single, double, heavy, simple, rounded, padded, none.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c>
+
+=item C<menu-border-style>
+
+string; scope window; since 3.4.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c>
+
+=item C<menu-selected-style>
+
+string; scope window; since 3.4.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c>
+
+=item C<menu-style>
+
+string; scope window; since 3.4.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c>
+
+=item C<message-command-style>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<message-format>
+
+string; scope session; since 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<message-limit>
+
+number; scope server; since 3.3a.
+
+
+
+Range: 0 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<message-line>
+
+choice; scope session; since 3.4.
+
+Choices: 0, 1, 2, 3, 4.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/9ae69c3795ab5ef6b4d760f6398cd9281151f632/options-table.c>
+
+=item C<message-style>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<mode-keys>
+
+choice; scope window; since 3.3a.
+
+Choices: emacs, vi.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<mode-style>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<monitor-activity>
+
+flag; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<monitor-bell>
+
+flag; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<monitor-silence>
+
+number; scope window; since 3.3a.
+
+
+
+Range: 0 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<mouse>
+
+flag; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<other-pane-height>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<other-pane-width>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-active-border-style>
+
+string; scope window; since 3.3a, before 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-active-border-style>
+
+string; scope window, pane; since 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<pane-activity>
+
+command; scope window, pane; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-base-index>
+
+number; scope window; since 3.3a.
+
+
+
+Range: 0 through 65535.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-bell>
+
+command; scope window, pane; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-border-format>
+
+string; scope window, pane; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-border-indicators>
+
+choice; scope window; since 3.3a.
+
+Choices: off, colour, arrows, both.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-border-lines>
+
+choice; scope window; since 3.3a, before 3.6.
+
+Choices: single, double, heavy, simple, number.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-border-lines>
+
+choice; scope window; since 3.6, before 3.8.
+
+Choices: single, double, heavy, simple, number, spaces.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<pane-border-lines>
+
+choice; scope window, pane; since 3.8.
+
+Choices: single, double, heavy, simple, number, spaces, none.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-border-status>
+
+choice; scope window; since 3.3a, before 3.8.
+
+Choices: off, top, bottom.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-border-status>
+
+choice; scope window, pane; since 3.8.
+
+Choices: off, top, bottom, top-floating, bottom-floating.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-border-style>
+
+string; scope window; since 3.3a, before 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-border-style>
+
+string; scope window, pane; since 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<pane-colours>
+
+colour; scope window, pane; since 3.3a. Array.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-command-finished>
+
+command; scope window, pane; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-command-started>
+
+command; scope window, pane; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-created>
+
+command; scope window, pane; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-died>
+
+command; scope window, pane; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-exited>
+
+command; scope window, pane; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-focus-in>
+
+command; scope window, pane; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-focus-out>
+
+command; scope window, pane; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-mode-changed>
+
+command; scope window, pane; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-mode-entered>
+
+command; scope window, pane; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-mode-exited>
+
+command; scope window, pane; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-moved>
+
+command; scope window, pane; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-prompt-closed>
+
+command; scope window, pane; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-prompt-opened>
+
+command; scope window, pane; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-resized>
+
+command; scope window, pane; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-scrollbars>
+
+choice; scope window; since 3.6, before 3.8.
+
+Choices: off, modal, on.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<pane-scrollbars>
+
+choice; scope window; since 3.8.
+
+Choices: off, modal, on, auto-hide.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-scrollbars-position>
+
+choice; scope window; since 3.6.
+
+Choices: right, left.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<pane-scrollbars-style>
+
+string; scope window, pane; since 3.6.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<pane-scrollbars-timeout>
+
+number; scope window; since 3.8.
+
+
+
+Range: 0 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-set-clipboard>
+
+command; scope window, pane; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<pane-shell-prompt>
+
+command; scope window, pane; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<pane-status-current-style>
+
+string; scope window; since 3.6.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<pane-status-style>
+
+string; scope window; since 3.6.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<pane-title-changed>
+
+command; scope window, pane; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<popup-border-lines>
+
+choice; scope window; since 3.3a.
+
+Choices: single, double, heavy, simple, rounded, padded, none.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<popup-border-style>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<popup-style>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<prefix>
+
+key; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<prefix-timeout>
+
+number; scope server; since 3.5.
+
+
+
+Range: 0 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/ac44566c9c7e3e94d23be6def4c7ae83472543f5/options-table.c>
+
+=item C<prefix2>
+
+key; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<prompt-command-cursor-colour>
+
+string; scope session; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<prompt-command-cursor-style>
+
+choice; scope session; since 3.7.
+
+Choices: default, blinking-block, block, blinking-underline, underline, blinking-bar, bar.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<prompt-cursor-colour>
+
+colour; scope session; since 3.6, before 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<prompt-cursor-colour>
+
+string; scope session; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<prompt-cursor-style>
+
+choice; scope session; since 3.6.
+
+Choices: default, blinking-block, block, blinking-underline, underline, blinking-bar, bar.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<prompt-history-limit>
+
+number; scope server; since 3.3a.
+
+
+
+Range: 0 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<remain-on-exit>
+
+choice; scope window, pane; since 3.3a, before 3.7.
+
+Choices: off, on, failed.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<remain-on-exit>
+
+choice; scope window, pane; since 3.7, before 3.8.
+
+Choices: off, on, failed, key.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<remain-on-exit>
+
+choice; scope window, pane; since 3.8.
+
+Choices: off, on, failed, key, failed-key.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<remain-on-exit-format>
+
+string; scope window, pane; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<renumber-windows>
+
+flag; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<repeat-time>
+
+number; scope session; since 3.3a, before 3.6.
+
+
+
+Range: 0 through 32767.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<repeat-time>
+
+number; scope session; since 3.6.
+
+
+
+Range: 0 through 2000000.
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<scroll-on-clear>
+
+flag; scope window, pane; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<session-added-to-group>
+
+command; scope session; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<session-closed>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<session-created>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<session-removed-from-group>
+
+command; scope session; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<session-renamed>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<session-status-current-style>
+
+string; scope window; since 3.6.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<session-status-style>
+
+string; scope window; since 3.6.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<session-window-changed>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<set-clipboard>
+
+choice; scope server; since 3.3a.
+
+Choices: off, external, on.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<set-titles>
+
+flag; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<set-titles-string>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<silence-action>
+
+choice; scope session; since 3.3a.
+
+Choices: none, any, current, other.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status>
+
+choice; scope session; since 3.3a.
+
+Choices: off, on, 2, 3, 4, 5.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-bg>
+
+colour; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-fg>
+
+colour; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-format>
+
+string; scope session; since 3.3a. Array.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-interval>
+
+number; scope session; since 3.3a.
+
+
+
+Range: 0 through 2147483647.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-justify>
+
+choice; scope session; since 3.3a.
+
+Choices: left, centre, right, absolute-centre.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-keys>
+
+choice; scope session; since 3.3a.
+
+Choices: emacs, vi.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-left>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-left-length>
+
+number; scope session; since 3.3a.
+
+
+
+Range: 0 through 32767.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-left-style>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-position>
+
+choice; scope session; since 3.3a.
+
+Choices: top, bottom.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-right>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-right-length>
+
+number; scope session; since 3.3a.
+
+
+
+Range: 0 through 32767.
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-right-style>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<status-style>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<switch-mode-match-style>
+
+string; scope window, pane; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<synchronize-panes>
+
+flag; scope window, pane; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<terminal-features>
+
+string; scope server; since 3.3a. Array.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<terminal-overrides>
+
+string; scope server; since 3.3a. Array.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<theme>
+
+choice; scope server; since 3.8.
+
+Choices: detect, terminal, light, dark.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<tiled-layout-max-columns>
+
+number; scope window; since 3.6.
+
+
+
+Range: 0 through 65535.
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<tree-mode-border-style>
+
+string; scope window; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<tree-mode-preview-format>
+
+string; scope window, pane; since 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<tree-mode-preview-style>
+
+string; scope window; since 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<tree-mode-selection-style>
+
+string; scope window; since 3.8.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<update-environment>
+
+string; scope session; since 3.3a. Array.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<user-keys>
+
+string; scope server; since 3.3a. Array.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<variation-selector-always-wide>
+
+flag; scope server; since 3.6.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0dac7fe434d029a4f0b819cba8eb7963df291990/options-table.c>
+
+=item C<visual-activity>
+
+choice; scope session; since 3.3a.
+
+Choices: off, on, both.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<visual-bell>
+
+choice; scope session; since 3.3a.
+
+Choices: off, on, both.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<visual-silence>
+
+choice; scope session; since 3.3a.
+
+Choices: off, on, both.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-active-style>
+
+string; scope window, pane; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-closed>
+
+command; scope window; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<window-created>
+
+command; scope window; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<window-layout-changed>
+
+command; scope window; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-linked>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-pane-changed>
+
+command; scope window; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-pane-current-status-format>
+
+string; scope window; since 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<window-pane-status-format>
+
+string; scope window; since 3.7.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c96ac/options-table.c>
+
+=item C<window-renamed>
+
+command; scope window; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-resized>
+
+command; scope window; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-size>
+
+choice; scope window; since 3.3a.
+
+Choices: largest, smallest, manual, latest.
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-status-activity-style>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-status-bell-style>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-status-current-format>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-status-current-style>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-status-format>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-status-last-style>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-status-separator>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-status-style>
+
+string; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-style>
+
+string; scope window, pane; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-unlinked>
+
+command; scope session; since 3.3a. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<window-unzoomed>
+
+command; scope window; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<window-zoomed>
+
+command; scope window; since 3.8. Array. Hook.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/options-table.c>
+
+=item C<word-separators>
+
+string; scope session; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<wrap-search>
+
+flag; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=item C<xterm-keys>
+
+flag; scope window; since 3.3a.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/0b355ae8114511e1ff6359272b164f1cdf718e80/options-table.c>
+
+=end pod

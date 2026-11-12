@@ -1,0 +1,109 @@
+use v6.d;
+use Test;
+use JSON::Fast;
+
+# Outer: the native exporter starts an isolated compiler for trusted fixture source.
+my $directory = $*TMPDIR.add("libtmux-rakudoc-$*PID-{1_000_000.rand.Int}");
+$directory.mkdir;
+my $file = $directory.add('Example.rakumod');
+my $links = $directory.add('links.json');
+LEAVE { .unlink for ($file, $links).grep(*.e); $directory.rmdir if $directory.e }
+$file.spurt(q:to/RAKU/);
+use v6.d;
+unit module Example;
+#| A B<documented> value.
+subset Count of Int is export where * >= 0;
+#| The captured state.
+enum State is export <Ready Closed>;
+#| Owns the C<label>. See L<Example>.
+class Surface is export {
+    #| Return the stored label without I/O.
+    method label(Str:D :$prefix = 'literal;{}' --> Str:D) { $prefix }
+    method state(State:D $state --> State:D) { $state }
+    method !hidden() { 'method counterfeit() {}' }
+}
+#| A documented fixture error.
+class GLOBAL::X::Example is Exception { }
+=begin pod
+=head1 Reading a label
+
+See L<Surface|Example::Surface>.
+Literal C<L<Missing>> is markup syntax, not a reference. Z<L<Missing>>
+
+=begin code :lang<raku>
+say Surface.new.label;
+# L<Missing> remains code text.
+=end code
+=end pod
+RAKU
+my $process = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku',
+    "--unit=$file", :out;
+my $output = $process.out.slurp(:close);
+is $process.exitcode, 0, 'native compiler extraction succeeds';
+my %artifact = from-json($output);
+my %symbols = %artifact<declarations>.map({ .<id> => $_ });
+ok %symbols<Example::Count>:exists, 'subset declarations are retained';
+ok %symbols<Example::State>:exists, 'enum declarations are retained';
+is %symbols<X::Example><kind>, 'exception', 'native exception inheritance retains its public kind';
+is %symbols<X::Example><name>, 'X::Example', 'GLOBAL declaration placement is not a public name prefix';
+is %symbols{'Example::Surface.state'}<signatures>[0]<references>[0]<target>, 'State',
+    'native enum type references remain available for canonical resolution';
+is %symbols{'Example::Surface.label'}<source><line>, 10, 'source location comes from the compiler';
+is %symbols{'Example::Surface.label'}<signatures>[0]<raw>,
+    q[method label(Str:D :$prefix = 'literal;{}' --> Str:D)],
+    'native signature preserves quoting and named argument syntax';
+is %symbols{'Example::Surface.label'}<doc><summary>, 'Return the stored label without I/O.',
+    'declarator prose stays attached to its method';
+nok %artifact<declarations>.grep({ .<name> eq any(<hidden counterfeit>) }),
+    'private declarations and declaration-shaped string literals stay out';
+like %artifact<guide>, / '```raku' /, 'native code blocks retain their declared language';
+like %artifact<guide>, / 'rakudoc:Example%3A%3ASurface' /, 'native link destinations remain explicit';
+is-deeply %artifact<guideLinks>, ['Example::Surface'], 'only native links supply target metadata, not C or code text';
+
+subtest 'native link resolution needs only the exported surface' => {
+    my %fixture = aliases => { Friendly => 'Example::Surface', 'Example::Renamed' => 'Example::Surface' },
+        symbols => [
+            { id => 'Example', name => 'Example', source => { file => 'Example.rakumod', line => 2 },
+              doc => { body => %artifact<guide>, _nativeLinks => [|%artifact<guideLinks>, 'Friendly', 'Renamed'] } },
+            { id => 'Example::Surface', name => 'Surface', parent => 'Example',
+              source => { file => 'Example.rakumod', line => 8 }, doc => { summary => 'scoped', _nativeLinks => ['Surface'] } },
+            { id => 'Other::Unique', name => 'Unique', source => { file => 'Other.rakumod', line => 3 },
+              signatures => [{ doc => { body => 'unique', _nativeLinks => ['Example'] } }] },
+            { id => 'Elsewhere::Reader', name => 'Reader', source => { file => 'Other.rakumod', line => 4 },
+              doc => { body => 'bare', _nativeLinks => ['Unique'] } },
+        ];
+    sub check-links() {
+        $links.spurt(to-json(%fixture));
+        my $process = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku',
+            "--check-links=$links", :out, :err;
+        my $stdout = $process.out.slurp(:close);
+        my $stderr = $process.err.slurp(:close);
+        ($process.exitcode, $stderr)
+    }
+    my ($status, $error) = check-links;
+    is $status, 0, 'exact, alias, scoped, scoped alias and unique bare links resolve';
+    %fixture<symbols>[3]<doc><_nativeLinks> = ['Missing'];
+    ($status, $error) = check-links;
+    isnt $status, 0, 'unknown target fails the native check';
+    like $error, / "target 'Missing' in Elsewhere::Reader" /, 'unknown target identifies its owning declaration';
+    like $error, / 'Other.rakumod:4' /, 'unknown target includes native source context';
+    %fixture<symbols>[3]<doc><_nativeLinks> = ['Surface'];
+    %fixture<symbols>.push({ id => 'Other::Surface', name => 'Surface',
+        source => { file => 'Other.rakumod', line => 5 } });
+    ($status, $error) = check-links;
+    isnt $status, 0, 'ambiguous bare target fails the native check';
+    like $error, / "target 'Surface' in Elsewhere::Reader" /, 'ambiguous target requires qualification';
+};
+
+subtest 'unsupported native link labels cannot bypass validation or rendering' => {
+    for <Example::Surface Missing> -> $target {
+        $file.spurt("use v6.d;\nunit module Example;\n#| See L<x]y|$target>.\nclass Surface is export \{ }\n");
+        my $process = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku', "--unit=$file", :out, :err;
+        my $stdout = $process.out.slurp(:close);
+        my $stderr = $process.err.slurp(:close);
+        isnt $process.exitcode, 0, 'bracket label fails even when its target exists';
+        like $stderr, / 'Unsupported bracket in RakuDoc link label' /,
+            'the adapter label limitation is explicit';
+    }
+};
+done-testing;

@@ -1,20 +1,14 @@
 # Contributing
 
-This private repository is implementing the Raku core library. The package
-foundation is testable; the complete API and compatibility gates remain in
-development. No package release has been published.
 Read [AGENTS.md](../AGENTS.md) for change discipline and
 [WRITING.md](WRITING.md) for prose and commit conventions.
 
 ## Toolchain
 
-[.tool-versions](../.tool-versions) pins Rakudo 2026.09 on MoarVM. It is the
-latest stable [upstream release][rakudo] verified on 2026-11-11 and implements
-Raku 6.d. The language level and compiler release are separate versions.
+[.tool-versions](../.tool-versions) pins the Rakudo compiler on MoarVM.
+The library targets stable Raku 6.d.
 
-Mise needs the Raku asdf plugin installed explicitly. The plugin is older
-than the compiler; its current release feed includes the pinned archive.
-Install the inspected plugin revision before installing the compiler:
+Install the pinned Raku plugin for mise before installing the compiler:
 
 ```console
 $ mise plugins install raku \
@@ -49,6 +43,14 @@ before advancing the pin.
 
 ## Checks
 
+Check source hygiene, relative file links and distribution inventory:
+
+```console
+$ mise exec -- raku tools/check-source.raku
+```
+
+This check does not rewrite code, format Raku syntax or perform static analysis.
+
 Run focused unit tests through the distribution mapping:
 
 ```console
@@ -60,6 +62,26 @@ Run the package test path used during installation:
 ```console
 $ mise exec -- zef test .
 ```
+
+Check the catalogue-derived native accessors:
+
+```console
+$ mise exec -- raku -I. tools/catalogue.raku \
+    --format=raku \
+    --output=lib/LibTmux/Fields.rakumod \
+    --check
+```
+
+Check the generated human reference separately:
+
+```console
+$ mise exec -- raku -I. tools/catalogue.raku \
+    --format=rakudoc \
+    --output=docs/reference/catalogue.rakudoc \
+    --check
+```
+
+Omit `--check` to regenerate either file after editing the runtime catalogue.
 
 Check package metadata with the author tool:
 
@@ -81,9 +103,22 @@ the checkout. This outer check removes its temporary installation afterward:
 $ mise exec -- raku tools/check-install.raku
 ```
 
-The outer live suite requires an explicit tmux binary and fails if it is
-missing. Set `LIBTMUX_TMUX` to the source-pinned endpoint binary prepared by
-the test environment; never point a fixture at an existing socket:
+The outer live suite requires an explicit tmux binary. Set `LIBTMUX_TEST_TMUX`
+to its absolute executable path; never point a fixture at an existing socket.
+The typed `support-policy` in `LibTmux::Catalogue` defines the supported
+releases. CI derives the oldest and newest endpoints from that policy and
+verifies their source and executable versions. See the
+[tmux compatibility policy](../docs/adr/0001-tmux-compatibility.md).
+
+| Setting | Owner and meaning | Failure behavior |
+| --- | --- | --- |
+| `LIBTMUX_TEST_TMUX` | Live fixtures and the example runner select one explicit tmux executable. | Missing, relative or nonexecutable paths fail before fixture setup; no PATH fallback or skipped live tests. |
+| `TMUX_VERSION` / `TMUX_COMMIT` | CI build inputs come from the typed compatibility policy. | Source or reported-version mismatches fail the lane. |
+
+`LIBTMUX_TEST_TMUX` is test-only. It does not change the production
+`Server.new` executable default or select a borrowed socket. Each fixture owns
+its temporary directory and explicit socket and clears inherited `TMUX` and
+`TMUX_PANE` for its children.
 
 ```console
 $ mise exec -- prove6 -I. -It/lib xt/live
@@ -92,6 +127,20 @@ $ mise exec -- prove6 -I. -It/lib xt/live
 The ordinary `t/` suite contains pure tests; `xt/live/` is an explicit outer
 gate. Required CI runs both endpoints and cannot treat skipped live tests as
 success. Test helpers under `t/lib/` are author code, not installed modules.
+The outer suite also requires Python 3 for small standard-library PTY and
+process-replacement fixtures. Those helpers use event-driven I/O and pidfds;
+Python is not a library runtime dependency or a requirement for pure tests.
+
+Run the quickstart, lifecycle and recovery examples against the same explicit
+`LIBTMUX_TEST_TMUX` endpoint binary. The runner checks that the README quotes
+the complete quickstart source and verifies its output. It places a `tmux`
+symlink to the selected binary in a private temporary directory first on the
+child `PATH`, then removes that directory on exit. The lifecycle and recovery
+programs also receive the binary through `--tmux`:
+
+```console
+$ mise exec -- raku tools/check-examples.raku
+```
 
 Logo exports and their upstream source provenance live in [docs/assets](../docs/assets/README.md).
 Keep artwork build dependencies in the upstream artwork project.
@@ -112,8 +161,8 @@ Verify relative instruction links and the `CLAUDE.md` symlink when changing
 guides. Whitespace checks do not establish package or tmux compatibility.
 Report `PASS`, `FAIL`, `PARTIAL`, and `UNVERIFIED` distinctly.
 
-Time the entire command, including startup and setup. These are pragmatic
-targets; record and justify adjustments rather than dropping required checks:
+Time the entire command, including startup and setup. Retain every required
+check and investigate runs that exceed these budgets:
 
 | Loop | Scope | Budget | Target |
 | --- | --- | --- | --- |
@@ -134,37 +183,32 @@ less than ten minutes per run and one hour per sweep.
 - Declare the language level with `raku`, separate runtime, build, and test
   dependencies, and list installed module paths explicitly in `provides`.
   Use SPDX license identifiers and HTTPS source links.
-- Prefer core `Test`. Use distribution imports (`-I.`) when checking public
-  imports so an undeclared module cannot hide behind `-Ilib`. Consider
-  `App::Prove6` when a real suite needs a runner.
+- Use core `Test` and run suites with `App::Prove6`. Use distribution imports
+  (`-I.`) when checking public imports so an undeclared module cannot hide
+  behind `-Ilib`.
 - Use zef for dependency and installed-package checks. A GitHub authority
   does not establish ownership of a `zef:` publishing account.
-- When CI is added, use the maintained `Raku/setup-raku` action, pin actions
-  to full commits, and read the compiler version from `.tool-versions`.
+- Use `Raku/setup-raku` in CI, pin actions to full commits, and read the
+  compiler version from `.tool-versions`.
   Keep Linux required and verify additional platforms before claiming them.
-
-These conventions follow the [distribution guide][distribution],
-[zef's package checks][zef-ci], [App::Rak's metadata][rak-meta], and
-[Mi6's author-test workflow][mi6-ci]. Active libraries sometimes retain old
-action versions or legacy metadata; evaluate those choices independently.
 
 ## Formatting and additional analysis
 
-Keep formatter changes opt-in and review their diffs. A bounded evaluation on
-the pinned compiler tested grammars, regexes, heredocs, quote operators,
-comments, Pod and multi signatures:
+Follow [native documentation authoring](../docs/documentation.rakudoc) for
+declarator comments, API extraction, coverage checks and shared rendering.
 
-| Tool | Evaluated result | Repository policy |
+Keep formatter changes opt-in and review their diffs. Run affected behavioral
+tests after formatting; compiler-backed tools can execute compile-time code.
+
+| Tool | Use | Limit |
 | --- | --- | --- |
-| [Raku Navigator 0.5.3][navigator] | Changed quoted string values and Pod indentation | Set `raku.formatting.enable` to `false`; navigation remains optional. |
-| [rakufmt 0.0.1][rakufmt] | Preserved 18 behavioral assertions, comments, Pod and repeated formatting | Experimental author tool; no required formatting gate. |
-| [static 0.0.1][static] | Detected a type mismatch accepted by plain compilation | Advisory default `fail-on-mismatch`; do not enforce uncertainty rejection. |
+| [Raku Navigator][navigator] | Optional navigation; set `raku.formatting.enable` to `false`. | Formatting can alter quoted strings and Pod indentation. |
+| [rakufmt][rakufmt] | Optional formatting with diff review and affected tests. | No required formatting gate. |
+| [static][static] | Optional targeted advisory checks. | Rejects valid Instant arithmetic, Blob byte counts and custom BUILD arguments. |
 
-These results apply to the linked source revisions and the bounded corpus,
-not every Raku program. Neither formatter success nor idempotence proves
-semantic preservation. Run affected behavioral tests after formatting.
-Compiler-backed formatting and analysis may execute compile-time code.
-Keep these tools outside runtime dependencies and timed unit loops.
+These limits apply to the linked tool revisions. Keep the tools outside runtime
+dependencies and timed unit loops. Compiler import and behavioral tests remain
+required.
 
 ## tmux isolation
 
@@ -182,11 +226,6 @@ verification and its limits. Keep commits focused and preserve unrelated
 work. Repository privacy, pushes, and publication follow
 [repository boundaries](../AGENTS.md#repository-boundaries).
 
-[rakudo]: https://github.com/rakudo/rakudo/releases/tag/2026.09
-[distribution]: https://docs.raku.org/language/distributions/configuration-structure
-[zef-ci]: https://github.com/ugexe/zef/blob/a5289115b669adfe8afd2bea52d031320fed5d78/.github/workflows/tests.yml
-[rak-meta]: https://github.com/lizmat/App-Rak/blob/3123265d994a2067c32d93addc6295eb5554505b/META6.json
-[mi6-ci]: https://github.com/skaji/mi6/blob/235a052d7655b809d7a669ec1d57487b70afbf90/.github/workflows/test.yml
 [navigator]: https://github.com/bscan/RakuNavigator/tree/ccd511dbd156f396eed613f21adbcd8e38a8c784
 [rakufmt]: https://github.com/ugexe/Raku-rakufmt/tree/529a707df7d76feedfc536e50b9d52acc942c076
 [static]: https://github.com/FCO/static/tree/a3c731c5462a95ddba634a8d1e5903e0f415bca9

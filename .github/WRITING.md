@@ -16,14 +16,13 @@ describing changes.
 
 ## Guides and API documentation
 
-Lead with the reader's task. Once a usable package exists, show installation,
-the smallest complete example, its result, and operational limits. Until
-then, state the scaffold status without invented usage or install commands.
+Lead with the reader's task, installation, the smallest complete working
+example, its result, and operational limits.
 
 Keep API contracts beside their definitions and conceptual explanations in
 one guide. Link to each instead of duplicating descriptions. Document inputs,
 outputs, errors, ownership, I/O, and cleanup where relevant. Use RakuDoc/Pod
-for native API documentation when modules exist.
+for native API documentation.
 
 Comments explain invariants, constraints, or intent that the code does not
 make clear. Remove comments that merely narrate the next expression.
