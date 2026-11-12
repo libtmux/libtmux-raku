@@ -6,19 +6,30 @@
   "auth": "github:libtmux",
   "raku": "6.d",
   "description": "Typed tmux observations, queries and explicit commands for Raku",
-  "authors": ["libtmux contributors"],
+  "authors": [
+    "libtmux contributors"
+  ],
   "license": "MIT",
   "source-url": "https://github.com/libtmux/libtmux-raku.git",
   "support": {
     "source": "https://github.com/libtmux/libtmux-raku.git"
   },
-  "depends": ["JSON::Fast:ver<0.21.0+>:auth<zef:timo>"],
-  "test-depends": ["Test"],
+  "depends": [
+    "JSON::Fast:ver<0.21.0+>:auth<zef:timo>"
+  ],
+  "test-depends": [
+    "Test"
+  ],
   "provides": {
     "LibTmux": "lib/LibTmux.rakumod",
     "LibTmux::Exceptions": "lib/LibTmux/Exceptions.rakumod",
-    "LibTmux::Types": "lib/LibTmux/Types.rakumod"
+    "LibTmux::Types": "lib/LibTmux/Types.rakumod",
+    "LibTmux::Transport": "lib/LibTmux/Transport.rakumod"
   },
   "resources": [],
-  "tags": ["tmux", "terminal", "automation"]
+  "tags": [
+    "tmux",
+    "terminal",
+    "automation"
+  ]
 }

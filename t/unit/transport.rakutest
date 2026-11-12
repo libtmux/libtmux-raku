@@ -1,0 +1,65 @@
+use v6.d;
+use Test;
+use LibTmux::Types;
+use LibTmux::Exceptions;
+use LibTmux::Transport;
+
+subtest 'malformed argv is refused before process admission' => {
+    my $executor = Executor.new;
+    LEAVE $executor.close;
+    for [], [''], [Str], ['program', Any], ['program', 42],
+        ["program\0hidden"], ['program', "argument\0hidden"] -> $argv {
+        my $pending = $executor.execute-async($argv);
+        isa-ok $pending, Promise, 'asynchronous validation retains its return contract';
+        throws-like { await $pending }, X::LibTmux::Command,
+            :kind<argument>, :outcome(NotStarted);
+    }
+    for 0, False, '100' -> $timeout-ms {
+        my $pending = $executor.execute-async(['unstarted-program'], :$timeout-ms);
+        isa-ok $pending, Promise;
+        throws-like { await $pending }, X::LibTmux::Command,
+            :kind<argument>, :outcome(NotStarted), 'deadline override validates at admission';
+    }
+};
+
+subtest 'cancellation is one shot and owns its notification promise' => {
+    my $cancel = Cancellation.new;
+    my $notification = $cancel.when-cancelled;
+    throws-like { $notification.keep(True) }, X::Promise::Vowed,
+        'observers cannot forge cancellation';
+    $cancel.cancel;
+    $cancel.cancel;
+    ok $cancel.cancelled, 'repeated cancellation keeps the cancelled state';
+    is $notification.status, Kept, 'existing observers receive cancellation';
+    my $executor = Executor.new;
+    LEAVE $executor.close;
+    throws-like { $executor.execute(['unstarted-program'], :$cancel) },
+        X::LibTmux::Command, :kind<cancelled>, :outcome(NotStarted);
+};
+
+subtest 'closing prevents future process admission' => {
+    my $executor = Executor.new;
+    my $first = $executor.close-async;
+    my $second = $executor.close-async;
+    ok $first === $second, 'close callers share one completion';
+    await $first;
+    throws-like { $executor.execute(['unstarted-program']) },
+        X::LibTmux::Command, :kind<closed>, :outcome(NotStarted);
+};
+
+subtest 'cloning cannot share lifecycle state or mutable output containers' => {
+    my $cancel = Cancellation.new;
+    throws-like { $cancel.clone }, X::LibTmux::Command, :kind<argument>,
+        'cancellation owners cannot be shallow cloned';
+    my $executor = Executor.new;
+    LEAVE $executor.close;
+    throws-like { $executor.clone }, X::LibTmux::Command, :kind<argument>,
+        'executor owners cannot be shallow cloned';
+    my $buffer = Buf.new(1);
+    my $copy = Result.new.clone(:stdout($buffer));
+    $buffer[0] = 2;
+    is-deeply $copy.stdout, Blob.new(1), 'result clone copies replacement bytes';
+    throws-like { $copy.clone(:unknown) }, X::LibTmux::Command, :kind<argument>;
+};
+
+done-testing;

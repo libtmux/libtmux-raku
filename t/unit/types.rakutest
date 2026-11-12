@@ -30,6 +30,13 @@ subtest 'operational failures are typed exceptions' => {
     throws-like {
         X::LibTmux::Cardinality.new(:count(2), :entity<pane>).throw;
     }, X::LibTmux::Cardinality, :count(2);
+    my $bytes = Buf.new(255);
+    my $error = X::LibTmux::Command.new(:stderr($bytes));
+    $bytes[0] = 0;
+    is-deeply $error.stderr, Blob.new(255), 'captured diagnostics own their bytes';
+    my $copied = $error.clone(:stdout($bytes));
+    $bytes[0] = 7;
+    is-deeply $copied.stdout, Blob.new(0), 'cloned diagnostics also own their bytes';
 };
 
 done-testing;

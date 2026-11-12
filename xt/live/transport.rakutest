@@ -1,0 +1,221 @@
+use v6.d;
+use Test;
+use NativeCall;
+use LibTmux::Types;
+use LibTmux::Exceptions;
+use LibTmux::Transport;
+use Test::LibTmux::Fixture;
+
+# Outer: launches real child processes and owned tmux endpoint clients.
+subtest 'both binary streams drain beyond pipe capacity' => {
+    my $executor = Executor.new;
+    LEAVE $executor.close;
+    my $result = $executor.execute([$*EXECUTABLE.Str, '-e', q[
+        use v6.d;
+        my $out = start { $*OUT.write(Blob.new(255 xx 524288)) };
+        my $err = start { $*ERR.write(Blob.new(254 xx 524288)) };
+        await $out, $err;
+    ]]);
+    is $result.stdout.elems, 524288, 'complete stdout survives concurrent pressure';
+    is $result.stderr.elems, 524288, 'complete stderr survives concurrent pressure';
+    ok $result.stdout.list.all == 255, 'stdout preserves invalid UTF-8 bytes';
+    ok $result.stderr.list.all == 254, 'stderr preserves invalid UTF-8 bytes';
+    is $result.outcome, Complete, 'successful result describes child completion';
+    ok $result.reaped, 'success is delivered after the child was reaped';
+};
+
+subtest 'admission snapshots values and preserves an empty environment' => {
+    my $executor = Executor.new;
+    LEAVE $executor.close;
+    my @argv = $*EXECUTABLE.Str, '-e', q[
+        use v6.d;
+        print @*ARGS[0] ~ %*ENV<LIBTMUX_TRANSPORT_MARKER>;
+        $*OUT.write($*IN.slurp(:bin));
+    ], 'argument';
+    my %environment = %*ENV, LIBTMUX_TRANSPORT_MARKER => 'environment';
+    my $stdin = Buf.new(0, 255, 13, 10);
+    my $pending = $executor.execute-async(@argv, :%environment, :$stdin);
+    @argv[*-1] = 'changed';
+    %environment<LIBTMUX_TRANSPORT_MARKER> = 'changed';
+    $stdin[0] = 42;
+    my $result = await $pending;
+    is-deeply $result.stdout,
+        Blob.new(|'argumentenvironment'.encode.list, 0, 255, 13, 10),
+        'argv, environment and stdin membership are copied before asynchronous work';
+    my $empty = $executor.execute(['/usr/bin/env'], :environment(%()));
+    is $empty.stdout.elems, 0, 'explicit empty environment does not inherit ambient data';
+};
+
+subtest 'child exit and spawn failures remain distinct' => {
+    my $executor = Executor.new;
+    LEAVE $executor.close;
+    my @argv = $*EXECUTABLE.Str, '-e', q[
+        $*OUT.write(Blob.new(111, 255));
+        $*ERR.write(Blob.new(101, 254));
+        exit 17;
+    ];
+    my $result = $executor.execute(@argv, :!check);
+    is $result.exitcode, 17, 'unchecked command retains its exit status';
+    is $result.outcome, Failed, 'unchecked nonzero exit remains failed';
+    is-deeply $result.stdout, Blob.new(111, 255), 'unchecked stdout remains bytes';
+    is-deeply $result.stderr, Blob.new(101, 254), 'unchecked stderr remains bytes';
+    my $failure;
+    try {
+        $executor.execute(@argv);
+        CATCH { default { $failure = $_ } }
+    }
+    isa-ok $failure, X::LibTmux::Command;
+    if $failure ~~ X::LibTmux::Command {
+        is $failure.kind, 'exit', 'checked nonzero exit has its own category';
+        is $failure.exitcode, 17, 'checked failure preserves the exit status';
+        is-deeply $failure.stderr, Blob.new(101, 254), 'checked diagnostic bytes survive';
+        ok $failure.reaped, 'failed command client was reaped';
+    }
+    throws-like { $executor.execute(['/nonexistent/libtmux-transport-executable']) },
+        X::LibTmux::Command, :kind<spawn>, :outcome(NotStarted);
+};
+
+class ExitEvent is repr('CStruct') {
+    has int32 $.fd is rw;
+    has int16 $.events is rw = 1;
+    has int16 $.revents is rw;
+}
+sub pidfd_open(int32, uint32 --> int32) is native { * }
+sub poll(ExitEvent, size_t, int32 --> int32) is native { * }
+sub close(int32 --> int32) is native { * }
+
+sub child-pids(Int:D $pid --> List:D) {
+    "/proc/$pid/task".IO.dir.map({ .add('children').slurp.words }).flat.unique.List
+}
+
+subtest 'overflow bounds retained output and reaps the child' => {
+    my $executor = Executor.new(:max-output-bytes(65536));
+    LEAVE $executor.close;
+    my $error;
+    try {
+        $executor.execute([$*EXECUTABLE.Str, '-e', q[
+            use v6.d;
+            loop {
+                $*OUT.write(Blob.new(120 xx 16384));
+                $*ERR.write(Blob.new(121 xx 16384));
+            }
+        ]]);
+        CATCH { default { $error = $_ } }
+    }
+    isa-ok $error, X::LibTmux::Command;
+    if $error ~~ X::LibTmux::Command {
+        is $error.kind, 'overflow', 'combined output limit has its own error';
+        is $error.outcome, Indeterminate, 'termination cannot undo effects';
+        cmp-ok $error.stdout.elems + $error.stderr.elems, '<=', 65536,
+            'retained diagnostics obey the combined byte limit';
+        ok $error.reaped, 'overflow is delivered after process reaping';
+        nok "/proc/{$error.pid}".IO.e, 'the owned child PID is absent after reaping';
+    }
+};
+
+subtest 'admitted commands terminate on cancel, deadline and concurrent close' => {
+    with-tmux(-> $fixture {
+        for <cancelled timeout closed> -> $mode {
+            my $executor = Executor.new;
+            LEAVE $executor.close;
+            my $cancel = Cancellation.new;
+            my @argv = $fixture.binary, '-u', '-S', $fixture.socket-path.Str,
+                '-f', '/dev/null', 'wait-for', '-S', "admitted-$mode",
+                ';', 'wait-for', "held-$mode";
+            my %environment = %*ENV;
+            %environment<TMUX>:delete;
+            %environment<TMUX_PANE>:delete;
+            my $pending = $executor.execute-async(@argv, :$cancel, :%environment,
+                :timeout-ms($mode eq 'timeout' ?? 500 !! 10000));
+            $fixture.cmd('wait-for', "admitted-$mode");
+            my @children = child-pids($*PID);
+            my @owned = @children.grep(-> $pid {
+                my $arguments = try "/proc/$pid/cmdline".IO.slurp(:bin)
+                    .decode('utf8-c8').split("\0").List;
+                $arguments.defined && $arguments.grep(* eq $fixture.socket-path.Str)
+                    && $arguments.grep(* eq "held-$mode")
+            });
+            is @owned.elems, 1, "$mode identifies the admitted owned child";
+            my $pid = @owned[0].Int;
+            my int32 $fd = pidfd_open($pid, 0);
+            die 'could not independently watch command exit' if $fd < 0;
+            LEAVE close($fd);
+            is poll(ExitEvent.new(:$fd), 1, 0), 0, "$mode starts with a live client";
+            if $mode eq 'cancelled' { $cancel.cancel }
+            if $mode eq 'closed' {
+                my $first = $executor.close-async;
+                my $second = $executor.close-async;
+                ok $first === $second, 'concurrent close callers share completion';
+                await $first;
+            }
+            my $failure;
+            try {
+                my $result = await $pending;
+                CATCH { default { $failure = $_ } }
+            }
+            isa-ok $failure, X::LibTmux::Command, "$mode has a typed failure";
+            if $failure ~~ X::LibTmux::Command {
+                is $failure.kind, $mode, "$mode retains its termination reason";
+                is $failure.outcome, Indeterminate, "$mode retains uncertain effects";
+                ok $failure.reaped, "$mode reports reaping";
+            }
+            is poll(ExitEvent.new(:$fd), 1, 0), 1,
+                "$mode returns only after the kernel reports child exit";
+        }
+    });
+};
+
+subtest 'unsettled descendant pipes remain a shared cleanup failure' => {
+    with-tmux(-> $fixture {
+        my $executor = Executor.new(:cleanup-timeout-ms(100));
+        my $cancel = Cancellation.new;
+        my @arguments = $*EXECUTABLE.Str, '-e', 'my $child = run |@*ARGS;',
+            $fixture.binary, '-u', '-S', $fixture.socket-path.Str,
+            '-f', '/dev/null', 'wait-for', '-S', 'descendant-admitted',
+            ';', 'wait-for', 'descendant-held';
+        my %environment = %*ENV;
+        %environment<TMUX>:delete;
+        %environment<TMUX_PANE>:delete;
+        my $pending = $executor.execute-async(@arguments, :$cancel, :%environment);
+        $fixture.cmd('wait-for', 'descendant-admitted');
+        my @parents = child-pids($*PID).grep(-> $pid {
+            my $argv = try "/proc/$pid/cmdline".IO.slurp(:bin)
+                .decode('utf8-c8').split("\0").List;
+            $argv.defined && $argv.grep(* eq 'descendant-held')
+        });
+        is @parents.elems, 1, 'the owned direct child is identifiable';
+        my @descendants = child-pids(@parents[0].Int);
+        is @descendants.elems, 1, 'the inherited pipe belongs to one owned descendant';
+        my int32 $fd = pidfd_open(@descendants[0].Int, 0);
+        die 'could not watch the owned descendant exit' if $fd < 0;
+        LEAVE {
+            try $fixture.cmd('wait-for', '-S', 'descendant-held');
+            poll(ExitEvent.new(:$fd), 1, 1000);
+            close($fd);
+            try $executor.close;
+        }
+        $cancel.cancel;
+        my $failure;
+        try {
+            my $result = await $pending;
+            CATCH { default { $failure = $_ } }
+        }
+        isa-ok $failure, X::LibTmux::Command;
+        if $failure ~~ X::LibTmux::Command {
+            is $failure.kind, 'cleanup', 'open descendant pipe prevents settled completion';
+            is $failure.outcome, Indeterminate, 'cleanup does not assert completion';
+            nok $failure.reaped, 'incomplete reaping evidence remains explicit';
+        }
+        is poll(ExitEvent.new(:$fd), 1, 0), 0,
+            'the executor did not claim to own a descendant daemon';
+        $fixture.cmd('wait-for', '-S', 'descendant-held');
+        is poll(ExitEvent.new(:$fd), 1, 1000), 1,
+            'the test releases its owned descendant and proves exit';
+        my $closed = $executor.close-async;
+        throws-like { await $closed }, X::LibTmux::Command, :kind<cleanup>,
+            'close retains an earlier cleanup failure';
+        ok $closed === $executor.close-async, 'later close returns the same failed Promise';
+    });
+};
+
+done-testing;

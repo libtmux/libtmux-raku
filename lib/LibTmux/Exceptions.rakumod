@@ -14,6 +14,30 @@ class GLOBAL::X::LibTmux::Command is X::LibTmux {
     has Int $.exitcode;
     has Str:D $.kind = 'exit';
     has Outcome:D $.outcome = Indeterminate;
+    has Blob:D $.stdout = Blob.new;
+    has Blob:D $.stderr = Blob.new;
+    has Int $.pid;
+    has Int $.signal;
+    has Bool:D $.reaped = False;
+    has Exception $.cause;
+
+    submethod TWEAK() {
+        $!stdout = Blob.new($!stdout.list);
+        $!stderr = Blob.new($!stderr.list);
+    }
+
+    method clone(*%changes --> X::LibTmux::Command:D) {
+        my %arguments = message => self.message, exitcode => $!exitcode,
+            kind => $!kind, outcome => $!outcome, stdout => $!stdout, stderr => $!stderr,
+            pid => $!pid, signal => $!signal, reaped => $!reaped, cause => $!cause;
+        for %changes.kv -> $name, $value {
+            X::LibTmux::Command.new(:kind<argument>, :outcome(NotStarted),
+                :message("Unknown command error field $name")).throw
+                unless %arguments{$name}:exists;
+            %arguments{$name} = $value;
+        }
+        self.WHAT.new(|%arguments)
+    }
 }
 
 #| Captured bytes violate the declared projection or field codec.
