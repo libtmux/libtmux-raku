@@ -68,14 +68,22 @@ correctly describes behavior. Behavioral review remains required.
 
 =head2 Executable examples
 
-The L<quickstart|https://github.com/libtmux/libtmux-raku/blob/master/examples/quickstart.raku>,
-L<observatory example|https://github.com/libtmux/libtmux-raku/blob/master/examples/observatory.raku>
-and L<batch recovery example|https://github.com/libtmux/libtmux-raku/blob/master/examples/batch-recovery.raku>
-are the canonical programs. All three close their owned tmux resources. The
-runner verifies that the README quotes the complete quickstart and checks its
-exact output. The observatory and batch recovery programs assert their results
-and verify cleanup. Set C<LIBTMUX_TEST_TMUX> to the absolute endpoint executable
-and run:
+Complete programs in C<examples/> are the canonical source. The README marks a
+complete fenced block with C<< <!-- runs: examples/query-panes.raku --> >>.
+The native guide uses an abbreviated RakuDoc comment,
+C<=comment runs: examples/query-panes.raku>, immediately before its code block.
+The runner checks every marked program byte-for-byte and rejects unmarked Raku
+blocks in those guides. Check source alignment without starting tmux:
+
+=begin code :lang<console>
+$ mise exec -- raku tools/check-examples.raku --check-source
+=end code
+
+The native exporter captures all shipped example files with their input digests
+and source bytes. A rendered example therefore links to the captured version.
+The example runner executes every program, checks its result, and rejects
+leftover owned socket directories. Set C<LIBTMUX_TEST_TMUX> to the absolute
+endpoint executable and run:
 
 =begin code :lang<console>
 $ mise exec -- raku tools/check-examples.raku

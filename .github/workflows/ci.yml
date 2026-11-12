@@ -97,6 +97,7 @@ jobs:
             docs/_build/api.json
       - name: Compile executable examples
         run: |
+          /usr/bin/time -f 'whole command: %e s' raku tools/check-examples.raku --check-source
           for example in examples/*.raku; do
             /usr/bin/time -f 'whole command: %e s' raku -I. -c "$example"
           done

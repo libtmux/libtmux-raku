@@ -131,12 +131,18 @@ The outer suite also requires Python 3 for small standard-library PTY and
 process-replacement fixtures. Those helpers use event-driven I/O and pidfds;
 Python is not a library runtime dependency or a requirement for pure tests.
 
-Run the quickstart, lifecycle and recovery examples against the same explicit
-`LIBTMUX_TEST_TMUX` endpoint binary. The runner checks that the README quotes
-the complete quickstart source and verifies its output. It places a `tmux`
-symlink to the selected binary in a private temporary directory first on the
-child `PATH`, then removes that directory on exit. The lifecycle and recovery
-programs also receive the binary through `--tmux`:
+Check that the README and native guide quote complete canonical example files.
+This check requires no tmux process:
+
+```console
+$ mise exec -- raku tools/check-examples.raku --check-source
+```
+
+Run every example against the same explicit `LIBTMUX_TEST_TMUX` endpoint binary.
+The runner checks displayed source, expected output and owned socket cleanup.
+It places a `tmux` symlink to the selected binary in a private temporary directory
+first on the child `PATH`, then removes that directory on exit. Programs other
+than the minimal quickstart also receive the binary through `--tmux`:
 
 ```console
 $ mise exec -- raku tools/check-examples.raku

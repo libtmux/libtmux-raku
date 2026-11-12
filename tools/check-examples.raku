@@ -5,13 +5,43 @@ sub mkdtemp(CArray[uint8] --> Pointer) is native { * }
 
 my $root = $?FILE.IO.parent.parent.absolute.IO;
 my $quickstart = $root.add('examples/quickstart.raku');
-my @readme = $root.add('README.md').slurp.split("```raku\n");
-die 'README must contain one marked Raku quickstart block'
-    unless @readme.elems == 2
-        && @readme[0].ends-with("<!-- runs: examples/quickstart.raku -->\n\n");
-my @block = @readme[1].split("```\n", 2);
-die 'README quickstart must match the complete examples/quickstart.raku file'
-    unless @block.elems == 2 && @block[0] eq $quickstart.slurp;
+my $source-only = @*ARGS.elems == 1 && @*ARGS[0] eq '--check-source';
+die 'Usage: raku tools/check-examples.raku [--check-source]' if @*ARGS && !$source-only;
+
+sub check-snippets(Str:D $document, Str:D $marker, Str:D $opening,
+                   Str:D $code-start, Str:D $closing --> Int:D) {
+    my $source = $root.add($document).slurp;
+    my @sections = $source.split($marker);
+    die "$document must mark every Raku example with its canonical source"
+        unless @sections.elems > 1
+            && @sections.elems - 1 == $source.split($code-start).elems - 1;
+    for @sections.skip(1) -> $section {
+        my @header = $section.split($opening, 2);
+        die "Malformed example marker in $document" unless @header.elems == 2;
+        my $path = @header[0];
+        die "Invalid example path in $document"
+            unless $path ~~ /^ 'examples/' <[A..Za..z0..9\-]>+ '.raku' $/;
+        my @block = @header[1].split($closing, 2);
+        die "$document snippet differs from $path"
+            unless @block.elems == 2 && $root.add($path).f
+                && @block[0] eq $root.add($path).slurp;
+    }
+    @sections.elems - 1
+}
+
+my $snippets = check-snippets('README.md', '<!-- runs: ',
+    " -->\n\n```raku\n", "```raku\n", "```\n")
+    + check-snippets('lib/LibTmux.rakumod', '=comment runs: ',
+        "\n\n=begin code :lang<raku>\n", "=begin code :lang<raku>\n", "=end code\n");
+say "PASS: $snippets complete documentation examples match their source";
+exit 0 if $source-only;
+
+my %expected =
+    quickstart => ["Starlight telescope: 2 panes\n"],
+    query-panes => ["Wide telescope: Starlight telescope\n"
+        ~ "Other instruments: Orion weather, Spectrum recorder\n"],
+    floating-panes => ['floating', 'tiled'].map({ "Telemetry placement: $_\nAurora telemetry\n" }).Array,
+    watch-output => ["Starlight downlink: 42 stars catalogued\nScreen capture confirmed\n"];
 
 my $binary = %*ENV<LIBTMUX_TEST_TMUX> // die 'LIBTMUX_TEST_TMUX must name the qualified endpoint binary';
 die 'LIBTMUX_TEST_TMUX must be an executable absolute path'
@@ -31,7 +61,8 @@ LEAVE {
 symlink($binary, $link.Str) or die 'Could not select the example tmux executable';
 my %environment = %*ENV;
 %environment<PATH> = $temporary.Str ~ ':' ~ (%environment<PATH> // '/usr/bin:/bin');
-%environment<TMUX TMUX_PANE>:delete;
+%environment<TMPDIR> = $temporary.Str;
+%environment<TMUX TMUX_PANE RAKULIB PERL6LIB>:delete;
 
 for @examples -> $example {
     my @arguments;
@@ -40,8 +71,11 @@ for @examples -> $example {
         :cwd($root), :env(%environment), :out;
     my $output = $process.out.slurp(:close);
     die "Example failed: {$example.basename}" unless $process.exitcode == 0;
-    die 'Quickstart output did not match the documented result'
-        if $example eq $quickstart && $output ne "Starlight telescope: 2 panes\n";
+    my $name = $example.basename.subst(/ '.raku' $/, '');
+    die "Example output did not match the documented result: $name"
+        if (%expected{$name}:exists) && !%expected{$name}.first(* eq $output).defined;
+    die "Example left an owned socket directory: $name"
+        if $temporary.dir.first(*.basename.starts-with('libtmux-owned-')).defined;
     print $output;
 }
 say "PASS: {@examples.elems} executable examples";
