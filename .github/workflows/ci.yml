@@ -1,0 +1,209 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  LANG: C.UTF-8
+  LC_ALL: C.UTF-8
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      compiler: ${{ steps.compiler.outputs.version }}
+      matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read the declared compiler
+        id: compiler
+        run: |
+          version=$(awk '$1 == "raku" { if (NF != 2) exit 1; print $2; count++ } END { if (count != 1) exit 1 }' .tool-versions)
+          [[ "$version" =~ ^[0-9]{4}\.[0-9]{2}(\.[0-9]+)?$ ]]
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+      - uses: Raku/setup-raku@8602b3572876ee7a5e304837c3183cf913a78f47 # v1.15.0
+        with:
+          raku-version: ${{ steps.compiler.outputs.version }}
+      - name: Install declared dependencies
+        run: zef install --deps-only .
+      - name: Derive supported endpoints
+        id: matrix
+        run: |
+          matrix=$(raku -I. tools/ci-matrix.raku)
+          printf 'value=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
+
+  quality:
+    name: Quality
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Raku/setup-raku@8602b3572876ee7a5e304837c3183cf913a78f47 # v1.15.0
+        with:
+          raku-version: ${{ needs.prepare.outputs.compiler }}
+      - name: Install package and author dependencies
+        run: |
+          zef install --deps-only .
+          zef install Test::META App::Prove6
+      - name: Source hygiene and package inventory
+        run: |
+          /usr/bin/time -f 'whole command: %e s' raku tools/check-source.raku
+      - name: Pure contracts
+        run: |
+          /usr/bin/time -f 'whole command: %e s' prove6 -I. t
+      - name: Package metadata
+        run: |
+          /usr/bin/time -f 'whole command: %e s' raku xt/meta.rakutest
+      - name: Generated accessors and reference
+        run: |
+          /usr/bin/time -f 'whole command: %e s' raku -I. tools/catalogue.raku \
+            --format=raku \
+            --output=lib/LibTmux/Fields.rakumod \
+            --check
+          /usr/bin/time -f 'whole command: %e s' raku -I. tools/catalogue.raku \
+            --format=rakudoc \
+            --output=docs/reference/catalogue.rakudoc \
+            --check
+      - name: Native documentation extraction contracts
+        run: |
+          /usr/bin/time -f 'whole command: %e s' prove6 -I. xt/docs
+      - name: Extract the native public API
+        run: |
+          /usr/bin/time -f 'whole command: %e s' raku -I. tools/export-docs.raku \
+            --output=docs/_build/api.json
+          jq --exit-status \
+            '(.missingDocumentation | type == "object" and length == 0)' \
+            docs/_build/api.json
+      - name: Compile executable examples
+        run: |
+          for example in examples/*.raku; do
+            /usr/bin/time -f 'whole command: %e s' raku -I. -c "$example"
+          done
+      - name: Isolated installed consumer
+        run: |
+          /usr/bin/time -f 'whole command: %e s' raku tools/check-install.raku
+
+  live:
+    name: tmux ${{ matrix.tmux }}
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    env:
+      TMUX_VERSION: ${{ matrix.tmux }}
+      TMUX_COMMIT: ${{ matrix.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: Raku/setup-raku@8602b3572876ee7a5e304837c3183cf913a78f47 # v1.15.0
+        with:
+          raku-version: ${{ needs.prepare.outputs.compiler }}
+      - name: Install build and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes autoconf automake bison build-essential libevent-dev libncurses-dev pkg-config python3 ripgrep
+          zef install --deps-only .
+          zef install App::Prove6
+      - name: Build the verified tmux source
+        run: |
+          source_dir="$RUNNER_TEMP/tmux-source"
+          install_dir="$RUNNER_TEMP/tmux-install"
+          git init "$source_dir"
+          git -C "$source_dir" remote add origin https://github.com/tmux/tmux.git
+          git -C "$source_dir" fetch --depth=1 origin "refs/tags/$TMUX_VERSION"
+          test "$(git -C "$source_dir" rev-parse 'FETCH_HEAD^{commit}')" = "$TMUX_COMMIT"
+          git -C "$source_dir" checkout --detach "$TMUX_COMMIT"
+          (
+            cd "$source_dir"
+            sh autogen.sh
+            ./configure --prefix="$install_dir"
+            make -j2
+            make install
+          )
+          test "$("$install_dir/bin/tmux" -V)" = "tmux $TMUX_VERSION"
+          printf 'LIBTMUX_TEST_TMUX=%s\n' "$install_dir/bin/tmux" >> "$GITHUB_ENV"
+      - name: Required live contracts
+        run: |
+          test -x "$LIBTMUX_TEST_TMUX"
+          command -v python3
+          command -v rg
+          /usr/bin/time -f 'whole command: %e s' prove6 --verbose -I. -It/lib xt/live \
+            | tee "$RUNNER_TEMP/live.tap"
+          if rg --ignore-case '(^|[[:space:]])#[[:space:]]*skip([[:space:]]|$)' "$RUNNER_TEMP/live.tap"; then
+            echo 'Required live contracts must not skip tests' >&2
+            exit 1
+          fi
+      - name: Execute self-checking examples
+        run: |
+          /usr/bin/time -f 'whole command: %e s' raku tools/check-examples.raku
+
+  required:
+    name: Required checks
+    if: always()
+    needs: [prepare, quality, live]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require every declared job
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MATRIX: ${{ needs.prepare.outputs.matrix }}
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          LIVE_RESULT: ${{ needs.live.result }}
+        run: |
+          test "$PREPARE_RESULT" = success
+          test "$QUALITY_RESULT" = success
+          test "$LIVE_RESULT" = success
+          expected=$(jq --compact-output --exit-status '
+            select(type == "object" and keys == ["include"])
+            | .include
+            | select(type == "array" and (length == 1 or length == 2))
+            | select(all(.[]; type == "object" and keys == ["commit", "tmux"]
+                and (.tmux | type == "string" and test("^[0-9]+\\.[0-9]+[a-z]?$"))
+                and (.commit | type == "string" and test("^[0-9a-f]{40}$"))))
+            | select((map(.tmux) | unique | length) == length)
+            | select((map(.commit) | unique | length) == length)
+          ' <<< "$MATRIX")
+          gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=latest&per_page=100" \
+            > "$RUNNER_TEMP/jobs.json"
+          jq --exit-status --slurp --argjson endpoints "$expected" '
+            [.[].jobs[]] as $jobs
+            | (["Prepare", "Quality"] + [$endpoints[] | "tmux " + .tmux]) as $expected
+            | all($expected[]; . as $name
+                | [$jobs[] | select(.name == $name)] as $found
+                | ($found | length) == 1
+                  and $found[0].status == "completed"
+                  and $found[0].conclusion == "success")
+          ' "$RUNNER_TEMP/jobs.json"
