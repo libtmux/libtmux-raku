@@ -61,11 +61,15 @@ with-tmux(-> $fixture {
     my $hooks = Hooks.new(:$endpoint, :$incarnation, :scope<session>, :target($session));
     my $hook-command = Invocation.new(:argv(['set-option', '-t', $session, '@hook-value', 'literal; value']));
     $hooks.set('after-select-pane', $hook-command, :index(3));
+    $hooks.set('after-select-pane', $hook-command, :index(5));
     is $hooks.list(:name<after-select-pane>)[0].index, 3, 'hook list retains an explicit index';
     like $hooks.list(:name<after-select-pane>)[0].value, / 'set-option' /,
         'hook command source is observed without executing it';
     $hooks.unset('after-select-pane', :index(3));
-    is $hooks.list(:name<after-select-pane>).elems, 0, 'hook unset removes its member';
+    is-deeply $hooks.list(:name<after-select-pane>).map(*.index).List, (5,),
+        'indexed hook unset preserves the other member';
+    lives-ok { $hooks.unset('after-select-pane') }, 'hook unset accepts an omitted index';
+    is $hooks.list(:name<after-select-pane>).elems, 0, 'unindexed hook unset removes the whole array';
     my $keys = KeyBindings.new(:$endpoint, :$incarnation);
     $keys.bind(';', $hook-command, :table<libtmux-test>, :repeat, :note("literal\n#{'{pid}'}"));
     my $binding = $keys.list(:table<libtmux-test>)[0];

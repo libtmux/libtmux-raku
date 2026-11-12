@@ -501,7 +501,7 @@ class Hooks does Scoped is export {
         self!execute(['set-hook', |self!scope-flags, '-a', '--', $name, $command.source])
     }
     #| Remove a hook array or one explicit index.
-    method unset(Str:D $name, Count :$index --> Result:D) is single-operation {
+    method unset(Str:D $name, Count :$index = Count --> Result:D) is single-operation {
         self!describe($name);
         self!execute(['set-hook', |self!scope-flags, '-u', '--',
             $name ~ ($index.defined ?? "[$index]" !! '')])
