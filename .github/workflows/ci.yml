@@ -5,6 +5,16 @@ on:
     branches: [master]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      release:
+        type: boolean
+        default: false
+    outputs:
+      compiler:
+        value: ${{ jobs.prepare.outputs.compiler }}
+      version:
+        value: ${{ jobs.prepare.outputs.version }}
 
 permissions:
   contents: read
@@ -29,6 +39,7 @@ jobs:
     outputs:
       compiler: ${{ steps.compiler.outputs.version }}
       matrix: ${{ steps.matrix.outputs.value }}
+      version: ${{ steps.release.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -44,6 +55,14 @@ jobs:
           raku-version: ${{ steps.compiler.outputs.version }}
       - name: Install declared dependencies
         run: zef install --deps-only .
+      - name: Validate release metadata
+        id: release
+        env:
+          RELEASE_TAG: ${{ inputs.release && github.ref_type == 'tag' && github.ref_name || '' }}
+        run: |
+          tag="${RELEASE_TAG:-v$(jq --raw-output .version META6.json)}"
+          version=$(raku tools/check-release.raku "$tag")
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
       - name: Derive supported endpoints
         id: matrix
         run: |
@@ -69,12 +88,18 @@ jobs:
       - name: Source hygiene and package inventory
         run: |
           /usr/bin/time -f 'whole command: %e s' raku tools/check-source.raku
+      - name: Compile the public import
+        run: |
+          /usr/bin/time -f 'whole command: %e s' raku -I. -c lib/LibTmux.rakumod
       - name: Pure contracts
         run: |
-          /usr/bin/time -f 'whole command: %e s' prove6 -I. t
+          /usr/bin/time -f 'whole command: %e s' prove6 --jobs=2 -I. t
       - name: Package metadata
         run: |
           /usr/bin/time -f 'whole command: %e s' raku xt/meta.rakutest
+      - name: Release identity contracts
+        run: |
+          /usr/bin/time -f 'whole command: %e s' raku xt/release.rakutest
       - name: Generated accessors and reference
         run: |
           /usr/bin/time -f 'whole command: %e s' raku -I. tools/catalogue.raku \
@@ -101,9 +126,26 @@ jobs:
           for example in examples/*.raku; do
             /usr/bin/time -f 'whole command: %e s' raku -I. -c "$example"
           done
-      - name: Isolated installed consumer
+      - name: Build and test the committed distribution
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          /usr/bin/time -f 'whole command: %e s' raku tools/check-install.raku
+          mkdir -p "$RUNNER_TEMP/release"
+          archive="$RUNNER_TEMP/release/LibTmux-$RELEASE_VERSION.tar.gz"
+          git archive --format=tar.gz --output="$archive" HEAD
+          /usr/bin/time -f 'whole command: %e s' raku tools/check-install.raku --archive="$archive"
+          (
+            cd "$RUNNER_TEMP/release"
+            sha256sum "LibTmux-$RELEASE_VERSION.tar.gz" > SHA256SUMS
+          )
+      - name: Retain the tested release archive
+        if: inputs.release
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-candidate
+          path: ${{ runner.temp }}/release/
+          if-no-files-found: error
+          retention-days: 90
 
   live:
     name: tmux ${{ matrix.tmux }}
@@ -203,7 +245,7 @@ jobs:
             [.[].jobs[]] as $jobs
             | (["Prepare", "Quality"] + [$endpoints[] | "tmux " + .tmux]) as $expected
             | all($expected[]; . as $name
-                | [$jobs[] | select(.name == $name)] as $found
+                | [$jobs[] | select((.name | split(" / ") | last) == $name)] as $found
                 | ($found | length) == 1
                   and $found[0].status == "completed"
                   and $found[0].conclusion == "success")

@@ -3,7 +3,7 @@
   "name": "LibTmux",
   "version": "0.0.1",
   "api": "0",
-  "auth": "github:libtmux",
+  "auth": "zef:libtmux",
   "raku": "6.d",
   "description": "Typed tmux observations, queries and explicit commands for Raku",
   "authors": [

@@ -1,0 +1,47 @@
+use v6.d;
+use Test;
+use JSON::Fast;
+
+my $root = $?FILE.IO.parent.parent;
+my $directory = $*TMPDIR.add("libtmux-release-$*PID-{1_000_000.rand.Int}");
+$directory.mkdir;
+my $metadata = $directory.add('META6.json');
+LEAVE { $metadata.unlink if $metadata.f; $directory.rmdir if $directory.d }
+
+my %meta = from-json($root.add('META6.json').slurp);
+%meta<auth> = 'zef:libtmux';
+$metadata.spurt(to-json(%meta));
+
+sub check(Str:D $tag) {
+    my $process = run $*EXECUTABLE.Str, $root.add('tools/check-release.raku').Str,
+        "--meta=$metadata", $tag, :out, :err;
+    my $out = $process.out.slurp(:close);
+    my $err = $process.err.slurp(:close);
+    ($process.exitcode, $out, $err)
+}
+
+my ($status, $out, $err) = check("v{%meta<version>}");
+is $status, 0, 'a matching release tag is accepted';
+is $out.trim, %meta<version>, 'the validated package version is returned';
+
+($status, $out, $err) = check('v999.0.0');
+isnt $status, 0, 'a different package version is rejected';
+like $err, /'Tag must match META6.json version'/, 'mismatch identifies the version contract';
+
+($status, $out, $err) = check(%meta<version>);
+isnt $status, 0, 'a tag without the v prefix is rejected';
+
+%meta<auth> = 'github:libtmux';
+$metadata.spurt(to-json(%meta));
+($status, $out, $err) = check("v{%meta<version>}");
+isnt $status, 0, 'an authority outside the publishing account is rejected';
+like $err, /'Release authority must be zef:libtmux'/, 'authority failure identifies the setup required';
+
+%meta<auth> = 'zef:libtmux';
+%meta<version> = '../0.0.1';
+$metadata.spurt(to-json(%meta));
+($status, $out, $err) = check("v{%meta<version>}");
+isnt $status, 0, 'a version that could escape the archive directory is rejected';
+like $err, /'Release version must have three numeric components'/, 'malformed version fails before packaging';
+
+done-testing;
