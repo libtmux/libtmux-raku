@@ -84,9 +84,9 @@ Typed tmux snapshots, local selections and explicit commands for Raku programs.
 
 =head1 Create a session and split a pane
 
-L<Server|LibTmux::Server> starts and owns a private daemon. Split the first pane,
-set pane titles, then capture the new state. Both panes run C<cat> as an echo
-process. C<LEAVE> closes the owner on normal or exceptional exit.
+L<Server|LibTmux::Server> starts and owns a private daemon. This program splits
+the first pane and titles both; each runs C<cat>. C<LEAVE> closes the owner on
+any exit.
 
 =comment runs: examples/quickstart.raku
 
@@ -107,25 +107,27 @@ my $editor = $after.panes.filter(*.title eq 'editor').single;
 say "{$editor.title}: {$after.panes.elems} panes";
 =end code
 
-The program prints C<editor: 2 panes>. The earlier snapshot retains
-one pane. C<.ref> constructs an explicit command target; mutation does not change
-an earlier observation. C<snapshot> performs I/O, while reading a captured field
-or relationship stays local.
+It prints C<editor: 2 panes>.
+
+=item The earlier snapshot still has one pane: mutation does not change an
+observation.
+=item C<.ref> builds a command target. C<snapshot> performs I/O; reading a
+captured field or relationship stays local.
 
 =head1 Follow the captured graph
 
-A L<Snapshot|LibTmux::Model::Snapshot> contains sessions, session groups, physical
-windows, window links, panes, clients and buffer metadata. A physical window can
-appear at several indexes, including twice in the same session. Its
-C<WindowLink> owns the session-relative index and active state. C<windows> and
-C<panes> enumerate physical identities once; C<window-links> preserves placements.
+A L<Snapshot|LibTmux::Model::Snapshot> holds sessions, session groups, physical
+windows, window links, panes, clients and buffer metadata.
 
-A pane's C<window> and a window's C<panes> resolve against the retained graph.
-Keeping an observation after closing its acquisition owner remains useful:
-field reads, relationship traversal and selection operations make no tmux calls.
-Use C<.ref.inspect> or a new snapshot when fresh information is needed.
-References include daemon incarnation evidence, so a replacement daemon does
-not inherit an old pane reference merely by reusing its ID.
+=item A physical window can appear at several indexes, even twice in one
+session. Its C<WindowLink> owns the session-relative index and active state.
+=item C<windows> and C<panes> list each physical identity once; C<window-links>
+keeps every placement.
+=item A pane's C<window> and a window's C<panes> resolve inside the snapshot.
+Field reads, traversal and selection make no tmux calls, even after the
+acquisition owner closes. Use C<.ref.inspect> or a new snapshot for fresh data.
+=item References carry daemon incarnation evidence, so a replacement daemon that
+reuses an ID does not inherit an old pane reference.
 
 =head1 Query captured values
 
@@ -162,39 +164,77 @@ sub MAIN(Str:D :$tmux = 'tmux') {
 It prints C<Wide pane: editor> and
 C<Other panes: logs, tests>.
 
-Binding with C<:=> preserves a typed selection. Array assignment materializes
-ordinary Raku values; scalar assignment itemizes the collection. C<where>
-validates fields and operators even on an empty selection. C<filter> evaluates a
-callback eagerly and returns the same entity selection type. C<grep>, including
-C<:k>, C<:kv> and C<:p>, retains its native C<Seq> contract. C<map>, C<sort>,
-C<first> and junction operations also retain ordinary Raku behavior. Mapping
-panes to titles does not produce a pane selection of strings.
+=item Bind with C<:=> to keep a typed selection. Array assignment copies
+ordinary Raku values; scalar assignment itemizes the collection.
+=item C<where> validates fields and operators even on an empty selection.
+=item C<filter> runs its callback eagerly and returns the same selection type.
+A C<Failure> returned directly from the callback throws its wrapped exception
+before Boolean coercion.
+=item C<grep> (including C<:k>, C<:kv> and C<:p>) returns a native C<Seq>.
+C<map>, C<sort>, C<first> and junctions keep plain Raku behavior; mapping panes
+to titles gives strings, not a selection.
+=item C<single> wants exactly one member and C<single-or-nil> allows none.
+Several matches throw L<Cardinality|X::LibTmux::Cardinality>. C<one> stays a
+junction.
 
-Use C<single> for exactly one member and C<single-or-nil> for zero or one;
-multiple matches throw L<Cardinality|X::LibTmux::Cardinality>. C<one> remains a
-junction. A directly returned C<Failure> from a C<filter> callback throws its
-wrapped exception before Boolean coercion.
+Compile reusable criteria with L<Filter|LibTmux::Query::Filter>:
 
-Compile reusable criteria with L<Filter|LibTmux::Query::Filter>. Its C<ACCEPTS>
-method permits native matching, and C<to-json>/C<from-json> preserve the bounded
-portable data grammar. Closures, regexes and junctions remain local Raku
-matchers. Data equality follows field types; it does not use generic smartmatch.
-Relations use C<some>, C<every>, C<none>, C<is> and C<is-not>. An unloaded
-relation raises L<MissingData|X::LibTmux::MissingData> instead of behaving like
-an empty relation.
+=item C<ACCEPTS> permits native matching; C<to-json> and C<from-json> keep the
+bounded portable data grammar.
+=item Closures, regexes and junctions stay local Raku matchers. Data equality
+follows field types, not generic smartmatch.
+=item Relations use C<some>, C<every>, C<none>, C<is> and C<is-not>. An unloaded
+relation raises L<MissingData|X::LibTmux::MissingData> instead of acting like an
+empty one.
 
-For explicit live acquisition, C<query-panes> accepts C<where> and a pushdown
-policy. C<auto> pushes proven exact restrictions and evaluates residual work
-locally; C<never> evaluates locally after acquisition; C<require> refuses an
-inexact translation. C<explain-panes> describes projections, scope, pushed
-conditions and residual work. Arbitrary callbacks are not translated to tmux.
+=head1 Choose where a query runs
+
+C<query-panes> takes C<where> and a C<pushdown> policy:
+
+=item C<auto> has tmux apply the restrictions it can match exactly and checks
+the rest locally.
+=item C<never> evaluates locally after acquisition.
+=item C<require> refuses a query that cannot run exactly in tmux.
+
+C<explain-panes> describes projections, scope, pushed conditions and residual
+work. Arbitrary callbacks are never translated to tmux.
+
+=comment runs: examples/explain-query.raku
+
+=begin code :lang<raku>
+use v6.d;
+use LibTmux;
+
+sub MAIN(Str:D :$tmux = 'tmux') {
+    my $server = Server.start(:binary($tmux), :name<work>, :shell-command('exec cat'));
+    LEAVE $server.close if $server.defined;
+    $server.snapshot.panes.single.ref.set-title('editor');
+
+    my %wide = width => %(gte => 60);
+    my %titled = AND => [%wide, %(title => %(contains => 'edit'))];
+
+    say 'width: fully pushed = ' ~ $server.explain-panes(:where(%wide)).fully-pushed;
+    my $plan = $server.explain-panes(:where(%titled));
+    say 'width and title: fully pushed = ' ~ $plan.fully-pushed;
+    say 'tmux filter: ' ~ $plan.source-filter;
+
+    say 'Matches: ' ~ $server.query-panes(:where(%titled)).map(*.title).join(', ');
+    try {
+        $server.query-panes(:where(%titled), :pushdown<require>);
+        CATCH { when X::LibTmux::Unsupported { say 'require: refused, title stays local' } }
+    }
+}
+=end code
+
+It prints whether each query is fully pushed to tmux, the filter tmux gets, the
+match, and the refusal.
 
 =head1 Choose an operation from capabilities
 
-Capabilities describe the observed daemon separately from the client executable.
-Ask C<supports> before offering a newer operation, or use C<require> to obtain a
-typed refusal with its reason. This program creates an empty C<status> pane
-as a floating pane when supported and a tiled split otherwise:
+Capabilities describe the daemon, not the client executable. Ask C<supports>
+before offering a newer operation, or call C<require> for a typed refusal with
+its reason. This program creates an empty C<status> pane, floating when
+supported and tiled otherwise:
 
 =comment runs: examples/floating-panes.raku
 
@@ -222,19 +262,19 @@ sub MAIN(Str:D :$tmux = 'tmux') {
 }
 =end code
 
-The selected placement and C<status> are printed. An empty pane can
-have no child PID; its C<pid> is then null rather than a fabricated integer.
-C<state('pid')> distinguishes known null from a field that was not acquired.
-Unknown release profiles are refused conservatively. Field, codec, layout and
-command decisions come from the same packaged catalogue.
+It prints the placement, then C<status>.
+
+=item An empty pane can have no child PID. Its C<pid> is then null, not a made-up
+integer; C<state('pid')> tells known null from a field that was not acquired.
+=item Unknown tmux releases are refused. Field, codec, layout and command
+decisions come from one packaged catalogue.
 
 =head1 React to terminal output
 
-Synchronous acquisition returns a snapshot or selection. An C<-async> method
-returns a C<Promise> resolving to that result. A
+An C<-async> method returns a C<Promise> of the same result. A
 L<ControlConnection|LibTmux::Control::Connection> owns one persistent client;
-its event C<Supply> is shared by its subscribers. Native C<react> and C<whenever>
-can consume the output without polling:
+its event C<Supply> is shared by subscribers. Native C<react> and C<whenever>
+consume output without polling:
 
 =comment runs: examples/watch-output.raku
 
@@ -273,44 +313,46 @@ sub MAIN(Str:D :$tmux = 'tmux') {
 =end code
 
 It prints C<hello from Raku> and C<Screen capture confirmed>.
-The pane runs C<cat> as an echo process. Subscribing precedes input.
-Received pane bytes establish the screen-capture
-precondition; the deadline bounds the wait. C<send-text> never appends Enter.
-Output remains bytes until an explicit decoder is selected, so fragmented and
-invalid UTF-8 remains available. Unknown notification types retain their raw
-representation.
 
-Connections need explicit close. Cancellation terminates and joins owned client
-work, but does not undo commands that the daemon already executed. Reconnection
-requires a fresh observation; event delivery does not imply a complete current
-graph. L<Attachment|LibTmux::Attachment> is a separate terminal client owner.
+=item Subscribe before sending input; the deadline bounds the wait.
+=item C<send-text> never appends Enter.
+=item Output stays bytes until you pick a decoder, so fragmented or invalid
+UTF-8 survives. Unknown notification types keep their raw form.
+
+Close each connection:
+
+=item Cancellation stops and joins owned client work. It does not undo commands
+the daemon already ran.
+=item After reconnecting, take a fresh observation; events do not add up to a
+complete current graph.
+=item L<Attachment|LibTmux::Attachment> is a separate terminal client owner.
 
 =head1 Recover from partial completion
 
 L<Batch|LibTmux::Batch::Batch> reports each operation's completion scope and
 outcome. The
 L<batch recovery program|https://github.com/libtmux/libtmux-raku/blob/master/examples/batch-recovery.raku>
-checks C<Complete>, C<Failed> and C<Skipped>, verifies the successful first
-effect, then removes it explicitly. Acknowledgement alone does not prove an
-application effect. A failed batch offers no rollback guarantee.
+shows C<Complete>, C<Failed> and C<Skipped>, then removes the first effect
+itself. Acknowledgement alone does not prove an application effect, and a failed
+batch is not rolled back.
 
 The
 L<session workflow program|https://github.com/libtmux/libtmux-raku/blob/master/examples/session-workflow.raku>
-combines creation, a control-output subscription, screen capture, local
-filtering and an explained source query in one checked lifecycle.
+combines creation, control output, capture, local filtering and an explained
+source query.
 
 =head1 Ownership and operational errors
 
-C<Server.start> owns its private daemon. C<Server.new> configures a borrowed
-endpoint; closing that facade leaves the daemon running. Both need explicit
-close. A connection or terminal attachment has its own lifetime and must also
-be closed. An observation retains values and the captured graph, not a live
+=item C<Server.start> owns its private daemon. C<Server.new> configures a
+borrowed endpoint; closing that facade leaves the daemon running. Close both.
+=item A connection or terminal attachment has its own lifetime; close it too.
+=item An observation keeps values and the captured graph, not a live
 acquisition process.
-
-Commands pass an argument vector. Literal pane text, explicit key presses,
-FORMAT expressions, tmux command templates and deliberate shell commands have
-separate entry points. Operational errors retain typed context and captured
-bytes. Optional lookup absence never disguises a failed command. Fields retain
-known null, false, zero, empty text, unsupported, unavailable and unloaded data
-as distinct states.
+=item Commands pass an argument vector. Literal pane text, key presses, FORMAT
+expressions, tmux command templates and deliberate shell commands have separate
+entry points.
+=item Errors keep typed context and captured bytes. A missing optional lookup
+never disguises a failed command.
+=item Fields keep known null, false, zero, empty text, unsupported, unavailable
+and unloaded data as distinct states.
 =end pod
