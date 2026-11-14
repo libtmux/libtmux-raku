@@ -34,6 +34,21 @@ Literal C<L<Missing>> is markup syntax, not a reference. Z<L<Missing>>
 say Surface.new.label;
 # L<Missing> remains code text.
 =end code
+
+An indented paragraph is an example, not prose:
+
+    my $surface = Surface.new;
+    if $surface.label {
+        say $surface.label;
+    }
+
+Prose resumes here.
+
+Spans: C<label>, C<a`b> and C<`tick`>.
+
+=item A list item that
+wraps onto a second line.
+=item A short item.
 =end pod
 RAKU
 my $process = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku',
@@ -57,6 +72,18 @@ is %symbols{'Example::Surface.label'}<doc><summary>, 'Return the stored label wi
 nok %artifact<declarations>.grep({ .<name> eq any(<hidden counterfeit>) }),
     'private declarations and declaration-shaped string literals stay out';
 like %artifact<guide>, / '```raku' /, 'native code blocks retain their declared language';
+like %artifact<guide>,
+    / 'not prose:' \n+ '```raku' \n 'my $surface = Surface.new;' \n 'if $surface.label {' \n
+        '    say $surface.label;' \n '}' \n '```' \n+ 'Prose resumes here.' /,
+    'an indented Pod code block exports as a fenced raku block with its relative indentation';
+like %artifact<guide>, / '- A list item that' \n '  wraps onto a second line.' \n+ '- A short item.' /,
+    'a wrapped list item keeps its continuation lines indented under the bullet';
+subtest 'code spans pad only when the content starts or ends with a backtick' => {
+    my $guide = %artifact<guide>;
+    ok $guide.contains('Spans: `label`, '), 'a plain name carries no padding';
+    ok $guide.contains('``a`b``'), 'an inner backtick lengthens the delimiter without padding';
+    ok $guide.contains('`` `tick` ``.'), 'a backtick at an edge keeps the padding that separates it';
+};
 like %artifact<guide>, / 'rakudoc:Example%3A%3ASurface' /, 'native link destinations remain explicit';
 is-deeply %artifact<guideLinks>, ['Example::Surface'], 'only native links supply target metadata, not C or code text';
 
@@ -105,5 +132,28 @@ subtest 'unsupported native link labels cannot bypass validation or rendering' =
         like $stderr, / 'Unsupported bracket in RakuDoc link label' /,
             'the adapter label limitation is explicit';
     }
+};
+subtest 'the Server class doc lists every public member in its capability directory' => {
+    my $unit = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku',
+        '--unit=lib/LibTmux/Server.rakumod', :out;
+    my %server = from-json($unit.out.slurp(:close));
+    is $unit.exitcode, 0, 'the Server module extracts';
+    my @members = %server<declarations>.grep({ (.<parent> // '') eq 'LibTmux::Server'
+        && .<kind> eq any(<method property>) }).map(*.<name>).unique.sort;
+    my sub directory(Str:D $guide --> Str:D) {
+        $guide.split(/ ^^ '# ' /).first(*.starts-with('What is on here')) // ''
+    }
+    # The site folds bold-led rows followed by bullets; names in prose do not count.
+    my sub unlisted(Str:D $guide) {
+        my %listed = directory($guide).lines.grep(/ ^ [ '- ' | '  ' ] /).map({ .comb(/ '`' <-[`]>+ '`' /) })
+            .flat.map({ .substr(1, *-1) => True });
+        @members.grep({ !%listed{$_} }).List
+    }
+    ok @members.elems, 'the Server declares public members';
+    ok directory(%server<guide>).lines.grep(*.starts-with('**')).elems >= 3,
+        'the directory has the three bold-led rows the site needs to fold it';
+    is-deeply unlisted(%server<guide>), (), 'every public member is a reference in a directory bullet';
+    is-deeply unlisted(%server<guide>.subst('`new-session`', '', :g)), ('new-session',),
+        'a member dropped from the directory is reported';
 };
 done-testing;

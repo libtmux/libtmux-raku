@@ -66,6 +66,15 @@ Missing prose is reported by declaration with its source file and line.
 An empty report establishes coverage; it does not establish that the prose
 correctly describes behavior. Behavioral review remains required.
 
+=head2 Capability directory
+
+The shared site folds the C<What is on here> section of the C<LibTmux::Server>
+class documentation into a table. Write each row as a paragraph that starts
+with a bold title, then bullets that each hold a short label, a colon and
+method names as code spans. List every public method and property in a bullet,
+with an C<-async> method beside its synchronous twin. The export fixture test
+extracts the Server module and fails, naming the member, when one is missing.
+
 =head2 Executable examples
 
 Complete programs in C<examples/> are the canonical source. The README marks a
