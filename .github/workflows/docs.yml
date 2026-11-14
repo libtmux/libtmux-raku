@@ -1,0 +1,84 @@
+name: docs
+
+# Build a selected source revision with the shared native Raku producer.
+# Publication remains an explicit manual choice: trunk pushes, pull requests
+# and tags do not deploy documentation. Keep both reusable workflow pins equal.
+on:
+  workflow_dispatch:
+    inputs:
+      source-ref:
+        description: Exact source ref to build
+        required: true
+        default: master
+      version:
+        description: URL version slug
+        required: true
+        default: latest
+      version-kind:
+        description: Version policy
+        required: true
+        type: choice
+        options: [trunk, tag, alias]
+        default: trunk
+      is-default:
+        description: Make this version canonical
+        required: true
+        type: boolean
+        default: false
+      resolves-to:
+        description: Immutable target for an alias
+        required: false
+        default: ''
+      publish:
+        description: Publish after the exact build passes
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-deploy-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository == 'libtmux/libtmux-raku'
+    uses: libtmux/docs/.github/workflows/port-docs.yml@15786d72eefca1ad802fdd398ee4773e944334c2
+    with:
+      port: raku
+      tag-prefix: ''
+      publish-previews: false
+      source-ref: ${{ inputs.source-ref }}
+      version: ${{ inputs.version }}
+      version-kind: ${{ inputs.version-kind }}
+      is-default: ${{ inputs.is-default == true }}
+      resolves-to: ${{ inputs.resolves-to }}
+      publish: ${{ inputs.publish == true }}
+
+  publish:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true && needs.build.outputs.should-publish == 'true'
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.build.outputs.matrix) }}
+    permissions:
+      contents: read
+      id-token: write
+    uses: libtmux/docs/.github/workflows/reusable-deploy.yml@15786d72eefca1ad802fdd398ee4773e944334c2
+    with:
+      path-prefix: raku/${{ matrix.version }}
+      artifact: docs-raku-${{ matrix.version }}
+      version-kind: ${{ matrix.kind }}
+      require-current-pr: true
+      port: raku
+      version: ${{ matrix.version }}
+      label: ${{ matrix.version }}
+      is-default: ${{ matrix.isDefault }}
+      resolves-to: ${{ matrix.resolvesTo }}
+      environment: docs
+    secrets:
+      role-arn: ${{ secrets.LIBTMUX_DOCS_ROLE_ARN }}
+      bucket: ${{ secrets.LIBTMUX_DOCS_BUCKET }}
+      distribution: ${{ secrets.LIBTMUX_DOCS_DISTRIBUTION }}
