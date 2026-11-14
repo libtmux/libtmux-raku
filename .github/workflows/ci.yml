@@ -74,6 +74,9 @@ jobs:
     needs: prepare
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -100,6 +103,9 @@ jobs:
       - name: Release identity contracts
         run: |
           /usr/bin/time -f 'whole command: %e s' raku xt/release.rakutest
+          /usr/bin/time -f 'whole command: %e s' raku xt/release-archive.rakutest
+          /usr/bin/time -f 'whole command: %e s' raku xt/github-release.rakutest
+          /usr/bin/time -f 'whole command: %e s' raku xt/release-retry.rakutest
       - name: Generated accessors and reference
         run: |
           /usr/bin/time -f 'whole command: %e s' raku -I. tools/catalogue.raku \
@@ -126,20 +132,30 @@ jobs:
           for example in examples/*.raku; do
             /usr/bin/time -f 'whole command: %e s' raku -I. -c "$example"
           done
+      - name: Check retained release archive on a retry
+        id: retained
+        if: inputs.release && github.run_attempt > 1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash tools/release-retry.sh archive "$RUNNER_TEMP/release"
       - name: Build and test the committed distribution
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          RESTORED: ${{ steps.retained.outputs.restored }}
         run: |
           mkdir -p "$RUNNER_TEMP/release"
           archive="$RUNNER_TEMP/release/LibTmux-$RELEASE_VERSION.tar.gz"
-          git archive --format=tar.gz --output="$archive" HEAD
+          if test "$RESTORED" != true; then
+            git archive --format=tar.gz --output="$archive" HEAD
+            (
+              cd "$RUNNER_TEMP/release"
+              sha256sum "LibTmux-$RELEASE_VERSION.tar.gz" > SHA256SUMS
+            )
+          fi
+          raku tools/check-release.raku --dist="$RUNNER_TEMP/release" "v$RELEASE_VERSION"
           /usr/bin/time -f 'whole command: %e s' raku tools/check-install.raku --archive="$archive"
-          (
-            cd "$RUNNER_TEMP/release"
-            sha256sum "LibTmux-$RELEASE_VERSION.tar.gz" > SHA256SUMS
-          )
       - name: Retain the tested release archive
-        if: inputs.release
+        if: inputs.release && steps.retained.outputs.restored != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-candidate

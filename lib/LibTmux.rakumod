@@ -82,32 +82,32 @@ my constant Indeterminate is export = LibTmux::Types::Indeterminate;
 =DESCRIPTION
 Typed tmux snapshots, local selections and explicit commands for Raku programs.
 
-=head1 Create an observatory
+=head1 Create a session and split a pane
 
 L<Server|LibTmux::Server> starts and owns a private daemon. Split the first pane,
-label the instruments, then capture the new state. C<LEAVE> closes the owner on
-normal or exceptional exit.
+set pane titles, then capture the new state. Both panes run C<cat> as an echo
+process. C<LEAVE> closes the owner on normal or exceptional exit.
 
 =comment runs: examples/quickstart.raku
 
 =begin code :lang<raku>
 use LibTmux;
 
-my $server = Server.start(:name<observatory>, :shell-command('exec cat'));
+my $server = Server.start(:name<work>, :shell-command('exec cat'));
 LEAVE $server.close if $server.defined;
 
 my $before = $server.snapshot;
 my $left = $before.panes.single.ref;
 my $right = $left.split(:horizontal, :shell-command('exec cat'));
-$left.set-title('Starlight telescope');
-$right.set-title('Orion weather');
+$left.set-title('editor');
+$right.set-title('logs');
 
 my $after = $server.snapshot;
-my $telescope = $after.panes.filter(*.title.starts-with('Starlight')).single;
-say "{$telescope.title}: {$after.panes.elems} panes";
+my $editor = $after.panes.filter(*.title eq 'editor').single;
+say "{$editor.title}: {$after.panes.elems} panes";
 =end code
 
-The program prints C<Starlight telescope: 2 panes>. The earlier snapshot retains
+The program prints C<editor: 2 panes>. The earlier snapshot retains
 one pane. C<.ref> constructs an explicit command target; mutation does not change
 an earlier observation. C<snapshot> performs I/O, while reading a captured field
 or relationship stays local.
@@ -138,29 +138,29 @@ use v6.d;
 use LibTmux;
 
 sub MAIN(Str:D :$tmux = 'tmux') {
-    my $server = Server.start(:binary($tmux), :name<instruments>,
+    my $server = Server.start(:binary($tmux), :name<work>,
         :width(160), :height(40), :shell-command('exec cat'));
     LEAVE $server.close if $server.defined;
 
-    my $telescope = $server.snapshot.panes.single.ref;
-    my $weather = $telescope.split(:horizontal, :shell-command('exec cat'));
-    my $recorder = $weather.split(:shell-command('exec cat'));
-    $telescope.set-title('Starlight telescope');
-    $weather.set-title('Orion weather');
-    $recorder.set-title('Spectrum recorder');
+    my $editor = $server.snapshot.panes.single.ref;
+    my $tests = $editor.split(:horizontal, :shell-command('exec cat'));
+    my $logs = $tests.split(:shell-command('exec cat'));
+    $editor.set-title('editor');
+    $tests.set-title('tests');
+    $logs.set-title('logs');
 
     my $snapshot = $server.snapshot;
     my @wide := $snapshot.panes.where(%(width => %(gte => 60)));
-    my $selected = @wide.filter(*.title.ends-with('telescope')).single;
-    say "Wide telescope: {$selected.title}";
+    my $selected = @wide.filter(*.title eq 'editor').single;
+    say "Wide pane: {$selected.title}";
 
     my @others = $snapshot.panes.grep(*.id ne $selected.id).map(*.title).sort;
-    say 'Other instruments: ' ~ @others.join(', ');
+    say 'Other panes: ' ~ @others.join(', ');
 }
 =end code
 
-It prints C<Wide telescope: Starlight telescope> and
-C<Other instruments: Orion weather, Spectrum recorder>.
+It prints C<Wide pane: editor> and
+C<Other panes: logs, tests>.
 
 Binding with C<:=> preserves a typed selection. Array assignment materializes
 ordinary Raku values; scalar assignment itemizes the collection. C<where>
@@ -193,8 +193,8 @@ conditions and residual work. Arbitrary callbacks are not translated to tmux.
 
 Capabilities describe the observed daemon separately from the client executable.
 Ask C<supports> before offering a newer operation, or use C<require> to obtain a
-typed refusal with its reason. This program gives Aurora telemetry a floating
-pane when supported and a tiled split otherwise:
+typed refusal with its reason. This program creates an empty C<status> pane
+as a floating pane when supported and a tiled split otherwise:
 
 =comment runs: examples/floating-panes.raku
 
@@ -203,7 +203,7 @@ use v6.d;
 use LibTmux;
 
 sub MAIN(Str:D :$tmux = 'tmux') {
-    my $server = Server.start(:binary($tmux), :name<flight-deck>,
+    my $server = Server.start(:binary($tmux), :name<work>,
         :width(120), :height(36), :shell-command('exec cat'));
     LEAVE $server.close if $server.defined;
 
@@ -213,16 +213,16 @@ sub MAIN(Str:D :$tmux = 'tmux') {
     my $auxiliary = $floating
         ?? $main.new-floating(:width(40), :height(12), :x(2), :y(2), :empty)
         !! $main.split(:horizontal, :empty);
-    $auxiliary.set-title('Aurora telemetry');
+    $auxiliary.set-title('status');
 
     my $after = $server.snapshot;
     die 'The auxiliary pane was not captured' unless $after.panes.elems == 2;
-    say 'Telemetry placement: ' ~ ($floating ?? 'floating' !! 'tiled');
+    say 'Status pane: ' ~ ($floating ?? 'floating' !! 'tiled');
     say $after.panes.where(%(id => $auxiliary.id)).single.title;
 }
 =end code
 
-The selected placement and C<Aurora telemetry> are printed. An empty pane can
+The selected placement and C<status> are printed. An empty pane can
 have no child PID; its C<pid> is then null rather than a fabricated integer.
 C<state('pid')> distinguishes known null from a field that was not acquired.
 Unknown release profiles are refused conservatively. Field, codec, layout and
@@ -244,36 +244,37 @@ use LibTmux;
 use LibTmux::Control;
 
 sub MAIN(Str:D :$tmux = 'tmux') {
-    my $server = Server.start(:binary($tmux), :name<downlink>, :shell-command('exec cat'));
+    my $server = Server.start(:binary($tmux), :name<output>, :shell-command('exec cat'));
     LEAVE $server.close if $server.defined;
     my $snapshot = await $server.snapshot-async;
     my $pane = $snapshot.panes.single.ref;
     my $connection = await $server.open-control-async(:session-id($snapshot.sessions.single.id));
     LEAVE $connection.close if $connection.defined;
 
-    my $message = 'Starlight downlink: 42 stars catalogued';
+    my $message = 'hello from Raku';
     my $received = '';
     react {
         whenever $connection.events.grep(PaneOutput) -> $event {
             if $event.pane-id eq $pane.id {
                 $received ~= $event.data.decode('utf8-c8');
-                die 'Downlink output exceeded its bound' if $received.chars > 65536;
+                die 'Pane output exceeded its bound' if $received.chars > 65536;
                 done if $received.contains($message);
             }
         }
         whenever start { $pane.send-text($message); $pane.send-keys('Enter') } { }
-        whenever Promise.in(2) { die 'Downlink timed out' }
+        whenever Promise.in(2) { die 'Pane output timed out' }
     }
 
-    die 'The captured screen did not contain the downlink'
+    die 'The captured screen did not contain the message'
         unless $pane.capture.decode('utf8').contains($message);
     say $message;
     say 'Screen capture confirmed';
 }
 =end code
 
-It prints C<Starlight downlink: 42 stars catalogued> and C<Screen capture confirmed>.
-Subscribing precedes input. Received pane bytes establish the screen-capture
+It prints C<hello from Raku> and C<Screen capture confirmed>.
+The pane runs C<cat> as an echo process. Subscribing precedes input.
+Received pane bytes establish the screen-capture
 precondition; the deadline bounds the wait. C<send-text> never appends Enter.
 Output remains bytes until an explicit decoder is selected, so fragmented and
 invalid UTF-8 remains available. Unknown notification types retain their raw
@@ -294,7 +295,7 @@ effect, then removes it explicitly. Acknowledgement alone does not prove an
 application effect. A failed batch offers no rollback guarantee.
 
 The
-L<observatory program|https://github.com/libtmux/libtmux-raku/blob/master/examples/observatory.raku>
+L<session workflow program|https://github.com/libtmux/libtmux-raku/blob/master/examples/session-workflow.raku>
 combines creation, a control-output subscription, screen capture, local
 filtering and an explained source query in one checked lifecycle.
 
