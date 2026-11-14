@@ -171,7 +171,7 @@ feature requirements and unavailable values.
 
 ## Watch pane output
 
-### [`Control::Connection.events`][api-connection-events]: receive output through a `Supply`
+### [`ControlConnection.events`][api-connection-events]: receive output through a `Supply`
 
 Asynchronous operations return `Promise` values. A control connection exposes
 events through a shared `Supply`; native `react` and `whenever` consume them.
