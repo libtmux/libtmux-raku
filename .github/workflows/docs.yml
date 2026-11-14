@@ -3,12 +3,6 @@ name: docs
 # Build a selected source revision with the shared native Raku producer.
 # Publication remains an explicit manual choice: trunk pushes, pull requests
 # and tags do not deploy documentation. Keep both reusable workflow pins equal.
-#
-# PLACEHOLDER PIN: 52613b6fc99c645a86b068d33c7a6d9d3299b8fd is the libtmux/docs
-# revision that was current when this caller was written, and it predates the
-# raku port. Before the first dispatch, replace both pins with the full SHA of
-# the libtmux/docs revision that registers raku, and confirm that SHA is in the
-# publisher roles' approved revisions.
 on:
   workflow_dispatch:
     inputs:
@@ -51,7 +45,7 @@ concurrency:
 jobs:
   build:
     if: github.repository == 'libtmux/libtmux-raku'
-    uses: libtmux/docs/.github/workflows/port-docs.yml@52613b6fc99c645a86b068d33c7a6d9d3299b8fd
+    uses: libtmux/docs/.github/workflows/port-docs.yml@15786d72eefca1ad802fdd398ee4773e944334c2
     with:
       port: raku
       tag-prefix: ''
@@ -72,7 +66,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: libtmux/docs/.github/workflows/reusable-deploy.yml@52613b6fc99c645a86b068d33c7a6d9d3299b8fd
+    uses: libtmux/docs/.github/workflows/reusable-deploy.yml@15786d72eefca1ad802fdd398ee4773e944334c2
     with:
       path-prefix: raku/${{ matrix.version }}
       artifact: docs-raku-${{ matrix.version }}
