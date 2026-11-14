@@ -1,8 +1,8 @@
 <!-- libtmux-logo -->
 <div align="center">
   <picture>
-    <source srcset="docs/assets/logo.svg" type="image/svg+xml">
-    <img src="docs/assets/logo-512.png" width="128" height="128" alt="libtmux for Raku">
+    <source srcset="https://raw.githubusercontent.com/libtmux/libtmux-raku/HEAD/docs/assets/logo.svg" type="image/svg+xml">
+    <img src="https://raw.githubusercontent.com/libtmux/libtmux-raku/HEAD/docs/assets/logo-512.png" width="128" height="128" alt="libtmux for Raku">
   </picture>
 </div>
 <!-- /libtmux-logo -->
@@ -28,8 +28,8 @@ $ zef install 'LibTmux:auth<zef:libtmux>'
 
 The API is experimental and may change between `0.x` releases. CI qualifies
 Rakudo 2026.09 on Linux with tmux 3.3a and 3.8; other platforms and compiler
-versions are unverified. See the [changelog](CHANGELOG.md) for release history.
-The [toolchain guide](.github/CONTRIBUTING.md#toolchain) covers Raku and zef setup.
+versions are unverified. See the [changelog][repo-changelog-md] for release history.
+The [toolchain guide][repo-github-contributing-md-toolchain] covers Raku and zef setup.
 To install a checkout instead:
 
 ```console
@@ -42,7 +42,7 @@ $ zef install .
 
 Create a private tmux session named `work`, split its first pane, and set
 the pane titles to `editor` and `logs`. Both panes run `cat` as an echo process.
-This is the complete [quickstart program](examples/quickstart.raku). `LEAVE`
+This is the complete [quickstart program][repo-examples-quickstart-raku]. `LEAVE`
 closes the owned server when the program exits, including on an exception.
 
 <!-- runs: examples/quickstart.raku -->
@@ -81,7 +81,7 @@ $ raku -I. examples/quickstart.raku
 
 Create panes titled `editor`, `tests`, and `logs`. Select wide panes with query
 data, then use a Raku predicate to find `editor`. The complete
-[query program](examples/query-panes.raku) also uses native `.grep`, `.map` and
+[query program][repo-examples-query-panes-raku] also uses native `.grep`, `.map` and
 `.sort` to list the other panes.
 
 <!-- runs: examples/query-panes.raku -->
@@ -125,7 +125,7 @@ Raku's `.one` keeps its junction meaning.
 For live acquisition, [`query-panes(:where(%criteria))`][api-server-query-panes]
 returns a fresh selection. [`explain-panes`][api-server-explain-panes] shows
 which restrictions run in tmux and which remain local.
-See the [native query guide](lib/LibTmux.rakumod) for
+See the [native query guide][repo-lib-libtmux-rakumod] for
 relations, portable filters and source execution.
 
 ## Adapt to the running daemon
@@ -133,7 +133,7 @@ relations, portable filters and source execution.
 ### [`Capabilities.supports`][api-capabilities-supports]: choose a supported operation
 
 Create an empty `status` pane as a floating pane when supported, with a tiled
-split as the fallback. The [capability example](examples/floating-panes.raku)
+split as the fallback. The [capability example][repo-examples-floating-panes-raku]
 asks the captured daemon capabilities before choosing an operation.
 
 <!-- runs: examples/floating-panes.raku -->
@@ -165,8 +165,8 @@ sub MAIN(Str:D :$tmux = 'tmux') {
 It prints `Status pane: floating` or `Status pane: tiled`,
 followed by `status`. A newer client executable does not upgrade an
 older daemon. Unknown releases are refused conservatively. The
-[compatibility policy](docs/adr/0001-tmux-compatibility.md) describes support;
-the [field and capability reference](docs/reference/catalogue.rakudoc) lists
+[compatibility policy][repo-docs-adr-0001-tmux-compatibility-md] describes support;
+the [field and capability reference][repo-docs-reference-catalogue-rakudoc] lists
 feature requirements and unavailable values.
 
 ## Watch pane output
@@ -176,7 +176,7 @@ feature requirements and unavailable values.
 Asynchronous operations return `Promise` values. A control connection exposes
 events through a shared `Supply`; native `react` and `whenever` consume them.
 [`Server.open-control-async`][api-server-open-control-async] opens the connection.
-This complete [output watcher](examples/watch-output.raku) subscribes before
+This complete [output watcher][repo-examples-watch-output-raku] subscribes before
 sending text to `cat`, waits for the echoed bytes, then checks the captured screen.
 
 <!-- runs: examples/watch-output.raku -->
@@ -220,7 +220,7 @@ The deadline bounds the wait; output events supply the completion evidence.
 `send-text` sends literal text, and `send-keys('Enter')` submits it separately.
 Pane output arrives as bytes so fragmented or invalid UTF-8 remains available.
 
-The longer [session workflow program](examples/session-workflow.raku) combines pane
+The longer [session workflow program][repo-examples-session-workflow-raku] combines pane
 creation, output observation, capture, local queries and an explained source
 query in one lifecycle.
 
@@ -229,7 +229,7 @@ query in one lifecycle.
 ### [`Server.run-batch`][api-server-run-batch]: inspect partial completion
 
 A batch records each operation's outcome. The
-[recovery program](examples/batch-recovery.raku) produces `Complete`, `Failed`
+[recovery program][repo-examples-batch-recovery-raku] produces `Complete`, `Failed`
 and `Skipped`, verifies that the first effect remains, then removes that effect
 explicitly. Command acknowledgement alone does not establish application
 completion, and a failed batch does not roll back earlier commands.
@@ -238,7 +238,7 @@ completion, and a failed batch does not roll back earlier commands.
 $ raku -I. examples/batch-recovery.raku
 ```
 
-The [examples guide](examples/README.md) gives the commands, expected results and
+The [examples guide][repo-examples-readme-md] gives the commands, expected results and
 cleanup behavior for every complete program.
 
 ## Ownership and documentation
@@ -253,13 +253,13 @@ scoped to the observed daemon incarnation and refuse a replacement daemon.
 
 API links open the native declarations and their RakuDoc comments.
 
-- [Native API guide](lib/LibTmux.rakumod): the object graph, queries,
+- [Native API guide][repo-lib-libtmux-rakumod]: the object graph, queries,
   capabilities, async execution, control events and recovery.
-- [Examples](examples/README.md): complete Raku programs with checked results.
-- [Contributing](.github/CONTRIBUTING.md): compiler setup and validation.
-- [API documentation authoring](docs/documentation.rakudoc) and
-  [writing conventions](.github/WRITING.md).
-- [MIT license](LICENSE) and [artwork provenance](docs/assets/README.md).
+- [Examples][repo-examples-readme-md]: complete Raku programs with checked results.
+- [Contributing][repo-github-contributing-md]: compiler setup and validation.
+- [API documentation authoring][repo-docs-documentation-rakudoc] and
+  [writing conventions][repo-github-writing-md].
+- [MIT license][repo-license] and [artwork provenance][repo-docs-assets-readme-md].
 
 [api-capabilities-supports]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Capabilities.rakumod#L126
 [api-connection-events]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Control/Connection.rakumod#L147
@@ -273,3 +273,20 @@ API links open the native declarations and their RakuDoc comments.
 [api-server-query-panes]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L430
 [api-server-run-batch]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L608
 [api-server-start]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L622
+[repo-changelog-md]: https://github.com/libtmux/libtmux-raku/blob/master/CHANGELOG.md
+[repo-docs-adr-0001-tmux-compatibility-md]: https://github.com/libtmux/libtmux-raku/blob/master/docs/adr/0001-tmux-compatibility.md
+[repo-docs-assets-readme-md]: https://github.com/libtmux/libtmux-raku/blob/master/docs/assets/README.md
+[repo-docs-documentation-rakudoc]: https://github.com/libtmux/libtmux-raku/blob/master/docs/documentation.rakudoc
+[repo-docs-reference-catalogue-rakudoc]: https://github.com/libtmux/libtmux-raku/blob/master/docs/reference/catalogue.rakudoc
+[repo-examples-batch-recovery-raku]: https://github.com/libtmux/libtmux-raku/blob/master/examples/batch-recovery.raku
+[repo-examples-floating-panes-raku]: https://github.com/libtmux/libtmux-raku/blob/master/examples/floating-panes.raku
+[repo-examples-query-panes-raku]: https://github.com/libtmux/libtmux-raku/blob/master/examples/query-panes.raku
+[repo-examples-quickstart-raku]: https://github.com/libtmux/libtmux-raku/blob/master/examples/quickstart.raku
+[repo-examples-readme-md]: https://github.com/libtmux/libtmux-raku/blob/master/examples/README.md
+[repo-examples-session-workflow-raku]: https://github.com/libtmux/libtmux-raku/blob/master/examples/session-workflow.raku
+[repo-examples-watch-output-raku]: https://github.com/libtmux/libtmux-raku/blob/master/examples/watch-output.raku
+[repo-github-contributing-md]: https://github.com/libtmux/libtmux-raku/blob/master/.github/CONTRIBUTING.md
+[repo-github-contributing-md-toolchain]: https://github.com/libtmux/libtmux-raku/blob/master/.github/CONTRIBUTING.md#toolchain
+[repo-github-writing-md]: https://github.com/libtmux/libtmux-raku/blob/master/.github/WRITING.md
+[repo-lib-libtmux-rakumod]: https://github.com/libtmux/libtmux-raku/blob/master/lib/LibTmux.rakumod
+[repo-license]: https://github.com/libtmux/libtmux-raku/blob/master/LICENSE

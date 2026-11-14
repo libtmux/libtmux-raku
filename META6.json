@@ -12,7 +12,8 @@
   "license": "MIT",
   "source-url": "https://github.com/libtmux/libtmux-raku.git",
   "support": {
-    "source": "https://github.com/libtmux/libtmux-raku.git"
+    "source": "https://github.com/libtmux/libtmux-raku.git",
+    "bugtracker": "https://github.com/libtmux/libtmux-raku/issues"
   },
   "depends": [
     "JSON::Fast:ver<0.21.0+>:auth<zef:timo>"
