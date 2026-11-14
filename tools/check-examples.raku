@@ -41,6 +41,7 @@ my %expected =
     query-panes => ["Wide pane: editor\n"
         ~ "Other panes: logs, tests\n"],
     floating-panes => ['floating', 'tiled'].map({ "Status pane: $_\nstatus\n" }).Array,
+    resize-panes => ["window: 100x20\neditor: 30 columns\npanes: 1\n"],
     watch-output => ["hello from Raku\nScreen capture confirmed\n"],
     explain-query => ["width: fully pushed = True\n"
         ~ "width and title: fully pushed = False\n"
