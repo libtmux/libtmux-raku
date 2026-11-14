@@ -20,7 +20,7 @@ predicates and collections alongside validated query data and explicit commands.
 ## Install
 
 Requires Linux, Raku 6.d and tmux 3.3a through 3.8. Install the published package
-with its Fez authority:
+from [Raku Land](https://raku.land/zef:libtmux/LibTmux) with its Fez authority:
 
 ```console
 $ zef install 'LibTmux:auth<zef:libtmux>'
