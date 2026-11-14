@@ -13,7 +13,7 @@
 
 </div>
 
-Build an observatory display, watch a downlink, and recover from a failed launch.
+Create sessions, split panes, watch terminal output, and recover a failed command.
 These complete Raku programs use [LibTmux](../README.md) to own private tmux
 servers. Each closes its clients and daemon when it exits.
 
@@ -28,45 +28,45 @@ $ zef install .
 | Task | Program | Raku facilities |
 | --- | --- | --- |
 | Create and find panes | [Quickstart](quickstart.raku) | Objects, `LEAVE`, a native predicate |
-| Choose wide instruments | [Pane queries](query-panes.raku) | Typed selections, query hashes, `grep`, `map`, `sort` |
-| Add a telemetry display | [Floating panes](floating-panes.raku) | Capability checks and a tiled fallback |
-| Receive a downlink | [Watch output](watch-output.raku) | `Promise`, `Supply`, `react`, `whenever` |
-| Combine the workflow | [Observatory](observatory.raku) | Events, captured graphs and query plans |
-| Recover from a failed launch | [Batch recovery](batch-recovery.raku) | Typed outcomes and explicit recovery |
+| Select wide panes | [Pane queries](query-panes.raku) | Typed selections, query hashes, `grep`, `map`, `sort` |
+| Add a status pane | [Floating panes](floating-panes.raku) | Capability checks and a tiled fallback |
+| Watch pane output | [Watch output](watch-output.raku) | `Promise`, `Supply`, `react`, `whenever` |
+| Combine the workflow | [Session workflow](session-workflow.raku) | Events, captured graphs and query plans |
+| Recover after a command fails | [Batch recovery](batch-recovery.raku) | Typed outcomes and explicit recovery |
 
 ## Create and find panes
 
 The [quickstart](quickstart.raku) is the complete first program in the root
-README. It creates two panes, sets their titles, and finds the telescope through
+README. It creates two panes, sets their titles, and finds the editor pane through
 a fresh snapshot. The earlier snapshot retains one pane.
 
 ```console
 $ raku -I. examples/quickstart.raku
 ```
 
-It prints `Starlight telescope: 2 panes`.
+It prints `editor: 2 panes`.
 
-## Choose wide instruments
+## Select wide panes
 
-The [pane query program](query-panes.raku) creates a telescope, weather display
-and spectrum recorder. `.where` selects the wide panes, `.filter` finds the
-telescope, and `.single` checks cardinality. Native `.grep`, `.map` and `.sort`
-produce the remaining instrument names as ordinary Raku values.
+The [pane query program](query-panes.raku) creates panes titled `editor`,
+`tests`, and `logs`. `.where` selects the wide panes, `.filter` finds
+`editor`, and `.single` checks cardinality. Native `.grep`, `.map` and `.sort`
+produce the remaining pane names as ordinary Raku values.
 
 ```console
 $ raku -I. examples/query-panes.raku
 ```
 
-It prints `Wide telescope: Starlight telescope` and
-`Other instruments: Orion weather, Spectrum recorder`.
+It prints `Wide pane: editor` and
+`Other panes: logs, tests`.
 
 Use `:=` when binding a typed selection to an array variable. Assignment with
 `=` materializes ordinary array membership. Repeated traversal reads the
 captured members; it does not refresh tmux.
 
-## Add a telemetry display
+## Add a status pane
 
-The [floating-pane program](floating-panes.raku) creates an Aurora telemetry
+The [floating-pane program](floating-panes.raku) creates an empty `status`
 pane. It checks the daemon's `pane-floating` capability, chooses a floating pane
 when available, and otherwise splits the tiled window.
 
@@ -74,15 +74,16 @@ when available, and otherwise splits the tiled window.
 $ raku -I. examples/floating-panes.raku
 ```
 
-It prints the selected placement, then `Aurora telemetry`. The empty display
+It prints the selected placement, then `status`. The empty display
 has no child process on profiles that report an absent PID; the pane still
 belongs to the captured graph. Consult capabilities before offering an
 operation to a user.
 
-## Receive a downlink
+## Watch pane output
 
 The [output watcher](watch-output.raku) awaits asynchronous snapshot and control
-connection operations, subscribes to pane-output events, and sends the downlink.
+connection operations, subscribes to pane-output events, and sends text to
+`cat` as an echo process.
 `react` and `whenever` collect fragmented bytes until the complete message
 arrives. It then checks the captured screen.
 
@@ -90,23 +91,23 @@ arrives. It then checks the captured screen.
 $ raku -I. examples/watch-output.raku
 ```
 
-It prints `Starlight downlink: 42 stars catalogued` and `Screen capture confirmed`.
+It prints `hello from Raku` and `Screen capture confirmed`.
 The deadline bounds the wait. Multiple event subscribers share the same owned
 connection. Sending text and pressing Enter are separate operations.
 
-## Run the complete observatory
+## Run the complete session workflow
 
-The [observatory](observatory.raku) combines pane creation, literal input,
+The [session workflow](session-workflow.raku) combines pane creation, literal input,
 control-mode observation and screen capture. It filters a snapshot with query
 data and a Raku predicate, then compares an exact source query with the captured
 pane. Its query plan shows where evaluation takes place.
 
 ```console
-$ raku -I. examples/observatory.raku
+$ raku -I. examples/session-workflow.raku
 ```
 
-The output includes `Observatory: 2 instruments`,
-`Starlight telescope: Starlight exposure complete: 42 stars catalogued`, and
+The output includes `Session: 2 panes`,
+`editor: hello from Raku`, and
 `Owned clients, daemon and socket cleaned up`.
 
 ## Recover after a command fails

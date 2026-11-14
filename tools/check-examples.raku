@@ -37,11 +37,11 @@ say "PASS: $snippets complete documentation examples match their source";
 exit 0 if $source-only;
 
 my %expected =
-    quickstart => ["Starlight telescope: 2 panes\n"],
-    query-panes => ["Wide telescope: Starlight telescope\n"
-        ~ "Other instruments: Orion weather, Spectrum recorder\n"],
-    floating-panes => ['floating', 'tiled'].map({ "Telemetry placement: $_\nAurora telemetry\n" }).Array,
-    watch-output => ["Starlight downlink: 42 stars catalogued\nScreen capture confirmed\n"];
+    quickstart => ["editor: 2 panes\n"],
+    query-panes => ["Wide pane: editor\n"
+        ~ "Other panes: logs, tests\n"],
+    floating-panes => ['floating', 'tiled'].map({ "Status pane: $_\nstatus\n" }).Array,
+    watch-output => ["hello from Raku\nScreen capture confirmed\n"];
 
 my $binary = %*ENV<LIBTMUX_TEST_TMUX> // die 'LIBTMUX_TEST_TMUX must name the qualified endpoint binary';
 die 'LIBTMUX_TEST_TMUX must be an executable absolute path'

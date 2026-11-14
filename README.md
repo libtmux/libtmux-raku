@@ -36,9 +36,10 @@ To install a checkout instead:
 $ zef install .
 ```
 
-## Create an observatory
+## Create a session and split a pane
 
-Start a private tmux server, split its first pane, and label the instruments.
+Create a private tmux session named `work`, split its first pane, and set
+the pane titles to `editor` and `logs`. Both panes run `cat` as an echo process.
 This is the complete [quickstart program](examples/quickstart.raku). `LEAVE`
 closes the owned server when the program exits, including on an exception.
 
@@ -47,21 +48,21 @@ closes the owned server when the program exits, including on an exception.
 ```raku
 use LibTmux;
 
-my $server = Server.start(:name<observatory>, :shell-command('exec cat'));
+my $server = Server.start(:name<work>, :shell-command('exec cat'));
 LEAVE $server.close if $server.defined;
 
 my $before = $server.snapshot;
 my $left = $before.panes.single.ref;
 my $right = $left.split(:horizontal, :shell-command('exec cat'));
-$left.set-title('Starlight telescope');
-$right.set-title('Orion weather');
+$left.set-title('editor');
+$right.set-title('logs');
 
 my $after = $server.snapshot;
-my $telescope = $after.panes.filter(*.title.starts-with('Starlight')).single;
-say "{$telescope.title}: {$after.panes.elems} panes";
+my $editor = $after.panes.filter(*.title eq 'editor').single;
+say "{$editor.title}: {$after.panes.elems} panes";
 ```
 
-It prints `Starlight telescope: 2 panes`. The earlier snapshot still contains one
+It prints `editor: 2 panes`. The earlier snapshot still contains one
 pane: commands through `.ref` change tmux, while snapshots retain the state they
 captured. Reading a snapshot or following its relationships makes no further
 tmux calls.
@@ -74,10 +75,10 @@ $ raku -I. examples/quickstart.raku
 
 ## Find the right panes
 
-Build a three-instrument display, select wide panes with query data, then use a
-Raku predicate to find the telescope. The complete
+Create panes titled `editor`, `tests`, and `logs`. Select wide panes with query
+data, then use a Raku predicate to find `editor`. The complete
 [query program](examples/query-panes.raku) also uses native `.grep`, `.map` and
-`.sort` to list the other instruments.
+`.sort` to list the other panes.
 
 <!-- runs: examples/query-panes.raku -->
 
@@ -86,29 +87,29 @@ use v6.d;
 use LibTmux;
 
 sub MAIN(Str:D :$tmux = 'tmux') {
-    my $server = Server.start(:binary($tmux), :name<instruments>,
+    my $server = Server.start(:binary($tmux), :name<work>,
         :width(160), :height(40), :shell-command('exec cat'));
     LEAVE $server.close if $server.defined;
 
-    my $telescope = $server.snapshot.panes.single.ref;
-    my $weather = $telescope.split(:horizontal, :shell-command('exec cat'));
-    my $recorder = $weather.split(:shell-command('exec cat'));
-    $telescope.set-title('Starlight telescope');
-    $weather.set-title('Orion weather');
-    $recorder.set-title('Spectrum recorder');
+    my $editor = $server.snapshot.panes.single.ref;
+    my $tests = $editor.split(:horizontal, :shell-command('exec cat'));
+    my $logs = $tests.split(:shell-command('exec cat'));
+    $editor.set-title('editor');
+    $tests.set-title('tests');
+    $logs.set-title('logs');
 
     my $snapshot = $server.snapshot;
     my @wide := $snapshot.panes.where(%(width => %(gte => 60)));
-    my $selected = @wide.filter(*.title.ends-with('telescope')).single;
-    say "Wide telescope: {$selected.title}";
+    my $selected = @wide.filter(*.title eq 'editor').single;
+    say "Wide pane: {$selected.title}";
 
     my @others = $snapshot.panes.grep(*.id ne $selected.id).map(*.title).sort;
-    say 'Other instruments: ' ~ @others.join(', ');
+    say 'Other panes: ' ~ @others.join(', ');
 }
 ```
 
-It prints `Wide telescope: Starlight telescope` and
-`Other instruments: Orion weather, Spectrum recorder`.
+It prints `Wide pane: editor` and
+`Other panes: logs, tests`.
 
 Binding with `:=` retains the typed selection. `.where` validates query fields
 and operators; `.filter` returns another selection of the same entity type.
@@ -123,7 +124,7 @@ relations, portable filters and source execution.
 
 ## Adapt to the running daemon
 
-Give Aurora telemetry a floating pane when the daemon supports it, with a tiled
+Create an empty `status` pane as a floating pane when supported, with a tiled
 split as the fallback. The [capability example](examples/floating-panes.raku)
 asks the captured daemon capabilities before choosing an operation.
 
@@ -134,7 +135,7 @@ use v6.d;
 use LibTmux;
 
 sub MAIN(Str:D :$tmux = 'tmux') {
-    my $server = Server.start(:binary($tmux), :name<flight-deck>,
+    my $server = Server.start(:binary($tmux), :name<work>,
         :width(120), :height(36), :shell-command('exec cat'));
     LEAVE $server.close if $server.defined;
 
@@ -144,28 +145,28 @@ sub MAIN(Str:D :$tmux = 'tmux') {
     my $auxiliary = $floating
         ?? $main.new-floating(:width(40), :height(12), :x(2), :y(2), :empty)
         !! $main.split(:horizontal, :empty);
-    $auxiliary.set-title('Aurora telemetry');
+    $auxiliary.set-title('status');
 
     my $after = $server.snapshot;
     die 'The auxiliary pane was not captured' unless $after.panes.elems == 2;
-    say 'Telemetry placement: ' ~ ($floating ?? 'floating' !! 'tiled');
+    say 'Status pane: ' ~ ($floating ?? 'floating' !! 'tiled');
     say $after.panes.where(%(id => $auxiliary.id)).single.title;
 }
 ```
 
-It prints `Telemetry placement: floating` or `Telemetry placement: tiled`,
-followed by `Aurora telemetry`. A newer client executable does not upgrade an
+It prints `Status pane: floating` or `Status pane: tiled`,
+followed by `status`. A newer client executable does not upgrade an
 older daemon. Unknown releases are refused conservatively. The
 [compatibility policy](docs/adr/0001-tmux-compatibility.md) describes support;
 the [field and capability reference](docs/reference/catalogue.rakudoc) lists
 feature requirements and unavailable values.
 
-## Watch a downlink
+## Watch pane output
 
 Asynchronous operations return `Promise` values. A control connection exposes
 events through a shared `Supply`; native `react` and `whenever` consume them.
-This complete [downlink program](examples/watch-output.raku) subscribes before
-sending text, waits for the received bytes, then checks the captured screen.
+This complete [output watcher](examples/watch-output.raku) subscribes before
+sending text to `cat`, waits for the echoed bytes, then checks the captured screen.
 
 <!-- runs: examples/watch-output.raku -->
 
@@ -175,40 +176,40 @@ use LibTmux;
 use LibTmux::Control;
 
 sub MAIN(Str:D :$tmux = 'tmux') {
-    my $server = Server.start(:binary($tmux), :name<downlink>, :shell-command('exec cat'));
+    my $server = Server.start(:binary($tmux), :name<output>, :shell-command('exec cat'));
     LEAVE $server.close if $server.defined;
     my $snapshot = await $server.snapshot-async;
     my $pane = $snapshot.panes.single.ref;
     my $connection = await $server.open-control-async(:session-id($snapshot.sessions.single.id));
     LEAVE $connection.close if $connection.defined;
 
-    my $message = 'Starlight downlink: 42 stars catalogued';
+    my $message = 'hello from Raku';
     my $received = '';
     react {
         whenever $connection.events.grep(PaneOutput) -> $event {
             if $event.pane-id eq $pane.id {
                 $received ~= $event.data.decode('utf8-c8');
-                die 'Downlink output exceeded its bound' if $received.chars > 65536;
+                die 'Pane output exceeded its bound' if $received.chars > 65536;
                 done if $received.contains($message);
             }
         }
         whenever start { $pane.send-text($message); $pane.send-keys('Enter') } { }
-        whenever Promise.in(2) { die 'Downlink timed out' }
+        whenever Promise.in(2) { die 'Pane output timed out' }
     }
 
-    die 'The captured screen did not contain the downlink'
+    die 'The captured screen did not contain the message'
         unless $pane.capture.decode('utf8').contains($message);
     say $message;
     say 'Screen capture confirmed';
 }
 ```
 
-It prints `Starlight downlink: 42 stars catalogued` and `Screen capture confirmed`.
+It prints `hello from Raku` and `Screen capture confirmed`.
 The deadline bounds the wait; output events supply the completion evidence.
 `send-text` sends literal text, and `send-keys('Enter')` submits it separately.
 Pane output arrives as bytes so fragmented or invalid UTF-8 remains available.
 
-The longer [observatory program](examples/observatory.raku) combines pane
+The longer [session workflow program](examples/session-workflow.raku) combines pane
 creation, output observation, capture, local queries and an explained source
 query in one lifecycle.
 
