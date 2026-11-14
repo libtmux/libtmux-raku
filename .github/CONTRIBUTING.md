@@ -54,7 +54,7 @@ This check does not rewrite code, format Raku syntax or perform static analysis.
 Run focused unit tests through the distribution mapping:
 
 ```console
-$ mise exec -- prove6 -I. t/unit
+$ mise exec -- prove6 --jobs=2 -I. t/unit
 ```
 
 Run the package test path used during installation:
@@ -231,6 +231,7 @@ Describe the concrete problem and resulting behavior. Include relevant
 verification and its limits. Keep commits focused and preserve unrelated
 work. Repository privacy, pushes, and publication follow
 [repository boundaries](../AGENTS.md#repository-boundaries).
+See [RELEASE.md](RELEASE.md) for Fez account setup and version-tag publication.
 
 [navigator]: https://github.com/bscan/RakuNavigator/tree/ccd511dbd156f396eed613f21adbcd8e38a8c784
 [rakufmt]: https://github.com/ugexe/Raku-rakufmt/tree/529a707df7d76feedfc536e50b9d52acc942c076
