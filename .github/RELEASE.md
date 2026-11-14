@@ -1,10 +1,17 @@
 # Releasing LibTmux
 
-The first release is `0.0.1`, published as
-`LibTmux:ver<0.0.1>:auth<zef:libtmux>`. Pushing `v0.0.1` starts the
+Package versions use three numeric components, such as `0.0.2`; annotated
+Git tags add a `v` prefix, such as `v0.0.2`. The first published version is
+[`0.0.1`](https://github.com/libtmux/libtmux-raku/releases/tag/v0.0.1).
+Pushing a version tag starts the
 [Release workflow](workflows/release.yml): CI validates the tagged commit,
 tests its archive, retains that archive, uploads it with Fez, and checks a
-fresh registry installation.
+fresh registry installation. After that check passes, it creates a GitHub
+release with generated notes, the tested archive, and `SHA256SUMS`.
+
+The API remains experimental during `0.x`. The required matrix qualifies
+Linux, the compiler in [.tool-versions](../.tool-versions), and the supported
+tmux endpoints. It does not establish other compiler or platform support.
 
 The maintainer must create the Fez account or organization and set `FEZ_KEY`
 before the first automated upload. Preparing a release requires no key.
@@ -79,9 +86,10 @@ publisher setup. See the [Raku publishing guide][publishing] and
 
 ## Prepare and review a release
 
-Set the version in [META6.json](../META6.json), retain `zef:libtmux`, and
-prepare the changes in a PR. Release tags use `v` followed by the exact
-three-component numeric package version, such as `v0.0.1`.
+Choose an unpublished version and set it in [META6.json](../META6.json).
+Retain `zef:libtmux`. Move the changes from `Unreleased` into a dated version
+section in [CHANGELOG.md](../CHANGELOG.md), then prepare the changes in a PR.
+The commands below use `0.0.2` as an example; replace it with that version.
 
 Run the checks in [CONTRIBUTING.md](CONTRIBUTING.md#checks), including the
 release identity contracts:
@@ -92,8 +100,8 @@ $ /usr/bin/time -p mise exec -- raku xt/release.rakutest
 
 CI builds an archive from its checked-out commit and installs that exact
 archive outside the checkout. Required quality and tmux jobs must pass.
-Changes to the Release workflow also run a rehearsal on the PR, with the
-publishing and registry jobs skipped.
+Changes to the release workflows and helpers also run a rehearsal on the PR,
+with publishing, registry verification, and GitHub release creation skipped.
 
 After this workflow is merged, prepare and retain an archive without
 publishing or requesting a key:
@@ -106,7 +114,7 @@ $ gh workflow run release.yml \
 ```
 
 Inspect the resulting run and download its `release-candidate` artifact.
-It contains `LibTmux-0.0.1.tar.gz` and `SHA256SUMS` for the initial release.
+It contains `LibTmux-VERSION.tar.gz` and `SHA256SUMS` for the declared version.
 The artifact expires after 90 days. Preserve the original files if an
 upload is interrupted or you plan to publish manually.
 
@@ -127,19 +135,19 @@ Confirm that the master CI run for this commit passed. Validate the tag
 against the local metadata:
 
 ```console
-$ mise exec -- raku tools/check-release.raku v0.0.1
+$ mise exec -- raku tools/check-release.raku v0.0.2
 ```
 
 Create an annotated tag:
 
 ```console
-$ git tag -a v0.0.1 -m 'Release 0.0.1'
+$ git tag -a v0.0.2 -m 'Release 0.0.2'
 ```
 
 Push only that tag to begin publication:
 
 ```console
-$ git push origin refs/tags/v0.0.1
+$ git push origin refs/tags/v0.0.2
 ```
 
 The workflow reruns CI for the tagged commit. It uploads the retained,
@@ -151,14 +159,32 @@ The `Verify registry installation` job refreshes the package index and
 installs the exact version and authority into a temporary repository. A
 fresh process outside the checkout loads every provided module, checks
 the packaged catalogue and API contracts, and verifies installed identity.
-Treat publication as verified only after this job passes.
+Treat publication as verified only after this job passes. The GitHub release
+job then attaches the retained files. It completes an interrupted draft,
+preserves matching assets and notes on retries, and rejects conflicting
+asset digests. Only that job receives `contents: write`; Fez receives its
+key only in the upload step.
+
+If GitHub leaves an empty asset in `starter` state after a failed upload,
+confirm that it has zero bytes and remove that placeholder before retrying
+the GitHub release job. An unknown digest stops recovery for manual inspection;
+do not remove a completed asset to bypass a digest conflict. See GitHub's
+[release asset upload behavior](https://docs.github.com/en/rest/releases/assets#upload-a-release-asset).
 
 ## Complete a manual upload or recover a failed run
 
-If CI passed but the upload failed before publication, correct the Fez
-account or `FEZ_KEY`, then use **Re-run failed jobs** on that run. This
-reuses its retained archive. Avoid rerunning all jobs: an existing artifact
-name stops an attempted replacement of that run's archive.
+Keep recovery on the original tagged run whenever possible. **Re-run failed
+jobs** preserves successful jobs and their retained archive. A full rerun
+restores the original archive, validates its checksum, Git commit and metadata,
+and tests those bytes again. It skips an upload that already succeeded in
+that run. If an upload was attempted and the artifact is unavailable, recovery
+stops rather than rebuilding it.
+
+If the upload step failed or was cancelled after it started, check whether
+Fez accepted the distribution before retrying. The workflow refuses an
+ambiguous retry. Correct an account or key problem and use an explicit
+`publish` dispatch only after confirming that Fez did not accept the upload.
+Do not infer absence from a stale package mirror.
 
 If you need to publish manually, download `release-candidate` from the
 tagged run, extract it into `dist/release`, and check the files:
@@ -168,10 +194,10 @@ $ cd dist/release && sha256sum --check SHA256SUMS
 ```
 
 From that directory, use your logged-in Fez account to upload the retained
-initial-release archive:
+archive for that version:
 
 ```console
-$ mise exec -- fez upload --file=LibTmux-0.0.1.tar.gz
+$ mise exec -- fez upload --file=LibTmux-0.0.2.tar.gz
 ```
 
 Then request registry verification for that tag, without another upload:
@@ -179,23 +205,50 @@ Then request registry verification for that tag, without another upload:
 ```console
 $ gh workflow run release.yml \
     --repo libtmux/libtmux-raku \
-    --ref v0.0.1 \
+    --ref v0.0.2 \
     --field mode=verify
 ```
 
-If an upload succeeded but indexing is still pending, rerun only the failed
-registry job once the version is available. The workflow does not wait in
-a polling loop. Fez accepts one upload per distribution version; do not
-repeat an upload that succeeded, move its tag, or rebuild its archive to
-repair a partial release. Preserve the files, check registry state, and
-use a new version for code or packaging fixes.
+This dispatch verifies the registry only. It does not publish GitHub assets
+from its newly built archive. After a manual upload, use the original tested
+files for the GitHub release as well.
+
+An accepted Fez upload can precede the mirror used by a fresh zef client.
+For `0.0.1`, the first registry check failed before the mirror refreshed;
+a registry-only retry passed roughly ten minutes after upload. This is an
+observed delay, not a guaranteed indexing interval. Refresh your local index
+with `zef update` before checking availability. The default mirror can lag
+the publishing service.
+
+Once indexing completes, select **Re-run jobs** on the failed registry job
+in the original run. This also resumes its dependent GitHub release job.
+For the CLI equivalent, enter the original run ID from its Actions URL:
+
+```console
+$ read -r RELEASE_RUN_ID && \
+    RELEASE_JOB_ID=$(gh run view "$RELEASE_RUN_ID" \
+        --repo libtmux/libtmux-raku \
+        --json jobs \
+        --jq '.jobs[] | select(.name == "Verify registry installation") | .databaseId') && \
+    test -n "$RELEASE_JOB_ID" && \
+    gh run rerun "$RELEASE_RUN_ID" \
+        --repo libtmux/libtmux-raku \
+        --job "$RELEASE_JOB_ID"
+```
+
+The workflow does not poll while holding a runner. Automatic delayed
+resumption is tracked in [issue #5](https://github.com/libtmux/libtmux-raku/issues/5).
+
+Fez accepts one upload per distribution version. Do not repeat an upload
+that succeeded, move its tag, or rebuild its archive to repair a partial
+release. Preserve the files and use a new version for code or packaging fixes.
 
 An explicit retry of an upload that has not succeeded is also available:
 
 ```console
 $ gh workflow run release.yml \
     --repo libtmux/libtmux-raku \
-    --ref v0.0.1 \
+    --ref v0.0.2 \
     --field mode=publish
 ```
 

@@ -1,0 +1,60 @@
+use v6.d;
+use Test;
+use JSON::Fast;
+
+my $root = $?FILE.IO.parent.parent;
+my $directory = $*TMPDIR.add("libtmux-archive-$*PID-{1_000_000.rand.Int}");
+$directory.mkdir;
+my $metadata = $directory.add('META6.json');
+my %meta = from-json($root.add('META6.json').slurp);
+$metadata.spurt(to-json(%meta));
+my $archive = $directory.add("LibTmux-{%meta<version>}.tar.gz");
+my $sums = $directory.add('SHA256SUMS');
+LEAVE { run 'rm', '-rf', '--', $directory.Str if $directory.d }
+sub fixture-git(*@arguments) {
+    my $process = run 'git', '-C', $directory.Str,
+        '-c', 'user.name=Release fixture', '-c', 'user.email=fixture@example.invalid',
+        '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', |@arguments;
+    die 'Could not create Git fixture' if $process.exitcode;
+}
+fixture-git('init', '--quiet');
+fixture-git('add', 'META6.json');
+fixture-git('commit', '--quiet', '-m', 'Archive fixture');
+fixture-git('commit', '--quiet', '--allow-empty', '-m', 'Release fixture');
+my $pack = run 'git', '-C', $directory.Str, 'archive', '--format=tar.gz',
+    "--output=$archive", 'HEAD';
+die 'Could not create archive fixture' if $pack.exitcode;
+my $checksum = run 'sha256sum', $archive.basename, :cwd($directory), :out;
+$sums.spurt($checksum.out.slurp(:close));
+die 'Could not checksum archive fixture' if $checksum.exitcode;
+
+sub check(Str:D $commit = 'HEAD') {
+    my %environment = %*ENV;
+    %environment<RAKULIB PERL6LIB>:delete;
+    my $process = run $*EXECUTABLE.Str, $root.add('tools/check-release.raku').Str,
+        "--meta=$metadata", "--dist=$directory", "--commit=$commit",
+        "v{%meta<version>}", :cwd($directory), :env(%environment), :out, :err;
+    my $out = $process.out.slurp(:close);
+    my $err = $process.err.slurp(:close);
+    ($process.exitcode, $out, $err)
+}
+
+my ($status, $out, $err) = check;
+is $status, 0, 'the retained archive matches its checksum, commit and metadata';
+diag $err if $status;
+($status, $out, $err) = check('HEAD^');
+isnt $status, 0, 'an archive from another commit is rejected';
+like $err, /'Archive commit does not match'/, 'commit failure identifies the retained artifact';
+
+%meta<description> ~= ' altered';
+$metadata.spurt(to-json(%meta));
+($status, $out, $err) = check;
+isnt $status, 0, 'different archive metadata is rejected';
+like $err, /'Archive metadata does not match'/, 'metadata failure identifies the retained artifact';
+$metadata.spurt($root.add('META6.json').slurp);
+$sums.spurt(('0' x 64) ~ "  {$archive.basename}\n");
+($status, $out, $err) = check;
+isnt $status, 0, 'a wrong checksum is rejected';
+like $err, /'Archive checksum does not match'/, 'checksum failure identifies the retained artifact';
+
+done-testing;

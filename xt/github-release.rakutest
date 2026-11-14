@@ -1,0 +1,91 @@
+use v6.d;
+use Test;
+use JSON::Fast;
+
+my $root = $?FILE.IO.parent.parent;
+my $directory = $*TMPDIR.add("libtmux-github-release-$*PID-{1_000_000.rand.Int}");
+$directory.mkdir;
+my $state = $directory.add('state.json');
+my $log = $directory.add('writes');
+my $gh = $directory.add('gh');
+my $archive = $directory.add('LibTmux-0.0.1.tar.gz');
+my $sums = $directory.add('SHA256SUMS');
+LEAVE { .unlink for $directory.dir.grep(*.f); $directory.rmdir if $directory.d }
+$archive.spurt('tested archive bytes');
+my $checksum = run 'sha256sum', $archive.basename, :cwd($directory), :out;
+$sums.spurt($checksum.out.slurp(:close));
+die 'Could not checksum fixture' if $checksum.exitcode;
+$gh.spurt(q:to/BASH/);
+#!/usr/bin/env bash
+set -euo pipefail
+case "$1 $2" in
+  'api --paginate')
+    test ! -f "$RELEASE_FIXTURE/api-fails" || exit 1
+    jq 'if . == null then [[]] else [[.]] end' "$RELEASE_FIXTURE/state.json"
+    ;;
+  'release create')
+    printf 'create\n' >> "$RELEASE_FIXTURE/writes"
+    printf '{"tag_name":"v0.0.1","draft":true,"assets":[]}' > "$RELEASE_FIXTURE/state.json"
+    ;;
+  'release upload')
+    printf 'upload %s\n' "$(basename "$4")" >> "$RELEASE_FIXTURE/writes"
+    digest=$(sha256sum "$4")
+    jq --arg name "$(basename "$4")" --arg digest "sha256:${digest%% *}" \
+      '.assets += [{name:$name,digest:$digest}]' "$RELEASE_FIXTURE/state.json" > "$RELEASE_FIXTURE/next.json"
+    mv "$RELEASE_FIXTURE/next.json" "$RELEASE_FIXTURE/state.json"
+    ;;
+  'release edit')
+    printf 'publish\n' >> "$RELEASE_FIXTURE/writes"
+    jq '.draft = false' "$RELEASE_FIXTURE/state.json" > "$RELEASE_FIXTURE/next.json"
+    mv "$RELEASE_FIXTURE/next.json" "$RELEASE_FIXTURE/state.json"
+    ;;
+  *) exit 64 ;;
+esac
+BASH
+$gh.chmod(0o700);
+temp %*ENV<PATH> = $directory.Str ~ ':' ~ %*ENV<PATH>;
+temp %*ENV<RELEASE_FIXTURE> = $directory.Str;
+
+sub publish() {
+    my $process = run 'bash', $root.add('tools/publish-github-release.sh').Str,
+        $directory.Str, 'v0.0.1', 'libtmux/libtmux-raku', :out, :err;
+    my $out = $process.out.slurp(:close);
+    my $err = $process.err.slurp(:close);
+    ($process.exitcode, $err)
+}
+
+$state.spurt('null');
+my ($status, $err) = publish;
+is $status, 0, 'a new release uploads both tested files before publication';
+diag $err if $status;
+is ($log.f ?? $log.slurp !! ''), "create\nupload LibTmux-0.0.1.tar.gz\nupload SHA256SUMS\npublish\n",
+    'the release remains a draft until both assets exist';
+my %published = $state.slurp.&from-json // {};
+$log.spurt('');
+($status, $err) = publish;
+is $status, 0, 'a completed release can be retried';
+is $log.slurp, '', 'a retry preserves matching assets and release notes';
+
+my %draft = from-json(to-json(%published));
+%draft<draft> = True;
+%draft<assets> = [%draft<assets>[0]];
+$state.spurt(to-json(%draft));
+($status, $err) = publish;
+is $status, 0, 'an interrupted draft can be completed';
+is $log.slurp, "upload SHA256SUMS\npublish\n", 'draft recovery uploads only the missing asset';
+$log.spurt('');
+
+%published<assets> = [{ name => 'SHA256SUMS', digest => 'sha256:wrong' }];
+$state.spurt(to-json(%published));
+($status, $err) = publish;
+isnt $status, 0, 'a conflicting published asset is rejected';
+like $err, /'Refusing to replace release asset'/, 'conflict identifies the immutable asset';
+is $log.slurp, '', 'conflicts stop before any release mutation';
+
+$state.spurt('null');
+$directory.add('api-fails').spurt('');
+($status, $err) = publish;
+isnt $status, 0, 'an API failure is not treated as an absent release';
+is $log.slurp, '', 'an API failure makes no release changes';
+
+done-testing;

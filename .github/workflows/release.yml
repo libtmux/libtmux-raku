@@ -4,7 +4,12 @@ on:
   push:
     tags: ['v*']
   pull_request:
-    paths: ['.github/workflows/release.yml']
+    paths:
+      - .github/workflows/release.yml
+      - .github/workflows/ci.yml
+      - tools/check-release.raku
+      - tools/publish-github-release.sh
+      - xt/*release*.rakutest
   workflow_dispatch:
     inputs:
       mode:
@@ -59,14 +64,32 @@ jobs:
           path: dist/
       - name: Verify the retained archive
         run: |
-          cd dist
-          sha256sum --check SHA256SUMS
-          test -f "LibTmux-$RELEASE_VERSION.tar.gz"
-          tar -xOf "LibTmux-$RELEASE_VERSION.tar.gz" META6.json > "$RUNNER_TEMP/release-meta.json"
-          jq --exit-status --slurp '.[0] == .[1]' ../META6.json "$RUNNER_TEMP/release-meta.json"
+          zef install --deps-only .
+          raku tools/check-release.raku --dist=dist "v$RELEASE_VERSION"
+      - name: Check earlier upload attempts
+        id: upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if test "$GITHUB_RUN_ATTEMPT" -gt 1; then
+            jobs=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=all&per_page=100")
+            uploads=$(jq '[.[].jobs[].steps[]? | select(.name == "Upload the tested archive" and .conclusion != null and .conclusion != "skipped")]' <<< "$jobs")
+            if jq --exit-status 'any(.[]; .conclusion == "success")' <<< "$uploads"; then
+              echo 'An earlier attempt completed this upload; continuing with registry verification.'
+              printf 'needed=false\n' >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if test "$(jq length <<< "$uploads")" != 0; then
+              echo 'A previous upload was interrupted. Check Fez state and use verify mode if accepted; do not upload again blindly.' >&2
+              exit 1
+            fi
+          fi
+          printf 'needed=true\n' >> "$GITHUB_OUTPUT"
       - name: Install the pinned publisher
+        if: steps.upload.outputs.needed == 'true'
         run: zef install 'fez:ver<100.0.2>:auth<zef:tony-o>'
       - name: Upload the tested archive
+        if: steps.upload.outputs.needed == 'true'
         env:
           FEZ_KEY: ${{ secrets.FEZ_KEY }}
           PUBLISH_CONFIG: ${{ runner.temp }}/fez-publish.json
@@ -106,3 +129,38 @@ jobs:
         run: |
           zef install --deps-only .
           /usr/bin/time -f 'whole command: %e s' raku tools/check-install.raku --registry
+
+  github-release:
+    name: Publish GitHub release
+    needs: [verify, registry]
+    if: >-
+      always() && needs.verify.result == 'success' && needs.registry.result == 'success' &&
+      github.repository == 'libtmux/libtmux-raku' && github.ref_type == 'tag' &&
+      (github.event_name == 'push' || inputs.mode == 'publish')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: read
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: Raku/setup-raku@8602b3572876ee7a5e304837c3183cf913a78f47 # v1.15.0
+        with:
+          raku-version: ${{ needs.verify.outputs.compiler }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-candidate
+          path: dist/
+      - name: Verify the retained archive
+        run: |
+          zef install --deps-only .
+          raku tools/check-release.raku --dist=dist "$RELEASE_TAG"
+      - name: Publish the verified archive and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash tools/publish-github-release.sh dist "$RELEASE_TAG" "$GITHUB_REPOSITORY"
