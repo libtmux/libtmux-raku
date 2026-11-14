@@ -48,6 +48,38 @@ Examples that touch tmux own their socket and cleanup. A compile-only check
 does not establish tmux behavior. Extract public snippets from checked source
 or verify that they remain aligned.
 
+## README shape
+
+- Open with the logo block, a centred title and a badge row: CI, the registry
+  version once published, the libtmux.org docs page once it returns 200, and
+  the license. Never link a page that does not exist.
+- Make each `##` heading a task in the reader's words, such as "Find and filter
+  panes".
+- Make each `###` heading an API: its name in code, linked to its native
+  declaration, then a colon and its job in plain words.
+- Under a heading, give a line or two of linked sibling APIs, the checked
+  example, what it prints, at most one short note and a `More:` link.
+- Keep paragraphs to three lines. Write a list of facts as bullets.
+- Skip feature inventories. The sections and examples show what exists.
+- State requirements as floors a reader can act on, such as "tmux 3.3a or
+  newer". Leave out toolchain patch versions, CI matrix narration and kernel
+  details; link the page that holds them.
+- Cut what a reader would assume or never need: that examples are tested, how
+  docs are built, what the checks cover.
+- Start each example with its imports, so it pastes into a file and runs.
+- Start and clean up the example's own tmux server through the library, never
+  through `tmux` or `rm` in the shell.
+- Show only examples that come from a file CI runs. Mark each with
+  `<!-- runs: examples/NAME.raku -->`; `tools/check-examples.raku` compares the
+  bytes.
+- Show the features the library has, each under an API-linked heading with a
+  checked example: queries and filters, the query planner, batches and control
+  mode.
+- Close with "What it leaves out" and "Support and status" as short bold-lead
+  bullets.
+- Use absolute URLs only, because Raku Land renders the README away from the
+  repository, and pin API links to a commit.
+
 ## Commits and pull requests
 
 Use a lowercase scope unless it names a proper product or class. Keep each
