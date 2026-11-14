@@ -702,6 +702,86 @@ method close-async(--> Promise:D) {
 }
 
 =begin pod
+=head1 What is on here
+
+A Server has many methods. They fall into the groups below, and each -async
+method sits beside the synchronous one that awaits it.
+
+B<Connecting and closing.> C<new> captures a borrowed endpoint without I/O, and
+C<from-env> imports the endpoint that C<TMUX> names after it checks the daemon.
+C<start> launches a private daemon that this Server owns, on a temporary
+socket, with a first session. C<close> is idempotent: it joins running work,
+leaves a borrowed daemon running and stops an owned one. C<kill-server>
+terminates the daemon whoever owns it.
+
+=item Borrow an endpoint: C<new>, C<from-env>
+=item Own a daemon: C<start>
+=item Close and join work: C<close>, C<close-async>
+=item Terminate the daemon: C<kill-server>
+=item Settings it holds: C<endpoint>, C<max-output-bytes>, C<max-command-bytes>
+=item Whether it owns a daemon: C<owned>
+=item Imported from TMUX: C<environment-pane-id>, C<environment-session-id>
+=item Copy, always refused: C<clone>
+
+B<Capturing and querying.> C<snapshot> captures sessions, windows, panes and
+clients into one immutable graph; a later change needs a new snapshot. The
+query methods acquire only what a request needs, and the explain methods show
+the plan without running its listing. C<capabilities> reports what the daemon
+supports. Each of these methods observes the daemon and changes nothing.
+
+=item Capture the graph: C<snapshot>, C<snapshot-async>
+=item Check support and health: C<capabilities>, C<capabilities-async>
+=item Query any entity: C<query>, C<query-async>
+=item Query one kind: C<query-panes>, C<query-sessions>, C<query-windows>,
+C<query-window-links>
+=item Explain a query: C<explain>, C<explain-panes>
+=item Test for a session: C<has-session>
+
+B<Creating a session.> C<new-session> creates a detached session in a running
+daemon and returns a SessionRef built from the ID tmux reports. Names are
+literal text: controls, backslash, dot and colon are refused before creation.
+
+=item Create a session: C<new-session>
+
+B<Commands and batches.> C<command> runs one explicit tmux command, given as
+an Invocation, in the observed daemon. It adds no target and interprets no
+shell syntax. C<run-batch> runs a declared Batch under one shared deadline and
+reports every outcome, including partial ones; it never rolls back.
+
+=item Run one command: C<command>, C<command-async>
+=item Run a batch: C<run-batch>, C<run-batch-async>
+
+B<Shell jobs, files and channels.> C<run-shell> runs literal shell source
+through tmux. C<if-shell> runs one of two Invocation values after a shell test
+or a FORMAT condition. C<source-file> reads one configuration file by its
+literal path. C<wait-for> waits on, signals, locks or unlocks a named channel.
+A background job is acknowledged when tmux schedules it, not when it finishes,
+and a timeout does not undo a job the daemon accepted.
+
+=item Run shell source: C<run-shell>, C<run-shell-async>
+=item Branch on a test: C<if-shell>
+=item Read a configuration file: C<source-file>
+=item Use a channel: C<wait-for>, C<wait-for-async>
+
+B<Configuration and buffers.> Each of these methods observes the daemon once
+and returns a facade. The facade's own methods read or change one kind of
+setting, each through its own short-lived command client.
+
+=item Server options and global defaults: C<options>
+=item Global environment: C<environment>
+=item Global hooks: C<hooks>
+=item Key bindings: C<key-bindings>
+=item Paste buffers: C<buffers>
+
+B<Attaching and control mode.> C<open-control> opens a control-mode connection
+to one session ID, and C<attach> spawns an interactive client on a terminal
+handle you pass. Each returns an owner that the caller must close. Closing a
+borrowed Server leaves those owners open; stopping an owned daemon disconnects
+them. Creating the client process does not prove that its terminal is ready.
+
+=item Open a control connection: C<open-control>, C<open-control-async>
+=item Attach a terminal client: C<attach>, C<attach-async>
+
 =head1 Server ownership
 
 C<new> captures a borrowed endpoint without I/O. C<snapshot> and C<capabilities>

@@ -133,4 +133,27 @@ subtest 'unsupported native link labels cannot bypass validation or rendering' =
             'the adapter label limitation is explicit';
     }
 };
+subtest 'the Server class doc lists every public member in its capability directory' => {
+    my $unit = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku',
+        '--unit=lib/LibTmux/Server.rakumod', :out;
+    my %server = from-json($unit.out.slurp(:close));
+    is $unit.exitcode, 0, 'the Server module extracts';
+    my @members = %server<declarations>.grep({ (.<parent> // '') eq 'LibTmux::Server'
+        && .<kind> eq any(<method property>) }).map(*.<name>).unique.sort;
+    my sub directory(Str:D $guide --> Str:D) {
+        $guide.split(/ ^^ '# ' /).first(*.starts-with('What is on here')) // ''
+    }
+    # The site folds bold-led rows followed by bullets; names in prose do not count.
+    my sub unlisted(Str:D $guide) {
+        my %listed = directory($guide).lines.grep(/ ^ [ '- ' | '  ' ] /).map({ .comb(/ '`' <-[`]>+ '`' /) })
+            .flat.map({ .substr(1, *-1) => True });
+        @members.grep({ !%listed{$_} }).List
+    }
+    ok @members.elems, 'the Server declares public members';
+    ok directory(%server<guide>).lines.grep(*.starts-with('**')).elems >= 3,
+        'the directory has the three bold-led rows the site needs to fold it';
+    is-deeply unlisted(%server<guide>), (), 'every public member is a reference in a directory bullet';
+    is-deeply unlisted(%server<guide>.subst('`new-session`', '', :g)), ('new-session',),
+        'a member dropped from the directory is reported';
+};
 done-testing;
