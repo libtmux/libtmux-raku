@@ -109,7 +109,7 @@ sub accessors(--> Str:D) {
             die "Invalid Raku field name $name" unless $name ~~ /^ <[a..z]> <[a..z0..9\-]>* $/;
             my $type = %types{$field.kind} // die "Unknown scalar kind {$field.kind}";
             $type ~= ':D' unless $field.nullable;
-            @lines.push("    #| Captured {$field.format}; local {$field.kind} access.");
+            @lines.push("    #| Captured C<{$field.format}>; local {$field.kind} access.");
             @lines.push('    method ' ~ $name ~ '(--> ' ~ $type
                 ~ ") \{ self.value('$name') \}");
         }
