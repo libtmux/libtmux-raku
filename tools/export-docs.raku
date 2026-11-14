@@ -60,13 +60,16 @@ sub markup($node, :@links = [] --> Str:D) {
     return $node.atoms.map({ markup($_, :@links) }).join if $kind eq 'RakuAST::Doc::Paragraph';
     if $kind eq 'RakuAST::Doc::Block' {
         return '' if $node.type eq 'comment';
-        my $text = $node.type eq 'code' ?? $node.paragraphs.map(&markup).join
+        my $code = $node.type eq any(<code implicit-code>);
+        my $text = $code ?? $node.paragraphs.map(&markup).join
             !! $node.paragraphs.map({ markup($_, :@links) }).join;
         given $node.type {
             when 'head' { return "\n\n" ~ '#' x $node.level ~ ' ' ~ $text.trim ~ "\n\n" }
-            when 'code' {
+            # An indented paragraph is an implicit code block; Rakudo has already
+            # removed its common indent, so relative indentation is what remains.
+            when 'code' | 'implicit-code' {
                 my $lang = $node.podify.config<lang> // 'raku';
-                return "\n\n```$lang\n" ~ $text.chomp ~ "\n```\n\n";
+                return "\n\n```$lang\n" ~ $text.subst(/ \n+ $/, '') ~ "\n```\n\n";
             }
             when 'item' { return "\n\n- " ~ $text.trim ~ "\n\n" }
             when 'NAME' { return "\n\n# " ~ $text.trim ~ "\n\n" }

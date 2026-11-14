@@ -34,6 +34,15 @@ Literal C<L<Missing>> is markup syntax, not a reference. Z<L<Missing>>
 say Surface.new.label;
 # L<Missing> remains code text.
 =end code
+
+An indented paragraph is an example, not prose:
+
+    my $surface = Surface.new;
+    if $surface.label {
+        say $surface.label;
+    }
+
+Prose resumes here.
 =end pod
 RAKU
 my $process = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku',
@@ -57,6 +66,10 @@ is %symbols{'Example::Surface.label'}<doc><summary>, 'Return the stored label wi
 nok %artifact<declarations>.grep({ .<name> eq any(<hidden counterfeit>) }),
     'private declarations and declaration-shaped string literals stay out';
 like %artifact<guide>, / '```raku' /, 'native code blocks retain their declared language';
+like %artifact<guide>,
+    / 'not prose:' \n+ '```raku' \n 'my $surface = Surface.new;' \n 'if $surface.label {' \n
+        '    say $surface.label;' \n '}' \n '```' \n+ 'Prose resumes here.' /,
+    'an indented Pod code block exports as a fenced raku block with its relative indentation';
 like %artifact<guide>, / 'rakudoc:Example%3A%3ASurface' /, 'native link destinations remain explicit';
 is-deeply %artifact<guideLinks>, ['Example::Surface'], 'only native links supply target metadata, not C or code text';
 
