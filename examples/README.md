@@ -24,6 +24,7 @@ $ zef install .
 | Task | Program | Raku facilities |
 | --- | --- | --- |
 | Create and find panes | [Quickstart](quickstart.raku) | Objects, `LEAVE`, a native predicate |
+| Resize and remove panes | [Resize panes](resize-panes.raku) | `resize`, `kill`, fresh snapshots |
 | Select wide panes | [Pane queries](query-panes.raku) | Typed selections, query hashes, `grep`, `map`, `sort` |
 | Choose where a query runs | [Query plan](explain-query.raku) | `explain-panes`, `:pushdown` |
 | Add a status pane | [Floating panes](floating-panes.raku) | Capability checks and a tiled fallback |
@@ -41,6 +42,17 @@ $ raku -I. examples/quickstart.raku
 ```
 
 It prints `editor: 2 panes`.
+
+## Resize and remove panes
+
+[`resize-panes.raku`](resize-panes.raku) splits a pane, resizes the window and
+the first pane, then kills the second pane. A fresh snapshot reads each result.
+
+```console
+$ raku -I. examples/resize-panes.raku
+```
+
+It prints `window: 100x20`, `editor: 30 columns` and `panes: 1`.
 
 ## Select wide panes
 

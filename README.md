@@ -84,6 +84,50 @@ $ raku -I. examples/quickstart.raku
 
 More: the [native API guide][repo-lib-libtmux-rakumod].
 
+## Resize and remove panes
+
+### [`PaneRef.resize`][api-pane-resize] and [`PaneRef.kill`][api-pane-kill]: size and remove panes
+
+Split a pane, size the window and the first pane, then kill the second pane.
+[`WindowRef.resize`][api-window-resize] sizes a window. A window, a session
+and the daemon go with [`WindowRef.kill`][api-window-kill],
+[`SessionRef.kill`][api-session-kill] and
+[`Server.kill-server`][api-server-kill-server].
+
+<!-- runs: examples/resize-panes.raku -->
+
+```raku
+use v6.d;
+use LibTmux;
+
+sub MAIN(Str:D :$tmux = 'tmux') {
+    my $server = Server.start(:binary($tmux), :name<work>,
+        :width(120), :height(30), :shell-command('exec cat'));
+    LEAVE $server.close if $server.defined;
+
+    my $before = $server.snapshot;
+    my $window = $before.windows.single.ref;
+    my $editor = $before.panes.single.ref;
+    my $logs = $editor.split(:horizontal, :shell-command('exec cat'));
+
+    $window.resize(:width(100), :height(20));
+    $editor.resize(:width(30));
+    my $sized = $server.snapshot;
+    say "window: {$sized.windows.single.width}x{$sized.windows.single.height}";
+    say "editor: {$sized.panes.where(%(id => $editor.id)).single.width} columns";
+
+    $logs.kill;
+    say "panes: {$server.snapshot.panes.elems}";
+}
+```
+
+It prints `window: 100x20`, `editor: 30 columns` and `panes: 1`.
+
+- `resize` takes `:width` and `:height`, or `:direction` with `:amount`. It
+  refuses a mix of the two.
+
+More: the [native API guide][repo-lib-libtmux-rakumod].
+
 ## Query captured panes
 
 ### [`PaneSelection.where`][api-pane-selection-where]: select panes from a snapshot
@@ -191,6 +235,10 @@ Create an empty `status` pane: floating when the daemon supports it, tiled
 otherwise. [`Snapshot.capabilities`][api-snapshot-capabilities] holds what the
 daemon, not the client binary, can do.
 
+[`Options.describe`][api-options-describe] gives an option's type, scopes and
+first release; [`Server.options`][api-server-options] and
+[`Server.hooks`][api-server-hooks] read and set options and hooks.
+
 <!-- runs: examples/floating-panes.raku -->
 
 ```raku
@@ -220,7 +268,8 @@ sub MAIN(Str:D :$tmux = 'tmux') {
 It prints `Status pane: floating` or `Status pane: tiled`, then `status`.
 
 More: the [compatibility policy][repo-docs-adr-0001-tmux-compatibility-md] and
-the [field and capability reference][repo-docs-reference-catalogue-rakudoc].
+the [field, option, hook and capability
+reference][repo-docs-reference-catalogue-rakudoc].
 
 ## Watch pane output
 
@@ -376,7 +425,10 @@ Headings above link to the native declarations and their RakuDoc comments.
 [api-capabilities-supports]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Capabilities.rakumod#L126
 [api-connection-events]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Control/Connection.rakumod#L147
 [api-operation]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Batch.rakumod#L53
+[api-options-describe]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Configuration.rakumod#L166
 [api-pane-capture]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L257
+[api-pane-kill]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L495
+[api-pane-resize]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L316
 [api-pane-selection-filter]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Selection.rakumod#L68
 [api-pane-selection-where]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Selection.rakumod#L78
 [api-pane-send-keys]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L248
@@ -384,15 +436,21 @@ Headings above link to the native declarations and their RakuDoc comments.
 [api-pane-split]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L279
 [api-server-close]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L685
 [api-server-explain-panes]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L432
+[api-server-hooks]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L565
+[api-server-kill-server]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L538
 [api-server-new]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L290
 [api-server-new-session]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L452
 [api-server-open-control]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L575
 [api-server-open-control-async]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L579
+[api-server-options]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L551
 [api-server-query-panes]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L430
 [api-server-run-batch]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L608
 [api-server-start]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L622
+[api-session-kill]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L169
 [api-session-new-window]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L135
 [api-snapshot-capabilities]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L662
+[api-window-kill]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L239
+[api-window-resize]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L179
 [raku-land]: https://raku.land/zef:libtmux/LibTmux
 [repo-changelog-md]: https://github.com/libtmux/libtmux-raku/blob/master/CHANGELOG.md
 [repo-docs-adr-0001-tmux-compatibility-md]: https://github.com/libtmux/libtmux-raku/blob/master/docs/adr/0001-tmux-compatibility.md
