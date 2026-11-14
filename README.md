@@ -11,6 +11,10 @@
 
 # libtmux for Raku
 
+[![CI](https://github.com/libtmux/libtmux-raku/actions/workflows/ci.yml/badge.svg)](https://github.com/libtmux/libtmux-raku/actions/workflows/ci.yml)
+[![LibTmux](https://raku.land/zef:libtmux/LibTmux/badges/version)](https://raku.land/zef:libtmux/LibTmux)
+[![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/libtmux/libtmux-raku/blob/master/LICENSE)
+
 </div>
 
 LibTmux controls tmux from Raku: create sessions and panes, find them through
