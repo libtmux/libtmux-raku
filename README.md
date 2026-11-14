@@ -36,7 +36,9 @@ To install a checkout instead:
 $ zef install .
 ```
 
-## Create a session and split a pane
+## Create sessions and panes
+
+### [`Server.start`][api-server-start] and [`PaneRef.split`][api-pane-split]: create and arrange panes
 
 Create a private tmux session named `work`, split its first pane, and set
 the pane titles to `editor` and `logs`. Both panes run `cat` as an echo process.
@@ -73,7 +75,9 @@ Run it from the checkout with a supported tmux executable on `PATH`:
 $ raku -I. examples/quickstart.raku
 ```
 
-## Find the right panes
+## Query captured panes
+
+### [`PaneSelection.where`][api-pane-selection-where]: select panes from a snapshot
 
 Create panes titled `editor`, `tests`, and `logs`. Select wide panes with query
 data, then use a Raku predicate to find `editor`. The complete
@@ -111,18 +115,22 @@ sub MAIN(Str:D :$tmux = 'tmux') {
 It prints `Wide pane: editor` and
 `Other panes: logs, tests`.
 
-Binding with `:=` retains the typed selection. `.where` validates query fields
-and operators; `.filter` returns another selection of the same entity type.
+Binding with `:=` retains the typed selection. [`where`][api-pane-selection-where]
+validates query fields and operators; [`filter`][api-pane-selection-filter]
+returns another selection of the same entity type.
 Native `.grep` returns a `Seq`, and `.map` can produce ordinary strings.
 `.single` requires exactly one result; `.single-or-nil` permits no result.
 Raku's `.one` keeps its junction meaning.
 
-For live acquisition, `query-panes(:where(%criteria))` returns a fresh selection.
-`explain-panes` shows which restrictions run in tmux and which remain local.
+For live acquisition, [`query-panes(:where(%criteria))`][api-server-query-panes]
+returns a fresh selection. [`explain-panes`][api-server-explain-panes] shows
+which restrictions run in tmux and which remain local.
 See the [native query guide](lib/LibTmux.rakumod) for
 relations, portable filters and source execution.
 
 ## Adapt to the running daemon
+
+### [`Capabilities.supports`][api-capabilities-supports]: choose a supported operation
 
 Create an empty `status` pane as a floating pane when supported, with a tiled
 split as the fallback. The [capability example](examples/floating-panes.raku)
@@ -163,8 +171,11 @@ feature requirements and unavailable values.
 
 ## Watch pane output
 
+### [`Control::Connection.events`][api-connection-events]: receive output through a `Supply`
+
 Asynchronous operations return `Promise` values. A control connection exposes
 events through a shared `Supply`; native `react` and `whenever` consume them.
+[`Server.open-control-async`][api-server-open-control-async] opens the connection.
 This complete [output watcher](examples/watch-output.raku) subscribes before
 sending text to `cat`, waits for the echoed bytes, then checks the captured screen.
 
@@ -215,6 +226,8 @@ query in one lifecycle.
 
 ## Recover after a batch fails
 
+### [`Server.run-batch`][api-server-run-batch]: inspect partial completion
+
 A batch records each operation's outcome. The
 [recovery program](examples/batch-recovery.raku) produces `Complete`, `Failed`
 and `Skipped`, verifies that the first effect remains, then removes that effect
@@ -230,11 +243,15 @@ cleanup behavior for every complete program.
 
 ## Ownership and documentation
 
-`Server.start` creates and owns a daemon on a private socket. `Server.new`
-configures a borrowed endpoint; closing it leaves that daemon running. Close
-both explicitly. Control connections and terminal attachments have their own
-lifetimes and also need closing. References are scoped to the observed daemon
-incarnation and refuse a replacement daemon.
+### [`Server.close`][api-server-close]: close an owned daemon
+
+[`Server.start`][api-server-start] creates and owns a daemon on a private socket.
+[`Server.new`][api-server-new] configures a borrowed endpoint; closing it leaves
+that daemon running. Close both explicitly. Control connections and terminal
+attachments have their own lifetimes and also need closing. References are
+scoped to the observed daemon incarnation and refuse a replacement daemon.
+
+API links open the native declarations and their RakuDoc comments.
 
 - [Native API guide](lib/LibTmux.rakumod): the object graph, queries,
   capabilities, async execution, control events and recovery.
@@ -243,3 +260,16 @@ incarnation and refuse a replacement daemon.
 - [API documentation authoring](docs/documentation.rakudoc) and
   [writing conventions](.github/WRITING.md).
 - [MIT license](LICENSE) and [artwork provenance](docs/assets/README.md).
+
+[api-capabilities-supports]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Capabilities.rakumod#L126
+[api-connection-events]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Control/Connection.rakumod#L147
+[api-pane-selection-filter]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Selection.rakumod#L68
+[api-pane-selection-where]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Selection.rakumod#L78
+[api-pane-split]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L279
+[api-server-close]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L685
+[api-server-explain-panes]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L432
+[api-server-new]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L290
+[api-server-open-control-async]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L579
+[api-server-query-panes]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L430
+[api-server-run-batch]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L608
+[api-server-start]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L622
