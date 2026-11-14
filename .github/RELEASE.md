@@ -175,10 +175,11 @@ do not remove a completed asset to bypass a digest conflict. See GitHub's
 
 Keep recovery on the original tagged run whenever possible. **Re-run failed
 jobs** preserves successful jobs and their retained archive. A full rerun
-restores the original archive, validates its checksum, Git commit and metadata,
-and tests those bytes again. It skips an upload that already succeeded in
-that run. If an upload was attempted and the artifact is unavailable, recovery
-stops rather than rebuilding it.
+restores the original archive when it remains available, validates its checksum,
+Git commit and metadata, and tests those bytes again. If the artifact is missing,
+it can rebuild only before any upload was attempted. After an upload attempt,
+a missing artifact stops recovery. The workflow skips an upload that already
+succeeded in that run.
 
 If the upload step failed or was cancelled after it started, check whether
 Fez accepted the distribution before retrying. The workflow refuses an
