@@ -1,6 +1,6 @@
 # Agent instructions
 
-This repository is the private Raku libtmux core library. Follow the existing
+This repository is the published Raku libtmux core library. Follow the existing
 conventions and keep changes scoped to the active implementation goal.
 
 ## Change discipline
@@ -33,11 +33,11 @@ Each guide is the single home for its subject. Keep both guides under
 
 ## Repository boundaries
 
-Keep `libtmux/libtmux-raku` private. Do not push to the `tony` organization.
+Use `libtmux/libtmux-raku`. Do not push to the `tony` organization.
 Use only the repositories and operations authorized for the current task.
-The active core goal excludes package publication and changes to other ports.
-Do not push to public repositories or open a libtmux/docs PR while the user's
-hold remains active. The user permits a logo branch and PR in `libtmux/assets`.
+Package publication requires explicit release authorization. Changes to other
+ports and a libtmux/docs PR require separate authorization. The user permits
+a logo branch and PR in `libtmux/assets`.
 Keep upstream `tmux/tmux` research read-only.
 
 ## Merging pull requests

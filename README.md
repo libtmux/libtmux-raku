@@ -19,9 +19,18 @@ predicates and collections alongside validated query data and explicit commands.
 
 ## Install
 
-Requires Linux, Raku 6.d and tmux 3.3a through 3.8. Install from this checkout;
-there is no published Raku distribution yet. The
-[toolchain guide](.github/CONTRIBUTING.md#toolchain) covers Raku and zef setup.
+Requires Linux, Raku 6.d and tmux 3.3a through 3.8. Install the published package
+with its Fez authority:
+
+```console
+$ zef install 'LibTmux:auth<zef:libtmux>'
+```
+
+The API is experimental and may change between `0.x` releases. CI qualifies
+Rakudo 2026.09 on Linux with tmux 3.3a and 3.8; other platforms and compiler
+versions are unverified. See the [changelog](CHANGELOG.md) for release history.
+The [toolchain guide](.github/CONTRIBUTING.md#toolchain) covers Raku and zef setup.
+To install a checkout instead:
 
 ```console
 $ zef install .
