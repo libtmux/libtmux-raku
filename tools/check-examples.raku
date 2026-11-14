@@ -41,7 +41,17 @@ my %expected =
     query-panes => ["Wide pane: editor\n"
         ~ "Other panes: logs, tests\n"],
     floating-panes => ['floating', 'tiled'].map({ "Status pane: $_\nstatus\n" }).Array,
-    watch-output => ["hello from Raku\nScreen capture confirmed\n"];
+    watch-output => ["hello from Raku\nScreen capture confirmed\n"],
+    explain-query => ["width: fully pushed = True\n"
+        ~ "width and title: fully pushed = False\n"
+        ~ "tmux filter: #\{e|>=:#\{pane_width},60}\n"
+        ~ "Matches: editor\n"
+        ~ "require: refused, title stays local\n"],
+    batch-recovery => ["set-option: Complete (scope: command)\n"
+        ~ "invalid-command: Failed (scope: command)\n"
+        ~ "skipped-option: Skipped (scope: command)\n"
+        ~ "Recovery: removed the first effect explicitly\n"
+        ~ "Owned daemon and socket cleaned up\n"];
 
 my $binary = %*ENV<LIBTMUX_TEST_TMUX> // die 'LIBTMUX_TEST_TMUX must name the qualified endpoint binary';
 die 'LIBTMUX_TEST_TMUX must be an executable absolute path'
