@@ -9,6 +9,7 @@ on:
       - .github/workflows/ci.yml
       - tools/check-release.raku
       - tools/publish-github-release.sh
+      - tools/release-retry.sh
       - xt/*release*.rakutest
   workflow_dispatch:
     inputs:
@@ -70,21 +71,7 @@ jobs:
         id: upload
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          if test "$GITHUB_RUN_ATTEMPT" -gt 1; then
-            jobs=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=all&per_page=100")
-            uploads=$(jq '[.[].jobs[].steps[]? | select(.name == "Upload the tested archive" and .conclusion != null and .conclusion != "skipped")]' <<< "$jobs")
-            if jq --exit-status 'any(.[]; .conclusion == "success")' <<< "$uploads"; then
-              echo 'An earlier attempt completed this upload; continuing with registry verification.'
-              printf 'needed=false\n' >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            if test "$(jq length <<< "$uploads")" != 0; then
-              echo 'A previous upload was interrupted. Check Fez state and use verify mode if accepted; do not upload again blindly.' >&2
-              exit 1
-            fi
-          fi
-          printf 'needed=true\n' >> "$GITHUB_OUTPUT"
+        run: bash tools/release-retry.sh upload
       - name: Install the pinned publisher
         if: steps.upload.outputs.needed == 'true'
         run: zef install 'fez:ver<100.0.2>:auth<zef:tony-o>'

@@ -75,7 +75,7 @@ is $status, 0, 'an interrupted draft can be completed';
 is $log.slurp, "upload SHA256SUMS\npublish\n", 'draft recovery uploads only the missing asset';
 $log.spurt('');
 
-%published<assets> = [{ name => 'SHA256SUMS', digest => 'sha256:wrong' }];
+%published<assets> = from-json('[{"name":"SHA256SUMS","digest":"sha256:wrong"}]');
 $state.spurt(to-json(%published));
 ($status, $err) = publish;
 isnt $status, 0, 'a conflicting published asset is rejected';

@@ -174,7 +174,7 @@ do not remove a completed asset to bypass a digest conflict. See GitHub's
 ## Complete a manual upload or recover a failed run
 
 Keep recovery on the original tagged run whenever possible. **Re-run failed
-jobs** preserves successful jobs and their retained archive. A full rerun
+jobs** keeps successful jobs. A full rerun
 restores the original archive when it remains available, validates its checksum,
 Git commit and metadata, and tests those bytes again. If the artifact is missing,
 it can rebuild only before any upload was attempted. After an upload attempt,

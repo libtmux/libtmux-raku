@@ -105,6 +105,7 @@ jobs:
           /usr/bin/time -f 'whole command: %e s' raku xt/release.rakutest
           /usr/bin/time -f 'whole command: %e s' raku xt/release-archive.rakutest
           /usr/bin/time -f 'whole command: %e s' raku xt/github-release.rakutest
+          /usr/bin/time -f 'whole command: %e s' raku xt/release-retry.rakutest
       - name: Generated accessors and reference
         run: |
           /usr/bin/time -f 'whole command: %e s' raku -I. tools/catalogue.raku \
@@ -131,27 +132,12 @@ jobs:
           for example in examples/*.raku; do
             /usr/bin/time -f 'whole command: %e s' raku -I. -c "$example"
           done
-      - name: Restore the original release archive on a retry
+      - name: Check retained release archive on a retry
         id: retained
         if: inputs.release && github.run_attempt > 1
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          artifacts=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100")
-          count=$(jq '[.[].artifacts[] | select(.name == "release-candidate" and .expired == false)] | length' <<< "$artifacts")
-          if test "$count" = 1; then
-            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-              --name release-candidate --dir "$RUNNER_TEMP/release"
-            printf 'restored=true\n' >> "$GITHUB_OUTPUT"
-          else
-            test "$count" = 0
-            jobs=$(gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=all&per_page=100")
-            if jq --exit-status 'any(.[].jobs[].steps[]?;
-              .name == "Upload the tested archive" and .conclusion != null and .conclusion != "skipped")' <<< "$jobs"; then
-              echo 'The original archive is unavailable after an upload attempt. Recover the original files; do not rebuild this release.' >&2
-              exit 1
-            fi
-          fi
+        run: bash tools/release-retry.sh archive "$RUNNER_TEMP/release"
       - name: Build and test the committed distribution
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}

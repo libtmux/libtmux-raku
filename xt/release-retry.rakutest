@@ -1,0 +1,82 @@
+use v6.d;
+use Test;
+
+my $root = $?FILE.IO.parent.parent;
+my $directory = $*TMPDIR.add("libtmux-retry-$*PID-{1_000_000.rand.Int}");
+$directory.mkdir;
+my $gh = $directory.add('gh');
+my $artifacts = $directory.add('artifacts.json');
+my $jobs = $directory.add('jobs.json');
+my $output = $directory.add('output');
+my $downloads = $directory.add('downloads');
+LEAVE { .unlink for $directory.dir.grep(*.f); $directory.rmdir if $directory.d }
+$gh.spurt(q:to/BASH/);
+#!/usr/bin/env bash
+set -euo pipefail
+if test "$1" = api; then
+  case "$4" in
+    */artifacts*) cat "$RETRY_FIXTURE/artifacts.json" ;;
+    */jobs*) cat "$RETRY_FIXTURE/jobs.json" ;;
+    *) exit 64 ;;
+  esac
+elif test "$1 $2" = 'run download'; then
+  printf 'download\n' >> "$RETRY_FIXTURE/downloads"
+else
+  exit 64
+fi
+BASH
+$gh.chmod(0o700);
+temp %*ENV<PATH> = $directory.Str ~ ':' ~ %*ENV<PATH>;
+temp %*ENV<RETRY_FIXTURE> = $directory.Str;
+temp %*ENV<GITHUB_REPOSITORY> = 'fixture/release';
+temp %*ENV<GITHUB_RUN_ID> = '123';
+temp %*ENV<GITHUB_OUTPUT> = $output.Str;
+
+sub check(Str:D $mode, Str:D $attempt = '2') {
+    $output.spurt('');
+    $downloads.spurt('');
+    my %environment = %*ENV;
+    %environment<GITHUB_RUN_ATTEMPT> = $attempt;
+    my $process = run 'bash', $root.add('tools/release-retry.sh').Str,
+        $mode, $directory.Str, :env(%environment), :out, :err;
+    my $out = $process.out.slurp(:close);
+    my $err = $process.err.slurp(:close);
+    ($process.exitcode, $err)
+}
+
+$artifacts.spurt('[{"artifacts":[{"name":"release-candidate","expired":false}]}]');
+$jobs.spurt('[{"jobs":[]}]');
+my ($status, $err) = check('archive');
+is $status, 0, 'an available retained archive is restored';
+is $output.slurp, "restored=true\n", 'restoration tells CI to skip rebuilding and retention';
+is $downloads.slurp, "download\n", 'restoration downloads the original run artifact';
+
+$artifacts.spurt('[{"artifacts":[]}]');
+($status, $err) = check('archive');
+is $status, 0, 'a missing archive may be built before any upload attempt';
+is $output.slurp ~ $downloads.slurp, '', 'the missing-archive path does not claim restoration';
+
+$jobs.spurt('[{"jobs":[{"steps":[{"name":"Upload the tested archive","conclusion":"success"}]}]}]');
+($status, $err) = check('archive');
+isnt $status, 0, 'a missing archive cannot be rebuilt after an upload attempt';
+like $err, /'original archive is unavailable after an upload attempt'/, 'failure identifies the original bytes required';
+($status, $err) = check('upload');
+is $status, 0, 'an earlier successful upload permits verification to continue';
+is $output.slurp, "needed=false\n", 'an accepted upload is not repeated';
+
+$jobs.spurt('[{"jobs":[{"steps":[{"name":"Upload the tested archive","conclusion":"failure"}]}]}]');
+($status, $err) = check('upload');
+isnt $status, 0, 'an ambiguous failed upload requires manual registry inspection';
+like $err, /'previous upload was interrupted'/, 'failure identifies the upload uncertainty';
+
+$jobs.spurt('[{"jobs":[{"steps":[{"name":"Upload the tested archive","conclusion":"skipped"}]}]}]');
+($status, $err) = check('upload');
+is $status, 0, 'an upload skipped before execution can be attempted';
+is $output.slurp, "needed=true\n", 'only a safe upload is requested';
+
+$jobs.spurt('not JSON');
+($status, $err) = check('upload', '1');
+is $status, 0, 'a first upload does not require earlier job history';
+is $output.slurp, "needed=true\n", 'the first attempt requests an upload';
+
+done-testing;
