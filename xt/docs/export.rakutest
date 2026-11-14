@@ -45,6 +45,10 @@ An indented paragraph is an example, not prose:
 Prose resumes here.
 
 Spans: C<label>, C<a`b> and C<`tick`>.
+
+=item A list item that
+wraps onto a second line.
+=item A short item.
 =end pod
 RAKU
 my $process = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku',
@@ -72,6 +76,8 @@ like %artifact<guide>,
     / 'not prose:' \n+ '```raku' \n 'my $surface = Surface.new;' \n 'if $surface.label {' \n
         '    say $surface.label;' \n '}' \n '```' \n+ 'Prose resumes here.' /,
     'an indented Pod code block exports as a fenced raku block with its relative indentation';
+like %artifact<guide>, / '- A list item that' \n '  wraps onto a second line.' \n+ '- A short item.' /,
+    'a wrapped list item keeps its continuation lines indented under the bullet';
 subtest 'code spans pad only when the content starts or ends with a backtick' => {
     my $guide = %artifact<guide>;
     ok $guide.contains('Spans: `label`, '), 'a plain name carries no padding';

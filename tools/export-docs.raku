@@ -73,7 +73,8 @@ sub markup($node, :@links = [] --> Str:D) {
                 my $lang = $node.podify.config<lang> // 'raku';
                 return "\n\n```$lang\n" ~ $text.subst(/ \n+ $/, '') ~ "\n```\n\n";
             }
-            when 'item' { return "\n\n- " ~ $text.trim ~ "\n\n" }
+            # Indent wrapped lines: the site's list reader ends an item at a line in column zero.
+            when 'item' { return "\n\n- " ~ $text.trim.subst("\n", "\n  ", :g) ~ "\n\n" }
             when 'NAME' { return "\n\n# " ~ $text.trim ~ "\n\n" }
             default { return $text }
         }
