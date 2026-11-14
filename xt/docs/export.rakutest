@@ -43,6 +43,8 @@ An indented paragraph is an example, not prose:
     }
 
 Prose resumes here.
+
+Spans: C<label>, C<a`b> and C<`tick`>.
 =end pod
 RAKU
 my $process = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku',
@@ -70,6 +72,12 @@ like %artifact<guide>,
     / 'not prose:' \n+ '```raku' \n 'my $surface = Surface.new;' \n 'if $surface.label {' \n
         '    say $surface.label;' \n '}' \n '```' \n+ 'Prose resumes here.' /,
     'an indented Pod code block exports as a fenced raku block with its relative indentation';
+subtest 'code spans pad only when the content starts or ends with a backtick' => {
+    my $guide = %artifact<guide>;
+    ok $guide.contains('Spans: `label`, '), 'a plain name carries no padding';
+    ok $guide.contains('``a`b``'), 'an inner backtick lengthens the delimiter without padding';
+    ok $guide.contains('`` `tick` ``.'), 'a backtick at an edge keeps the padding that separates it';
+};
 like %artifact<guide>, / 'rakudoc:Example%3A%3ASurface' /, 'native link destinations remain explicit';
 is-deeply %artifact<guideLinks>, ['Example::Surface'], 'only native links supply target metadata, not C or code text';
 

@@ -37,7 +37,9 @@ sub markup($node, :@links = [] --> Str:D) {
             when 'I' { return "*$text*" }
             when 'C' {
                 my $ticks = '`' x (1 + (0, |$text.comb(/ '`'+ /)>>.chars).max);
-                return $ticks ~ ' ' ~ $text ~ ' ' ~ $ticks;
+                # CommonMark pads a span only to keep an edge backtick from fusing with a delimiter.
+                my $pad = $text.starts-with('`') || $text.ends-with('`') ?? ' ' !! '';
+                return $ticks ~ $pad ~ $text ~ $pad ~ $ticks;
             }
             when 'L' {
                 my $target = $node.meta.elems ?? $node.meta.map(&markup).join !! $text;
