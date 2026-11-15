@@ -32,11 +32,7 @@ sub listed(Str:D $url, Str:D $key --> List:D) {
     }).List
 }
 
-sub MAIN(Str:D $mode, Str $directory = '') {
-    unless $mode eq 'archive' | 'upload' {
-        note 'usage: release-retry.raku archive DIRECTORY | upload';
-        exit 64;
-    }
+sub decide(Str:D $mode, Str $directory = '' --> Nil) {
     if environment('GITHUB_RUN_ATTEMPT').Int == 1 {
         output('needed=true') if $mode eq 'upload';
         exit 0;
@@ -76,4 +72,7 @@ sub MAIN(Str:D $mode, Str $directory = '') {
         output('needed=true');
     }
 }
+
+multi MAIN('archive', Str:D $directory) { decide('archive', $directory) }
+multi MAIN('upload') { decide('upload') }
 

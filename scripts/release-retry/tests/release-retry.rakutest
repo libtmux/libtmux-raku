@@ -42,7 +42,8 @@ sub check(Str:D $mode, Str:D $attempt = '2') {
     my %environment = %*ENV;
     %environment<GITHUB_RUN_ATTEMPT> = $attempt;
     my $process = run $*EXECUTABLE.Str, $script.Str,
-        $mode, $directory.Str, :env(%environment), :out, :err;
+        |($mode eq 'archive' ?? ($mode, $directory.Str) !! ($mode,)),
+        :env(%environment), :out, :err;
     my $out = $process.out.slurp(:close);
     my $err = $process.err.slurp(:close);
     ($process.exitcode, $err)
