@@ -137,7 +137,7 @@ jobs:
         if: inputs.release && github.run_attempt > 1
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash tools/release-retry.sh archive "$RUNNER_TEMP/release"
+        run: raku tools/release-retry.raku archive "$RUNNER_TEMP/release"
       - name: Build and test the committed distribution
         env:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}

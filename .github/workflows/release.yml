@@ -8,8 +8,8 @@ on:
       - .github/workflows/release.yml
       - .github/workflows/ci.yml
       - tools/check-release.raku
-      - tools/publish-github-release.sh
-      - tools/release-retry.sh
+      - tools/publish-github-release.raku
+      - tools/release-retry.raku
       - xt/*release*.rakutest
   workflow_dispatch:
     inputs:
@@ -71,7 +71,7 @@ jobs:
         id: upload
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash tools/release-retry.sh upload
+        run: raku tools/release-retry.raku upload
       - name: Install the pinned publisher
         if: steps.upload.outputs.needed == 'true'
         run: zef install 'fez:ver<100.0.2>:auth<zef:tony-o>'
@@ -150,4 +150,4 @@ jobs:
       - name: Publish the verified archive and checksums
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash tools/publish-github-release.sh dist "$RELEASE_TAG" "$GITHUB_REPOSITORY"
+        run: raku tools/publish-github-release.raku dist "$RELEASE_TAG" "$GITHUB_REPOSITORY"
