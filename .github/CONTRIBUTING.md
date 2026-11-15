@@ -127,9 +127,10 @@ $ mise exec -- prove6 -I. -It/lib xt/live
 The ordinary `t/` suite contains pure tests; `xt/live/` is an explicit outer
 gate. Required CI runs both endpoints and cannot treat skipped live tests as
 success. Test helpers under `t/lib/` are author code, not installed modules.
-The outer suite also requires Python 3 for small standard-library PTY and
-process-replacement fixtures. Those helpers use event-driven I/O and pidfds;
-Python is not a library runtime dependency or a requirement for pure tests.
+The outer suite needs no other language. The PTY fixture binds libc through
+NativeCall and blocks in `poll`. Stand-ins for the tmux binary are Raku scripts
+that `Test::LibTmux::Wrapper` writes and that replace themselves with the real
+binary, and the daemon-exit waits use pidfds.
 
 Check that the README and native guide quote complete canonical example files.
 This check requires no tmux process:

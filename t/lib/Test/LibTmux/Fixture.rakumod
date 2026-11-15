@@ -19,6 +19,35 @@ sub pidfd_send_signal(int32, int32, Pointer, uint32 --> int32) is native { * }
 sub poll(PollEvent, size_t, int32 --> int32) is native { * }
 sub close(int32 --> int32) is native { * }
 
+#| Wait for a process to exit through a pidfd. The descriptor names the process
+#| itself, so a reused PID cannot be mistaken for it. Open the watch before the
+#| action that is expected to end the process.
+class ExitWatch is export {
+    has Int $.pid is required;
+    has int32 $!pidfd = -1;
+
+    submethod TWEAK() {
+        $!pidfd = pidfd_open($!pid, 0);
+        die FixtureError.new(:message("Linux pidfd_open failed for PID $!pid"))
+            if $!pidfd < 0;
+    }
+
+    method wait(Int:D :$timeout-ms = 1_000 --> Bool:D) {
+        my $event = PollEvent.new(:fd($!pidfd));
+        # A signal can interrupt poll; the wait restarts.
+        for ^3 {
+            my $ready = poll($event, 1, $timeout-ms);
+            return so $ready == 1 && $event.revents +& 1 if $ready >= 0;
+        }
+        False
+    }
+
+    method close(--> Nil) {
+        close($!pidfd) if $!pidfd >= 0;
+        $!pidfd = -1;
+    }
+}
+
 class Fixture is export {
     has Str $.binary is required;
     has IO::Path $.directory is required;

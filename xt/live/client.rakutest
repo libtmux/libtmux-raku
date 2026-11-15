@@ -9,6 +9,7 @@ use LibTmux::Transport;
 use LibTmux::Operations;
 use Test::LibTmux::Fixture;
 use Test::LibTmux::Terminal;
+use Test::LibTmux::Wrapper;
 
 sub completed(Promise:D $event, Str:D $description,
               LibTmux::Attachment :$attachment --> Nil) {
@@ -152,10 +153,10 @@ with-tmux(-> $fixture {
 
     my $wrapper = $fixture.directory.add('vanishing-tmux');
     LEAVE $wrapper.unlink if $wrapper.defined && $wrapper.e;
-    $wrapper.spurt("#!/usr/bin/env python3\nimport os,sys\n"
-        ~ "if any('list-sessions' in a for a in sys.argv[1:]): os.unlink(__file__)\n"
-        ~ 'os.execv(' ~ $fixture.binary.raku ~ ', [' ~ $fixture.binary.raku ~ "] + sys.argv[1:])\n");
-    $wrapper.chmod(0o700);
+    write-wrapper($wrapper, q:to/RAKU/, :binary($fixture.binary));
+        $*PROGRAM.unlink if @*ARGS.first(*.contains('list-sessions'));
+        exec-program($binary, |@*ARGS);
+        RAKU
     my $vanishing = $endpoint.clone(:binary($wrapper.Str));
     my $changed = Incarnation.new(:endpoint-key($vanishing.key), :boot-id($incarnation.boot-id),
         :pid($incarnation.pid), :start-ticks($incarnation.start-ticks),
@@ -164,11 +165,14 @@ with-tmux(-> $fixture {
         :session<$0>, :terminal($terminal.handle)) }, X::LibTmux::Command, :kind<spawn>;
     ok $terminal.handle.opened, 'failed OS spawn leaves the supplied handle open';
 
-    $wrapper.spurt("#!/usr/bin/env python3\nimport os,sys\n"
-        ~ "if any('attach-session' in a for a in sys.argv[1:]):\n"
-        ~ "    os.write(2,b'x'*1024)\n    sys.exit(0)\n"
-        ~ 'os.execv(' ~ $fixture.binary.raku ~ ', [' ~ $fixture.binary.raku ~ "] + sys.argv[1:])\n");
-    $wrapper.chmod(0o700);
+    write-wrapper($wrapper, q:to/RAKU/, :binary($fixture.binary));
+        if @*ARGS.first(*.contains('attach-session')) {
+            $*ERR.print('x' x 1024);
+            $*ERR.flush;
+            exit 0;
+        }
+        exec-program($binary, |@*ARGS);
+        RAKU
     my $noisy = LibTmux::Attachment.spawn(:endpoint($vanishing), :incarnation($changed),
         :session<$0>, :terminal($terminal.handle), :max-stderr-bytes(64));
     LEAVE $noisy.close if $noisy.defined;
@@ -182,11 +186,15 @@ with-tmux(-> $fixture {
         $moved.rename($fixture.socket-path) if $moved.defined && $moved.e;
         $flags.unlink if $flags.defined && $flags.e;
     }
-    $wrapper.spurt("#!/usr/bin/env python3\nimport os,sys\n"
-        ~ "if any('attach-session' in a for a in sys.argv[1:]):\n"
-        ~ '    open(' ~ $flags.Str.raku ~ ", 'w').write(str('-N' in sys.argv[1:]))\n"
-        ~ '    os.rename(' ~ $fixture.socket-path.Str.raku ~ ', ' ~ $moved.Str.raku ~ ")\n"
-        ~ 'os.execv(' ~ $fixture.binary.raku ~ ', [' ~ $fixture.binary.raku ~ "] + sys.argv[1:])\n");
+    my %paths = :binary($fixture.binary), :flags($flags.Str), :moved($moved.Str),
+        :socket($fixture.socket-path.Str);
+    write-wrapper($wrapper, q:to/RAKU/, |%paths);
+        if @*ARGS.first(*.contains('attach-session')) {
+            $flags.IO.spurt(('-N' ∈ @*ARGS).Str);
+            $socket.IO.rename($moved);
+        }
+        exec-program($binary, |@*ARGS);
+        RAKU
     my $absent = LibTmux::Attachment.spawn(:endpoint($vanishing), :incarnation($changed),
         :session<$0>, :terminal($terminal.handle));
     LEAVE $absent.close if $absent.defined;
