@@ -113,7 +113,7 @@ verifies their source and executable versions. See the
 | Setting | Owner and meaning | Failure behavior |
 | --- | --- | --- |
 | `LIBTMUX_TEST_TMUX` | Live fixtures and the example runner select one explicit tmux executable. | Missing, relative or nonexecutable paths fail before fixture setup; no PATH fallback or skipped live tests. |
-| `TMUX_VERSION` / `TMUX_COMMIT` | CI build inputs come from the typed compatibility policy. | Source or reported-version mismatches fail the lane. |
+| `TMUX_VERSION` | CI builds the policy commit with the shared `build-tmux` action and compares the reported version. | A reported-version mismatch fails the lane. |
 
 `LIBTMUX_TEST_TMUX` is test-only. It does not change the production
 `Server.new` executable default or select a borrowed socket. Each fixture owns

@@ -173,7 +173,6 @@ jobs:
       matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
     env:
       TMUX_VERSION: ${{ matrix.tmux }}
-      TMUX_COMMIT: ${{ matrix.commit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -181,34 +180,29 @@ jobs:
       - uses: Raku/setup-raku@8602b3572876ee7a5e304837c3183cf913a78f47 # v1.15.0
         with:
           raku-version: ${{ needs.prepare.outputs.compiler }}
-      - name: Install build and test dependencies
+      - name: Install the live-suite tools
+        uses: libtmux/.github/actions/apt-get@30f81842b1e639ea4e25f93f1f2543504178e228
+        with:
+          update: "true"
+          args: install --yes ripgrep
+      - name: Build the verified tmux source
+        id: tmux
+        uses: libtmux/.github/actions/build-tmux@30f81842b1e639ea4e25f93f1f2543504178e228
+        with:
+          ref: ${{ matrix.commit }}
+      - name: Select the verified tmux
+        env:
+          TMUX_BINARY: ${{ steps.tmux.outputs.binary }}
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes autoconf automake bison build-essential libevent-dev libncurses-dev pkg-config python3 ripgrep
+          test "$("$TMUX_BINARY" -V)" = "tmux $TMUX_VERSION"
+          printf 'LIBTMUX_TEST_TMUX=%s\n' "$TMUX_BINARY" >> "$GITHUB_ENV"
+      - name: Install package and test dependencies
+        run: |
           zef install --deps-only .
           zef install App::Prove6
-      - name: Build the verified tmux source
-        run: |
-          source_dir="$RUNNER_TEMP/tmux-source"
-          install_dir="$RUNNER_TEMP/tmux-install"
-          git init "$source_dir"
-          git -C "$source_dir" remote add origin https://github.com/tmux/tmux.git
-          git -C "$source_dir" fetch --depth=1 origin "refs/tags/$TMUX_VERSION"
-          test "$(git -C "$source_dir" rev-parse 'FETCH_HEAD^{commit}')" = "$TMUX_COMMIT"
-          git -C "$source_dir" checkout --detach "$TMUX_COMMIT"
-          (
-            cd "$source_dir"
-            sh autogen.sh
-            ./configure --prefix="$install_dir"
-            make -j2
-            make install
-          )
-          test "$("$install_dir/bin/tmux" -V)" = "tmux $TMUX_VERSION"
-          printf 'LIBTMUX_TEST_TMUX=%s\n' "$install_dir/bin/tmux" >> "$GITHUB_ENV"
       - name: Required live contracts
         run: |
           test -x "$LIBTMUX_TEST_TMUX"
-          command -v python3
           command -v rg
           /usr/bin/time -f 'whole command: %e s' prove6 --verbose -I. -It/lib xt/live \
             | tee "$RUNNER_TEMP/live.tap"
