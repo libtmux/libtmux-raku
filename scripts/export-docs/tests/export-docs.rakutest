@@ -165,27 +165,30 @@ RAKU
     my %method = %unit<declarations>.first({ .<id> eq 'Example::Target.act' })<doc>;
     is %method<body>, 'Act on the target.', 'a declarator after the Pod still documents its method';
 };
+# The site folds bold-led rows followed by bullets; names in prose do not count.
+sub directory-of(Str:D $guide --> Str:D) {
+    $guide.split(/ ^^ '# ' /).first(*.starts-with('What is on here')) // ''
+}
+sub unlisted-in(@members, Str:D $guide) {
+    my %listed = directory-of($guide).lines.grep(/ ^ [ '- ' | '  ' ] /).map({ .comb(/ '`' <-[`]>+ '`' /) })
+        .flat.map({ .substr(1, *-1) => True });
+    @members.grep({ !%listed{$_} }).List
+}
+sub public-members(@declarations, *@owners) {
+    @declarations.grep({ (.<parent> // '') eq any(@owners) && .<kind> eq any(<method property>) })
+        .map(*.<name>).unique.sort.List
+}
 subtest 'the Server class doc lists every public member in its capability directory' => {
     my $unit = run $*EXECUTABLE.Str, '-I.', 'scripts/export-docs/export-docs.raku',
         '--unit=lib/LibTmux/Server.rakumod', :out;
     my %server = from-json($unit.out.slurp(:close));
     is $unit.exitcode, 0, 'the Server module extracts';
-    my @members = %server<declarations>.grep({ (.<parent> // '') eq 'LibTmux::Server'
-        && .<kind> eq any(<method property>) }).map(*.<name>).unique.sort;
-    my sub directory(Str:D $guide --> Str:D) {
-        $guide.split(/ ^^ '# ' /).first(*.starts-with('What is on here')) // ''
-    }
-    # The site folds bold-led rows followed by bullets; names in prose do not count.
-    my sub unlisted(Str:D $guide) {
-        my %listed = directory($guide).lines.grep(/ ^ [ '- ' | '  ' ] /).map({ .comb(/ '`' <-[`]>+ '`' /) })
-            .flat.map({ .substr(1, *-1) => True });
-        @members.grep({ !%listed{$_} }).List
-    }
+    my @members = public-members(%server<declarations>, 'LibTmux::Server');
     ok @members.elems, 'the Server declares public members';
-    ok directory(%server<guide>).lines.grep(*.starts-with('**')).elems >= 3,
+    ok directory-of(%server<guide>).lines.grep(*.starts-with('**')).elems >= 3,
         'the directory has the three bold-led rows the site needs to fold it';
-    is-deeply unlisted(%server<guide>), (), 'every public member is a reference in a directory bullet';
-    is-deeply unlisted(%server<guide>.subst('`new-session`', '', :g)), ('new-session',),
+    is-deeply unlisted-in(@members, %server<guide>), (), 'every public member is a reference in a directory bullet';
+    is-deeply unlisted-in(@members, %server<guide>.subst('`new-session`', '', :g)), ('new-session',),
         'a member dropped from the directory is reported';
 };
 subtest 'an artifact that lists undocumented declarations fails the documentation gate' => {
@@ -204,5 +207,27 @@ subtest 'an artifact that lists undocumented declarations fails the documentatio
     like $error, /'Undocumented declarations: Example::Surface'/, 'the failure names the declaration';
     ($status, $error) = gate(%(symbols => []));
     isnt $status, 0, 'an artifact without the list fails';
+};
+
+# Outer: compiling Model.rakumod for extraction takes about a minute.
+subtest 'each reference class doc lists every public method in its capability directory' => {
+    my $unit = run $*EXECUTABLE.Str, '-I.', 'scripts/export-docs/export-docs.raku',
+        '--unit=lib/LibTmux/Model.rakumod', :out;
+    my %model = from-json($unit.out.slurp(:close));
+    is $unit.exitcode, 0, 'the Model module extracts';
+    my @declarations = %model<declarations>.List;
+    for <SessionRef WindowRef PaneRef> -> $name {
+        my $id = "LibTmux::Model::$name";
+        my $body = @declarations.first({ .<id> eq $id })<doc><body> // '';
+        # Methods the class takes from the Reference role are on its page too.
+        my @members = public-members(@declarations, $id, 'LibTmux::Model::Reference')
+            .grep({ !($_ eq any(<endpoint incarnation id>)) }).List;
+        ok @members.elems, "$name has public methods";
+        ok directory-of($body).lines.grep(*.starts-with('**')).elems >= 3,
+            "$name has the three bold-led rows the site needs to fold it";
+        is-deeply unlisted-in(@members, $body), (), "every $name method is a reference in a directory bullet";
+        is-deeply unlisted-in(@members, $body.subst('`kill`', '', :g)), ('kill',),
+            "a $name method dropped from the directory is reported";
+    }
 };
 done-testing;

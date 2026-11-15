@@ -68,12 +68,18 @@ correctly describes behavior. Behavioral review remains required.
 
 =head2 Capability directory
 
-The shared site folds the C<What is on here> section of the C<LibTmux::Server>
-class documentation into a table. Write each row as a paragraph that starts
-with a bold title, then bullets that each hold a short label, a colon and
-method names as code spans. List every public method and property in a bullet,
-with an C<-async> method beside its synchronous twin. The export fixture test
-extracts the Server module and fails, naming the member, when one is missing.
+The shared site folds the C<What is on here> section of a class documentation
+into a table. Write each row as a paragraph that starts with a bold title, then
+bullets that each hold a short label, a colon and method names as code spans.
+List every public method and property in a bullet, with an C<-async> method
+beside its synchronous twin.
+
+The Pod of a unit class such as C<LibTmux::Server> documents that class. A
+class declared inside another package, such as C<SessionRef> in
+C<LibTmux::Model>, takes the Pod block written inside its own body, after its
+declarator text. List the methods it takes from a role too, because its page
+shows them. The export fixture test extracts the Server and Model modules and
+fails, naming the member, when one is missing.
 
 =head2 Executable examples
 
