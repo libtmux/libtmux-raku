@@ -133,6 +133,38 @@ subtest 'unsupported native link labels cannot bypass validation or rendering' =
             'the adapter label limitation is explicit';
     }
 };
+subtest 'a Pod block inside a nested class documents that class, not the unit' => {
+    $file.spurt(q:to/RAKU/);
+use v6.d;
+unit module Example;
+#| Targets one thing.
+class Target is export {
+=begin pod
+=head1 What is on here
+
+B<Acting.> Run one of these.
+
+=item Run it: C<act>
+=end pod
+    #| Act on the target.
+    method act() { }
+}
+=begin pod
+Unit prose.
+=end pod
+RAKU
+    my $process = run $*EXECUTABLE.Str, '-I.', 'scripts/export-docs/export-docs.raku', "--unit=$file", :out;
+    my %unit = from-json($process.out.slurp(:close));
+    is $process.exitcode, 0, 'the fixture extracts';
+    my %target = %unit<declarations>.first({ .<id> eq 'Example::Target' })<doc>;
+    like %target<body>, / ^ 'Targets one thing.' \n+ '# What is on here' \n+ '**Acting.** Run one of these.' \n+ '- Run it: `act`' /,
+        'the class body keeps its declarator text, then the nested Pod';
+    is %target<summary>, 'Targets one thing.', 'the summary stays the declarator paragraph';
+    ok %target<_nativeLinks> ~~ Positional, 'the merged doc carries link metadata for validation';
+    is %unit<guide>, 'Unit prose.', 'the nested Pod stays out of the unit guide';
+    my %method = %unit<declarations>.first({ .<id> eq 'Example::Target.act' })<doc>;
+    is %method<body>, 'Act on the target.', 'a declarator after the Pod still documents its method';
+};
 subtest 'the Server class doc lists every public member in its capability directory' => {
     my $unit = run $*EXECUTABLE.Str, '-I.', 'scripts/export-docs/export-docs.raku',
         '--unit=lib/LibTmux/Server.rakumod', :out;
