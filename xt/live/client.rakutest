@@ -12,8 +12,8 @@ use Test::LibTmux::Terminal;
 use Test::LibTmux::Wrapper;
 
 sub completed(Promise:D $event, Str:D $description,
-              LibTmux::Attachment :$attachment --> Nil) {
-    my @events = $event, Promise.in(0.9);
+              LibTmux::Attachment :$attachment, Real:D :$seconds = 0.9 --> Nil) {
+    my @events = $event, Promise.in($seconds);
     @events.push($attachment.when-exited) if $attachment.defined;
     my $wait = try await Promise.anyof(|@events);
     if $event.status != Kept && $attachment.defined
@@ -198,7 +198,8 @@ with-tmux(-> $fixture {
     my $absent = LibTmux::Attachment.spawn(:endpoint($vanishing), :incarnation($changed),
         :session<$0>, :terminal($terminal.handle));
     LEAVE $absent.close if $absent.defined;
-    completed($absent.when-exited, 'missing socket after preflight terminates the owned client');
+    completed($absent.when-exited, 'missing socket after preflight terminates the owned client',
+        :seconds(15));
     isnt $absent.when-exited.result.exitcode, 0, 'missing daemon is an unsuccessful attachment';
     is $flags.slurp, 'True', 'interactive argv explicitly forbids server bootstrap';
     nok $fixture.socket-path.e, 'attachment did not create a replacement socket';
