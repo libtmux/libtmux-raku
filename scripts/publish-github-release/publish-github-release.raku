@@ -6,7 +6,8 @@ use JSON::Fast;
 # digest are kept, a different digest is refused. Run by release.yml with
 # GH_TOKEN set.
 #
-#   raku tools/publish-github-release.raku DIRECTORY vX.Y.Z OWNER/REPOSITORY
+#   raku scripts/publish-github-release/publish-github-release.raku \
+#       DIRECTORY vX.Y.Z OWNER/REPOSITORY
 
 sub refuse(Str:D $message --> Nil) {
     note $message;

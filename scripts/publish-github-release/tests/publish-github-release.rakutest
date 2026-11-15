@@ -2,7 +2,7 @@ use v6.d;
 use Test;
 use JSON::Fast;
 
-my $root = $?FILE.IO.parent.parent;
+my $script = $?FILE.IO.parent.parent.add('publish-github-release.raku');
 my $directory = $*TMPDIR.add("libtmux-github-release-$*PID-{1_000_000.rand.Int}");
 $directory.mkdir;
 my $state = $directory.add('state.json');
@@ -55,7 +55,7 @@ temp %*ENV<PATH> = $directory.Str ~ ':' ~ %*ENV<PATH>;
 temp %*ENV<RELEASE_FIXTURE> = $directory.Str;
 
 sub publish() {
-    my $process = run $*EXECUTABLE.Str, $root.add('tools/publish-github-release.raku').Str,
+    my $process = run $*EXECUTABLE.Str, $script.Str,
         $directory.Str, 'v0.0.1', 'libtmux/libtmux-raku', :out, :err;
     my $out = $process.out.slurp(:close);
     my $err = $process.err.slurp(:close);

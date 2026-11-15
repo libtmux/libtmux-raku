@@ -6,8 +6,8 @@ use JSON::Fast;
 # (`upload`). Writes `restored=` and `needed=` to $GITHUB_OUTPUT. Run by ci.yml
 # and release.yml with GH_TOKEN set.
 #
-#   raku tools/release-retry.raku archive DIRECTORY
-#   raku tools/release-retry.raku upload
+#   raku scripts/release-retry/release-retry.raku archive DIRECTORY
+#   raku scripts/release-retry/release-retry.raku upload
 
 sub refuse(Str:D $message --> Nil) {
     note $message;
@@ -76,3 +76,4 @@ sub MAIN(Str:D $mode, Str $directory = '') {
         output('needed=true');
     }
 }
+

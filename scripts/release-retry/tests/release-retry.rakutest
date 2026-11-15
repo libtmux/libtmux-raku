@@ -1,7 +1,7 @@
 use v6.d;
 use Test;
 
-my $root = $?FILE.IO.parent.parent;
+my $script = $?FILE.IO.parent.parent.add('release-retry.raku');
 my $directory = $*TMPDIR.add("libtmux-retry-$*PID-{1_000_000.rand.Int}");
 $directory.mkdir;
 my $gh = $directory.add('gh');
@@ -41,7 +41,7 @@ sub check(Str:D $mode, Str:D $attempt = '2') {
     $downloads.spurt('');
     my %environment = %*ENV;
     %environment<GITHUB_RUN_ATTEMPT> = $attempt;
-    my $process = run $*EXECUTABLE.Str, $root.add('tools/release-retry.raku').Str,
+    my $process = run $*EXECUTABLE.Str, $script.Str,
         $mode, $directory.Str, :env(%environment), :out, :err;
     my $out = $process.out.slurp(:close);
     my $err = $process.err.slurp(:close);
@@ -83,7 +83,7 @@ $jobs.spurt('not JSON');
 is $status, 0, 'a first upload does not require earlier job history';
 is $output.slurp, "needed=true\n", 'the first attempt requests an upload';
 
-ok $root.add('.github/workflows/release.yml').slurp.contains("name: Upload the tested archive\n"),
+ok $?FILE.IO.parent(4).add('.github/workflows/release.yml').slurp.contains("name: Upload the tested archive\n"),
     'release.yml keeps the step name that the interrupted-upload check looks for';
 
 done-testing;
