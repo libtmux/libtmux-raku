@@ -1081,8 +1081,9 @@ After ownership is accepted, the private watchdog's lifetime pipe is the
 recovery lease if the caller VM exits. A caller crash during creation before
 pane identity reaches the watchdog can retain an incomplete lease until the
 original daemon exits. Setup cancellation reports a recoverable owner when
-it cannot prove cleanup. Processes that leave the owned group through C<setsid> or
-daemonization are outside that lease. Killing the watchdog, losing the host,
+it cannot prove cleanup. Processes that leave the owned group, including job
+control groups created with C<setpgid>, C<setsid> and daemonized processes, are
+outside that lease. Killing the watchdog, losing the host,
 remote filesystems and daemon process migration have no cleanup guarantee.
 Raw replayable streams, separate PTY stdout/stderr, OSC 133 and visible-text
 waits remain separate capabilities.
