@@ -1,0 +1,78 @@
+use v6.d;
+use lib $?FILE.IO.parent(3).add('lib');
+use Test;
+use JSON::Fast;
+use Scripts::Filesystem;
+
+my $script = $?FILE.IO.parent.parent.add('check-required.raku');
+my $directory = private-directory('libtmux-required');
+LEAVE remove-tree($directory) if $directory.defined && $directory.e;
+my $jobs = $directory.add('jobs.json');
+
+# A gh stand-in that serves the fixture pages for the jobs of a run.
+my $gh = $directory.add('gh');
+$gh.spurt(q:to/RAKU/);
+#!/usr/bin/env raku
+exit 64 unless @*ARGS[0] eq 'api' && @*ARGS[*-1] ~~ /'/actions/runs/123/jobs?filter=latest'/;
+print %*ENV<REQUIRED_FIXTURE>.IO.slurp;
+RAKU
+$gh.chmod(0o700);
+
+my $commit-old = 'a' x 40;
+my $commit-new = 'b' x 40;
+my %good-matrix = include => [
+    %(tmux => '3.3a', commit => $commit-old), %(tmux => '3.8', commit => $commit-new)];
+
+sub job(Str:D $name, Str:D $status = 'completed', Str:D $conclusion = 'success') {
+    %(:$name, :$status, :$conclusion)
+}
+my @good-jobs = job('Prepare'), job('Quality'), job('tmux 3.3a'), job('tmux 3.8'),
+    job('Required checks', 'in_progress', 'null');
+
+sub check(:%matrix = %good-matrix, :@jobs = @good-jobs, Str:D :$prepare = 'success',
+          Str:D :$quality = 'success', Str:D :$live = 'success') {
+    # The API returns pages: put the jobs on two.
+    $jobs.spurt(to-json([%(jobs => @jobs[0..1].List), %(jobs => @jobs[2..*].List)]));
+    my %environment = %*ENV;
+    %environment<PATH> = $directory.Str ~ ':' ~ %environment<PATH>;
+    %environment<REQUIRED_FIXTURE> = $jobs.Str;
+    my $process = run $*EXECUTABLE.Str, $script.Str, "--prepare=$prepare", "--quality=$quality",
+        "--live=$live", "--matrix={to-json(%matrix, :!pretty)}",
+        '--repository=fixture/release', '--run-id=123', :env(%environment), :out, :err;
+    ($process.exitcode, $process.out.slurp(:close), $process.err.slurp(:close))
+}
+
+my ($status, $out, $err) = check();
+is $status, 0, 'every declared job succeeding passes';
+like $out, /'Prepare, Quality, tmux 3.3a, tmux 3.8'/, 'the pass names the jobs it checked';
+
+# A reusable workflow prefixes its caller's name.
+($status, $out, $err) = check(:jobs(@good-jobs.map({ %(|$_, name => "Verify / {.<name>}") })));
+is $status, 0, 'jobs of a called workflow are found by their own names';
+
+my @faults =
+    { :quality<failure> }, 'quality job finished as failure', 'a failed upstream result',
+    { :jobs(@good-jobs[0, 1, 2]) }, 'Expected one tmux 3.8 job, found 0', 'a missing job',
+    { :jobs((|@good-jobs, job('tmux 3.8'))) }, 'Expected one tmux 3.8 job, found 2', 'a repeated job',
+    { :jobs((job('Prepare'), job('Quality'), job('tmux 3.3a', 'completed', 'failure'),
+        job('tmux 3.8'))) }, 'tmux 3.3a job concluded failure', 'a failed job',
+    { :jobs((job('Prepare'), job('Quality'), job('tmux 3.3a'), job('tmux 3.8', 'in_progress', 'success'))) },
+        'tmux 3.8 job is in_progress', 'a job still running',
+    { :matrix(%(include => [], extra => 1)) }, 'only an include list', 'an extra matrix key',
+    { :matrix(%(include => [|%good-matrix<include>, %(tmux => '3.9', commit => 'c' x 40)])) },
+        'one or two endpoints', 'a third endpoint',
+    { :matrix(%(include => [%(tmux => 'next-3.9', commit => $commit-old),])) },
+        'Invalid tmux version', 'a tmux version that is not a release',
+    { :matrix(%(include => [%(tmux => '3.3a', commit => 'ABC'),])) },
+        'Invalid tmux commit', 'a commit that is not 40 lowercase hex digits',
+    { :matrix(%(include => [%(tmux => '3.3a', commit => $commit-old),
+        %(tmux => '3.3a', commit => $commit-new)])) }, 'repeats a tmux version', 'a repeated tmux version',
+    { :matrix(%(include => [%(tmux => '3.3a', commit => $commit-old),
+        %(tmux => '3.8', commit => $commit-old)])) }, 'repeats a tmux commit', 'a repeated tmux commit';
+for @faults -> %arguments, $message, $name {
+    ($status, $out, $err) = check(|%arguments);
+    is $status, 1, "$name fails";
+    like $err, /$message/, "$name is named";
+}
+
+done-testing;
