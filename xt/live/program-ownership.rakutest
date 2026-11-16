@@ -243,6 +243,7 @@ with-tmux(sub ($fixture) {
     };
 
     subtest 'caller VM death leaves the watchdog responsible for cleanup' => {
+        my $buffers = $server.buffers.list.map(*.name).sort.List;
         my $source = $fixture.directory.add('caller.raku');
         LEAVE $source.unlink if $source.e;
         $source.spurt(q:to/RAKU/);
@@ -260,6 +261,7 @@ with-tmux(sub ($fixture) {
                 wait
                 SH
                 'managed-application', $record]);
+            $program.screen;
             $*OUT.out-buffer = False;
             say to-json(%(pane => $program.pane.id,
                 directory => $program.cleanup-location.Str), :!pretty);
@@ -333,11 +335,16 @@ with-tmux(sub ($fixture) {
             'the original pane was removed after the VM died';
         is $fixture.cmd('list-sessions', '-F', '#{session_name}').trim, 'fixture',
             'the borrowed daemon and its other session survived';
+        is-deeply $server.buffers.list.map(*.name).sort.List, $buffers,
+            'the watchdog also removed the accepted capture buffer';
         $record.unlink;
     };
 
     subtest 'a native cleanup failure retains the owner for retry' => {
+        my $buffers = $server.buffers.list.map(*.name).sort.List;
         my $program = $server.start-program(['/bin/cat']);
+        $program.screen;
+        is $server.buffers.list.elems, $buffers.elems + 1, 'capture has one bounded owned buffer';
         LEAVE $program.close if $program.defined;
         my $saved = $fixture.directory.add('temporarily-moved-socket');
         LEAVE {
@@ -356,6 +363,8 @@ with-tmux(sub ($fixture) {
         $program.close;
         is $program.closed.status, Kept, 'the same owner completes cleanup after endpoint recovery';
         ok $program.pane-removed, 'the original pane deletion is witnessed after retry';
+        is-deeply $server.buffers.list.map(*.name).sort.List, $buffers,
+            'retry also releases the capture buffer';
     };
 });
 done-testing;

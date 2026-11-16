@@ -9,6 +9,7 @@ use JSON::Fast;
 use LibTmux::Types;
 use LibTmux::Exceptions;
 use LibTmux::Command :DEFAULT, :internals;
+use LibTmux::Format :internal;
 use LibTmux::Transport :DEFAULT, :internals;
 use LibTmux::Engine;
 need LibTmux::Program::Owner;
@@ -212,6 +213,7 @@ has $!done-vow;
 has $!closed-vow;
 has Lock $!lock .= new;
 has Lock $!actions .= new;
+has Lock $!captures .= new;
 has Bool $!closing = False;
 
 submethod BUILD(:$runtime!, :$observation!, :$spec!, :$token!, :$session-name!) {
@@ -408,8 +410,43 @@ method !row(Bool :$finishing = False --> List:D) {
     failure('protocol', 'Invalid program observation').throw unless @parts.elems == 5;
     @parts.List
 }
+method !capture-name(--> Str:D) { 'libtmux-program-' ~ $!token ~ '-capture' }
+method !capture-bytes(Blob:D $output, Str:D $marker --> Blob:D) {
+    my @lines = $output.decode('utf8-c8').split("\n");
+    my @records = (^@lines.elems).grep({ @lines[$_].starts-with($marker ~ '|') });
+    failure('protocol', 'Capture buffer reply is missing, duplicated or truncated').throw
+        unless @records.elems == 1 && @records[0] < @lines.end;
+    my @fields = @lines[@records[0]].split('|', 3);
+    failure('protocol', 'Capture buffer byte count is invalid').throw
+        unless @fields.elems == 3 && @fields[1].chars <= 10
+            && @fields[1] ~~ /^ <[0..9]>+ $/;
+    my $size = @fields[1].Int;
+    failure('overflow', 'Capture buffer exceeds its decoded byte bound').throw
+        if $size > 8 * 1024 * 1024;
+    my $token = @fields[2].encode('utf8-c8');
+    failure('protocol', 'Capture buffer encoding exceeds its declared size').throw
+        if $token.elems > 4 * $size + 2;
+    my Blob $bytes;
+    try {
+        $bytes = decode-argument-token($token);
+        CATCH { default { failure('protocol', 'Capture buffer encoding is invalid').throw } }
+    }
+    failure('protocol', 'Capture buffer data does not match its byte count').throw
+        unless $bytes.elems == $size;
+    $bytes
+}
 method !capture(Bool :$finishing = False --> Blob:D) {
-    self!action(['capture-pane', '-p', '-J', '-N', '-S', '-', '-t', $!pane.id], :$finishing).stdout
+    $!captures.protect({
+        my $name = self!capture-name;
+        self!action(['capture-pane', '-b', $name, '-J', '-N', '-S', '-',
+            '-t', $!pane.id], :$finishing);
+        my $marker = nonce();
+        my $result = self!action(['list-buffers', '-f', '#{==:#{buffer_name},' ~ $name ~ '}',
+            '-F', $marker ~ '|#{buffer_size}|#{q/a:buffer_full}'], :$finishing);
+        # Only the native encoded buffer field is data; hook diagnostics are
+        # separate rows. The byte count also detects truncated native fields.
+        self!capture-bytes($result.stdout, $marker)
+    })
 }
 method !bootstrap-report(Str:D $name) {
     my $path = $!directory.add($name);
@@ -724,7 +761,11 @@ method !setup(--> Nil) {
         }
     };
     my $identity = $!observation.incarnation;
+    my $capture-name = self!capture-name;
+    my @capture-cleanup = $!runtime.prepare-owned-command(
+        Invocation.new(:argv(['delete-buffer', '-b', $capture-name])), :incarnation($identity));
     await $!owner.write((to-json(%(root => $*TMPDIR.Str, token => $!token,
+        capture => %(name => $capture-name, argv => @capture-cleanup.List),
         daemon => %(pid => $identity.pid, boot-id => $identity.boot-id,
             start-ticks => $identity.start-ticks)), :!pretty) ~ "\n").encode);
     $!directory = self!await-setup($!ready, $deadline).IO;
@@ -807,12 +848,15 @@ method !setup(--> Nil) {
 sub open-program(Runtime:D $runtime, Observation:D $observation, Map:D $spec) is export(:internals) {
     $observation.capabilities.require('managed-program');
     $observation.capabilities.require($_) for <event-wait event-wait-claim>;
+    $observation.capabilities.require('format-argument-quote');
     $observation.capabilities.require-field('pane', $_) for <pid dead dead-status dead-signal>;
     $observation.capabilities.require-field('window', 'id');
+    $observation.capabilities.require-field('buffer', $_) for <name size>;
     require-process-groups;
     my $token = nonce();
     my $owned = Runtime.new(:endpoint($runtime.endpoint),
-        :max-command-bytes($runtime.max-command-bytes), :max-output-bytes(8 * 1024 * 1024));
+        :max-command-bytes($runtime.max-command-bytes),
+        :max-output-bytes(4 * 8 * 1024 * 1024 + 4096));
     my $program = LibTmux::Program.bless(:runtime($owned), :$observation, :$spec, :$token,
         :session-name('libtmux-program-' ~ $token));
     my $error;
@@ -1035,6 +1079,9 @@ UTF8-C8; explicit newlines remain input. The application receives a real PTY,
 so stdout and stderr share one terminal and normal terminal line discipline
 applies. C<screen> captures rendered screen and retained history with an 8 MiB
 acquisition bound; it returns an overflow error if that bound is exceeded.
+One private named buffer attributes the capture payload and remains owned until
+C<close>. Its native argument encoding and decoded byte count are validated;
+hook diagnostics are excluded. Encoded transport has a separate finite bound.
 
 C<wait> retains one immutable L<Completion> after the native pane exit/output
 barrier. C<screen> is rendered terminal data rather than a replayable output

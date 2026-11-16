@@ -50,4 +50,23 @@ subtest 'invalid program input fails before daemon observation' => {
         'pre-cancelled setup accepts no application work';
 };
 
+subtest 'capture records reject malformed and unattributed data' => {
+    my $decode = LibTmux::Program.^find_private_method('capture-bytes');
+    my $valid = "diagnostic\ncapture-test|3|\"one\"\nother diagnostic";
+    is-deeply $decode(LibTmux::Program, Blob.new($valid.encode.list), 'capture-test'),
+        Blob.new('one'.encode.list), 'only the encoded native buffer field is returned';
+    for "diagnostic\n", 'capture-test|3|"one"',
+        "capture-test|3|\"one\"\ncapture-test|3|\"one\"\n",
+        "capture-test|3|\"on\n", "capture-test|1|\"one\"\n",
+        "capture-test|x|\"one\"\n" -> $text {
+        throws-like {
+            $decode(LibTmux::Program, Blob.new($text.encode.list), 'capture-test')
+        }, X::LibTmux::Command, :kind<protocol>,
+            'missing, truncated, duplicated, malformed or wrong-sized data is refused';
+    }
+    throws-like {
+        $decode(LibTmux::Program, Blob.new("capture-test|8388609|\"\"\n".encode.list), 'capture-test')
+    }, X::LibTmux::Command, :kind<overflow>, 'decoded capture length has an independent bound';
+};
+
 done-testing;

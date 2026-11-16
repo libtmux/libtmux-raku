@@ -85,6 +85,44 @@ with-tmux(sub ($fixture) {
             'application runtime options cannot alter the native ownership bootstrap';
     };
 
+    subtest 'captures exclude hook output and preserve borrowed buffers' => {
+        my $name = 'borrowed-program-capture-' ~ $*PID;
+        $server.buffers.put($name, Blob.new('borrowed bytes'.encode.list));
+        LEAVE try $server.buffers.delete($name);
+        my $before = $server.buffers.list.map(*.name).sort.List;
+        my $hooks = $server.hooks;
+        $hooks.set('after-capture-pane', Invocation.new(:argv([
+            'display-message', '-p', 'UNRELATED-CAPTURE-HOOK'])));
+        $hooks.set('after-list-buffers', Invocation.new(:argv([
+            'display-message', '-p', 'UNRELATED-BUFFER-HOOK'])));
+        LEAVE { try $hooks.unset($_) for <after-capture-pane after-list-buffers> }
+        my $program = $server.start-program(['/usr/bin/printf', '%s\n',
+            'APPLICATION $() ; "quote" \ path | café', '%begin 1 2 3']);
+        LEAVE $program.close if $program.defined;
+        my $result = $program.wait;
+        ok $result.screen.decode('utf8-c8').contains('APPLICATION $() ; "quote" \ path | café'),
+            'encoded capture preserves literal and Unicode terminal data';
+        nok $result.screen.decode('utf8-c8').contains('UNRELATED-'),
+            'capture and buffer-list diagnostics are excluded from final output';
+        is-deeply $program.screen, $result.screen, 'live capture uses the same attributed bytes';
+        $program.close;
+        $hooks.unset($_) for <after-capture-pane after-list-buffers>;
+        is-deeply $server.buffers.list.map(*.name).sort.List, $before,
+            'owned capture cleanup preserves every borrowed buffer';
+        is-deeply $server.buffers.get($name), Blob.new('borrowed bytes'.encode.list),
+            'borrowed buffer bytes are unchanged';
+    };
+
+    subtest 'large Unicode capture applies its decoded result bound' => {
+        my $result = $server.run-program([$*EXECUTABLE.Str, '-e',
+            'print "é" x 300000; print "\nLARGE-END\n"'],
+            :width(10000), :height(4), :history-limit(128), :max-output-bytes(63));
+        is $result.exitcode, 0, 'the large Unicode application completes normally';
+        is $result.screen.elems, 63, 'the result is bounded in decoded bytes';
+        ok $result.screen.decode('utf8-c8').contains('LARGE-END'), 'the final marker survives encoding and truncation';
+        ok $result.dropped-bytes > 500000, 'loss counts decoded terminal bytes, not encoded transport';
+    };
+
     subtest 'interactive input and independent observation cancellation' => {
         my $program = await $server.start-program-async(['/bin/sh', '-c',
             'IFS= read -r answer; printf "ANSWER:%s\n" "$answer"']);

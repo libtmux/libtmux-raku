@@ -375,6 +375,16 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
         }
         die @failures[0] if @failures;
     }
+    sub remove-capture(--> Nil) {
+        return if daemon-gone() || !%settings<capture>.defined;
+        my $result = client-command(%settings<capture><argv>.List);
+        return if $result<success>;
+        my $missing = !($result<timeout> // False) && !($result<overflow> // False)
+            && $result<exitcode> == 1 && !$result<signal>
+            && $result<stderr>.decode('utf8-c8')
+                eq "unknown buffer: {%settings<capture><name>}\n";
+        die 'Owned capture buffer cleanup is unverified' unless $missing || daemon-gone();
+    }
     sub finish-owner(--> Promise:D) {
         $finish-lock.protect({
             if !$finishing.defined || $finishing.status == Broken {
@@ -387,6 +397,7 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
                         await-bootstrap-exit();
                         $pane-cleaned = True;
                     }
+                    remove-capture();
                     release-clients();
                     await $root-watcher if $root-watcher.defined;
                     native-close($group) if $group >= 0;
