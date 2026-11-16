@@ -156,4 +156,21 @@ subtest 'the Server class doc lists every public member in its capability direct
     is-deeply unlisted(%server<guide>.subst('`new-session`', '', :g)), ('new-session',),
         'a member dropped from the directory is reported';
 };
+subtest 'an artifact that lists undocumented declarations fails the documentation gate' => {
+    my $artifact = $directory.add('artifact.json');
+    LEAVE $artifact.unlink if $artifact.e;
+    sub gate(%document) {
+        $artifact.spurt(to-json(%document));
+        my $process = run $*EXECUTABLE.Str, '-I.', 'scripts/export-docs/export-docs.raku',
+            "--require-documented=$artifact", :out, :err;
+        ($process.exitcode, $process.err.slurp(:close))
+    }
+    my ($status, $error) = gate(%(missingDocumentation => %()));
+    is $status, 0, 'an artifact with no missing documentation passes';
+    ($status, $error) = gate(%(missingDocumentation => %('Example::Surface' => 'class Surface')));
+    isnt $status, 0, 'an undocumented declaration fails';
+    like $error, /'Undocumented declarations: Example::Surface'/, 'the failure names the declaration';
+    ($status, $error) = gate(%(symbols => []));
+    isnt $status, 0, 'an artifact without the list fails';
+};
 done-testing;

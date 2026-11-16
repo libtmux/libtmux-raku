@@ -285,6 +285,13 @@ multi sub MAIN(Str:D :$check-links!) {
     validate-links(%artifact<symbols>.List, (%artifact<aliases> // {}).Hash);
     say 'Validated native documentation links';
 }
+#| Fail unless the artifact at the path lists no undocumented declaration.
+multi sub MAIN(Str:D :$require-documented!) {
+    my $missing = from-json($require-documented.IO.slurp)<missingDocumentation>;
+    die 'The artifact has no missingDocumentation object' unless $missing ~~ Hash;
+    die "Undocumented declarations: {$missing.keys.sort.join(', ')}" if $missing.elems;
+    say 'Every public declaration is documented';
+}
 multi sub MAIN(Str:D :$output = 'docs/_build/api.json') {
     my $revision = command('git', 'rev-parse', 'HEAD');
     my $meta-hash = input-hashes(['META6.json'])<META6.json>;
