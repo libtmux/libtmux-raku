@@ -1,0 +1,41 @@
+use v6.d;
+use lib $?FILE.IO.parent(3).add('lib');
+use Test;
+use Scripts::Filesystem;
+
+my $script = $?FILE.IO.parent.parent.add('check-tool-versions.raku');
+my $directory = private-directory('libtmux-tool-versions');
+LEAVE remove-tree($directory) if $directory.defined && $directory.e;
+my $file = $directory.add('.tool-versions');
+
+sub check(Str:D $text, Str:D $compiler = '2026.09') {
+    $file.spurt($text);
+    my $process = run $*EXECUTABLE.Str, $script.Str, "--file=$file", "--compiler=$compiler",
+        :out, :err;
+    ($process.exitcode, $process.out.slurp(:close), $process.err.slurp(:close))
+}
+
+my ($status, $out, $err) = check("mise 2026.1\nraku 2026.09\n");
+is $status, 0, 'one raku entry that matches the compiler passes';
+is $out.trim, '2026.09', 'the declared version is printed';
+
+($status, $out, $err) = check("raku 2026.09.1\n", '2026.09.1');
+is $status, 0, 'a point release is accepted';
+
+my @faults =
+    "node 24\n", 'exactly one raku version', 'a missing raku entry is refused',
+    "raku 2026.09\nraku 2026.08\n", 'exactly one raku version', 'two raku entries are refused',
+    "raku 2026.09 extra\n", "must be 'raku VERSION'", 'an entry with extra fields is refused',
+    "raku latest\n", 'must be a Rakudo release', 'a non-release version is refused',
+    "raku 2026.9\n", 'must be a Rakudo release', 'a one-digit month is refused';
+for @faults -> $text, $message, $name {
+    ($status, $out, $err) = check($text);
+    isnt $status, 0, $name;
+    like $err, /$message/, "$name by its message";
+}
+
+($status, $out, $err) = check("raku 2026.09\n", '2026.08');
+isnt $status, 0, 'a compiler that differs from the declaration is refused';
+like $err, /'running compiler is 2026.08'/, 'the refusal names both versions';
+
+done-testing;
