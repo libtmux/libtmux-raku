@@ -1,10 +1,21 @@
 use v6.d;
 use Test;
+use JSON::Fast;
 use LibTmux;
 use Test::LibTmux::Fixture;
 
 # Outer: external mutations and daemon replacement exercise native authority.
 my $binary = %*ENV<LIBTMUX_TEST_TMUX> // die 'LIBTMUX_TEST_TMUX is required';
+
+# Private calls can specialize before a late wrap. Install the scheduling
+# interposer before startup and enable it only for the grant replay case.
+my Callable $release-probe;
+my &write-grant = Program.HOW.find_private_method(Program, 'write-grant');
+my $release-wrapper = &write-grant.wrap(sub (|capture) {
+    $release-probe.(capture) if $release-probe.defined;
+    callsame
+});
+LEAVE &write-grant.unwrap($release-wrapper) if $release-wrapper.defined;
 
 sub source(@argv --> Str:D) { Invocation.new(:argv(@argv.List)).source }
 
@@ -35,7 +46,7 @@ sub during-exit($fixture, Str:D $pane, &operation --> Nil) {
     die 'Native exit observer failed' if (await $done).exitcode;
 }
 
-with-tmux(-> $fixture {
+with-tmux(sub ($fixture) {
     temp $*TMPDIR = $fixture.directory;
     my $server = Server.new(:$binary, :socket-path($fixture.socket-path.Str));
     LEAVE $server.close;
@@ -70,6 +81,51 @@ with-tmux(-> $fixture {
         nok $watch.wait(:timeout-ms(0)), 'failed admission did not signal the replacement';
         is $fixture.cmd('wait-for', '-E', '-l', 'pane-created'), '',
             'failed setup retired its generation observers';
+    };
+
+    subtest 'respawn immediately before release cannot reuse a bootstrap grant' => {
+        my $effect = $fixture.directory.add('forbidden-release-effect');
+        LEAVE $effect.unlink if $effect.e;
+        my $replacement = '';
+        my $replacement-exit;
+        LEAVE {
+            $replacement-exit.close if $replacement-exit.defined;
+            try $fixture.cmd('kill-pane', '-t', $replacement) if $replacement.chars;
+        }
+        my $applied = 0;
+        $release-probe = sub ($capture) {
+            my $gate = $capture.list[1].IO;
+            my $record = $gate.parent.add('bootstrap-ready');
+            my $old = from-json($record.slurp)<pid>;
+            $replacement = $capture.list[0].pane.id;
+            my $ready = Promise.new;
+            my $vow = $ready.vow;
+            my $lock = Lock.new;
+            my $tap = IO::Notification.watch-path($gate.parent).act(-> $event {
+                try {
+                    my %record = from-json($record.slurp);
+                    $lock.protect({ $vow.keep(%record<pid>) if $ready.status == Planned
+                        && %record<pid> != $old });
+                }
+            });
+            LEAVE $tap.close;
+            $fixture.cmd('respawn-pane', '-k', '-t', $replacement);
+            await Promise.anyof($ready, Promise.in(1));
+            die 'Replacement bootstrap did not open its gate' unless $ready.status == Kept;
+            $replacement-exit = ExitWatch.new(:pid((await $ready).Int));
+            $applied++;
+        };
+        LEAVE $release-probe = Callable;
+        throws-like {
+            $server.start-program(['/bin/sh', '-c', 'printf forbidden > "$1"',
+                'release-replay', $effect.Str]);
+        }, X::LibTmux::Command, :kind<owner>,
+            'startup refuses the replaced bootstrap';
+        is $applied, 1, 'the replacement opened the original gate before its write';
+        ok $replacement-exit.wait, 'the replacement consumed and refused the PID-bound grant';
+        is $fixture.cmd('display-message', '-p', '-t', $replacement,
+            '#{pane_dead_status}').trim, '125', 'the replay exited through bootstrap refusal';
+        nok $effect.e, 'the replacement never executed the promised application';
     };
 
     subtest 'a dead external replacement remains outside cleanup authority' => {

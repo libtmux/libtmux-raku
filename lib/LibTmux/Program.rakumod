@@ -136,7 +136,7 @@ sub require-process-groups(--> Nil) {
     failure('platform', 'Cannot acquire a process pidfd', NotStarted).throw if $fd < 0;
     my $status = pidfd_send_signal($fd, 0, Pointer, 4);
     my $error = $status == 0 ?? 0 !! errno-location()[0];
-    failure('platform', 'Managed programs require Linux process-group pidfds (6.9+)',
+    failure('platform', 'Managed programs require Linux process-group pidfds (6.9+); native errno ' ~ $error,
         NotStarted).throw unless $status == 0 || $error == 3;
 }
 
@@ -164,6 +164,8 @@ has Int $!gate-inode;
 has Int $!gate-device;
 has Promise $!bootstrap-ready .= new;
 has $!bootstrap-vow;
+has Promise $!bootstrap-accepted .= new;
+has $!bootstrap-accepted-vow;
 has Promise $!ready .= new;
 has Promise $!armed .= new;
 has Promise $!done .= new;
@@ -217,6 +219,7 @@ submethod TWEAK() {
     $!done-vow = $!done.vow; $!closed-vow = $!closed.vow;
     $!released-vow = $!released.vow;
     $!bootstrap-vow = $!bootstrap-ready.vow;
+    $!bootstrap-accepted-vow = $!bootstrap-accepted.vow;
     $!finisher-vow = $!finisher.vow; $!checker-vow = $!checker.vow;
     $!replies-ended-vow = $!replies-ended.vow;
 }
@@ -585,7 +588,7 @@ method !remember-creation(Blob:D $bytes --> Bool:D) {
         :incarnation($!observation.incarnation), :id(@created[1]));
     True
 }
-method !release(Str:D $gate, Instant:D $deadline --> Nil) {
+method !write-grant(Str:D $gate, Instant:D $deadline, Blob:D $message --> Nil) {
     $!lock.protect({
         failure('timeout', 'Program setup deadline expired').throw if now >= $deadline;
         my $fd = -1;
@@ -595,12 +598,38 @@ method !release(Str:D $gate, Instant:D $deadline --> Nil) {
         my $opened = "/proc/$*PID/fd/$fd".IO;
         failure('identity', 'Program gate was replaced').throw
             unless $opened.inode == $!gate-inode && $opened.dev == $!gate-device;
-        my $message = ($!token ~ "\n").encode;
         my $bytes = CArray[uint8].new(|$message.list);
         my $written = native-write($fd, $bytes, $message.elems);
         failure('owner', 'Program gate release was not accepted').throw
             unless $written == $message.elems;
         $!starting = False;
+    });
+}
+method !release(Str:D $gate, Instant:D $deadline --> Nil) {
+    $!actions.protect({
+        my $previous = $!generation;
+        my $barrier = self!watch($deadline);
+        my $next = self!watch($deadline);
+        my $marker = nonce();
+        self!request(%(kind => 'cleanup', command =>
+            self!cleanup($next, :$marker, :fallback($previous))), $deadline);
+        my @argv = $!runtime.prepare-owned-command(self!guard([
+            'set-option', '-t', $!session-id, 'history-limit', $!spec<history-limit>.Str],
+            :claim($previous), :$barrier, :$marker), :incarnation($!observation.incarnation));
+        my $grant = (to-json(%(token => $!token, pid => $!pid, :@argv), :!pretty) ~ "\n").encode;
+        failure('overflow', 'Program release exceeds the atomic FIFO bound').throw
+            if $grant.elems > 4096;
+        $!generation = $next; $!generation-marker = $marker;
+        if $!spec<cancel>.defined {
+            commit-cancellation($!spec<cancel>, { self!write-grant($gate, $deadline, $grant) },
+                failure('cancelled', 'Program setup was cancelled'));
+        } else { self!write-grant($gate, $deadline, $grant) }
+        my $accepted = self!await-setup($!bootstrap-accepted, min($deadline, now + 1));
+        failure('owner', 'Program bootstrap did not claim its release generation').throw
+            unless $accepted<token> eq $!token && $accepted<pid> == $!pid
+                && $accepted<accepted>;
+        self!request(%(kind => 'retire', pid => $previous), $deadline);
+        self!request(%(kind => 'retire', pid => $barrier), $deadline);
     });
 }
 method !setup(--> Nil) {
@@ -649,15 +678,23 @@ method !setup(--> Nil) {
             start-ticks => $identity.start-ticks)), :!pretty) ~ "\n").encode);
     $!directory = self!await-setup($!ready, $deadline).IO;
     my $bootstrap-tap = IO::Notification.watch-path($!directory).act(-> $event {
-        my $path = $!directory.add('bootstrap-ready');
-        if $event.path.IO.basename eq 'bootstrap-ready' && $path.e {
+        my $name = $event.path.IO.basename;
+        my $path = $!directory.add($name);
+        if $name eq any(<bootstrap-ready bootstrap-accepted>) && $path.e {
             try {
                 failure('identity', 'Program bootstrap report was replaced').throw if $path.l || !$path.f;
                 my $handle = $path.open(:r, :bin);
                 my $bytes = $handle.read(513); $handle.close;
                 failure('overflow', 'Program bootstrap report exceeds its bound').throw if $bytes.elems > 512;
                 my $report = from-json($bytes.decode('utf8'));
-                $!lock.protect({ $!bootstrap-vow.keep($report) if $!bootstrap-ready.status == Planned });
+                $!lock.protect({
+                    if $name eq 'bootstrap-ready' {
+                        $!bootstrap-vow.keep($report) if $!bootstrap-ready.status == Planned;
+                    } else {
+                        $!bootstrap-accepted-vow.keep($report)
+                            if $!bootstrap-accepted.status == Planned;
+                    }
+                });
                 CATCH { default { self!settle-error($_) } }
             }
         }
@@ -717,15 +754,10 @@ method !setup(--> Nil) {
     }
     self!action(['set-option', '-p', '-t', $!pane.id, 'remain-on-exit', 'on']);
     self!action(['set-option', '-p', '-t', $!pane.id, 'remain-on-exit-format', '']);
-    self!action(['set-option', '-t', $!session-id, 'history-limit', $!spec<history-limit>.Str]);
-    self!row;
     my $bootstrap = self!await-setup($!bootstrap-ready, min($deadline, now + 1));
     failure('identity', 'Program bootstrap readiness has another owner').throw
         unless $bootstrap<token> eq $!token && $bootstrap<pid> == $!pid;
-    if $!spec<cancel>.defined {
-        commit-cancellation($!spec<cancel>, { self!release($gate, $deadline) },
-            failure('cancelled', 'Program setup was cancelled'));
-    } else { self!release($gate, $deadline) }
+    self!release($gate, $deadline);
 }
 
 sub open-program(Runtime:D $runtime, Observation:D $observation, Map:D $spec) is export(:internals) {
@@ -918,6 +950,11 @@ failure separately from an application that exits with status 126 or 127.
 Command acceptance and application readiness are separate facts. This surface
 provides no application-specific readiness detector.
 
+Before exec, the bootstrap consumes a bounded, PID-bound grant and claims the
+original native pane generation itself. A respawned bootstrap cannot reuse
+that grant. The caller waits for its token and PID acceptance receipt before
+returning a running handle.
+
 Argv is copied before asynchronous admission. Its executable is nonempty and
 cannot start with a dash; later arguments can be empty. All arguments are
 NUL-free strings. Only an explicitly requested shell interprets shell source.
@@ -975,6 +1012,11 @@ an observed empty group and drained ownership replies. A failed attempt throws
 while retaining the owner for another C<close>; C<cleanup-location> identifies
 its private recovery directory. C<closed> resolves only after successful
 cleanup, and concurrent callers share each cleanup attempt.
+
+When setup or an owning run has both a primary error and incomplete cleanup,
+C<X::LibTmux::Program> retains C<primary>, C<cleanup> and C<owner>. Keep that
+owner and retry C<owner.close> after restoring the endpoint. A thrown cleanup
+error does not establish completed cleanup.
 
 Pane writes and deletion consume a pending native generation witness in the
 same command queue as the effect. External respawn invalidates the handle;

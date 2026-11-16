@@ -27,6 +27,38 @@ sub execvp(CArray[uint8], CArray[Pointer] --> int32) is native { * }
 sub native-setenv(CArray[uint8], CArray[uint8], int32 --> int32)
     is native is symbol('setenv') { * }
 
+sub client-command(@argv --> Map:D) {
+    my $process = Proc::Async.new(:w, |@argv);
+    my $size = 0;
+    my $overflow = False;
+    my $output = Buf.new;
+    my $errors = Buf.new;
+    my $output-lock = Lock.new;
+    my &collect = -> $buffer, $chunk {
+        $output-lock.protect({
+            $size += $chunk.elems;
+            if $size > 4096 { $overflow = True; try $process.kill(9) }
+            else { $buffer.append($chunk) }
+        });
+    };
+    my @watch = ($process.stdout(:bin).tap(-> $chunk { collect($output, $chunk) }),
+        $process.stderr(:bin).tap(-> $chunk { collect($errors, $chunk) }));
+    LEAVE .close for @watch;
+    my $done = $process.start;
+    $process.close-stdin;
+    my $settled = await Promise.anyof($done, Promise.in(0.5));
+    if $done.status == Planned {
+        try $process.kill(9);
+        my $reaped = await $done;
+        return %(success => False, timeout => True).Map;
+    }
+    my $result = await $done;
+    %(success => so (!$overflow && $result.exitcode == 0 && !$result.signal),
+        :$overflow, timeout => False, exitcode => $result.exitcode,
+        signal => $result.signal, stdout => Blob.new($output.list),
+        stderr => Blob.new($errors.list)).Map
+}
+
 #| Enter one isolated watchdog or gated bootstrap process.
 sub run-owner(*@arguments --> Nil) is export(:internals) {
     my int32 $daemon-fd = -1;
@@ -55,7 +87,7 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
             my $count = native-read($fd, $bytes, 64);
             if $count > 0 {
                 $message.append((^$count).map({ $bytes[$_] }));
-                exit 125 if $message.elems > 64;
+                exit 125 if $message.elems > 4096;
                 last if $message.list.first(* == 10).defined;
             } elsif $count == 0 { exit 125 }
             else {
@@ -68,7 +100,17 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
             exit 125 if $ready < 0 && errno-location()[0] != 4;
         }
         native-close($fd);
-        exit 125 unless $message.decode('utf8') eq $token ~ "\n";
+        my %grant = from-json($message.decode('utf8'));
+        exit 125 unless %grant<token> eq $token && %grant<pid> == $*PID
+            && %grant<argv> ~~ Positional:D && %grant<argv>.elems;
+        # The reader claims its original generation before exec. A replayed
+        # bootstrap cannot consume a grant belonging to the replaced pane.
+        my $accepted = client-command(%grant<argv>.List)<success>;
+        my $receipt = $path.IO.parent.add('bootstrap-accepted.tmp');
+        $receipt.spurt(to-json(%(:$token, pid => $*PID, :$accepted), :!pretty));
+        $receipt.chmod(0o600);
+        $receipt.rename($path.IO.parent.add('bootstrap-accepted'));
+        exit 125 unless $accepted;
         startup-failed(126, 'directory')
             if native-chdir(CArray[uint8].new(|$cwd.encode('utf8-c8').list, 0)) != 0;
         for @environment.rotor(2) -> @entry {
@@ -175,38 +217,6 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
             $stopped
         })
     }
-    sub cleanup-command(@argv --> Map:D) {
-        my $process = Proc::Async.new(:w, |@argv);
-        my $size = 0;
-        my $overflow = False;
-        my $output = Buf.new;
-        my $errors = Buf.new;
-        my $output-lock = Lock.new;
-        my &collect = -> $buffer, $chunk {
-            $output-lock.protect({
-                $size += $chunk.elems;
-                if $size > 4096 { $overflow = True; try $process.kill(9) }
-                else { $buffer.append($chunk) }
-            });
-        };
-        my @watch = ($process.stdout(:bin).tap(-> $chunk { collect($output, $chunk) }),
-            $process.stderr(:bin).tap(-> $chunk { collect($errors, $chunk) }));
-        LEAVE .close for @watch;
-        my $done = $process.start;
-        $process.close-stdin;
-        my $settled = await Promise.anyof($done, Promise.in(0.5));
-        if $done.status == Planned {
-            try $process.kill(9);
-            my $reaped = await $done;
-            return %(success => False, timeout => True).Map;
-        }
-        my $result = await $done;
-        %(success => so (!$overflow && $result.exitcode == 0 && !$result.signal),
-            :$overflow, timeout => False, exitcode => $result.exitcode,
-            signal => $result.signal, stdout => Blob.new($output.list),
-            stderr => Blob.new($errors.list)).Map
-    }
-
     sub watch(%request --> Nil) {
         for %watchers.keys -> $key {
             if %watchers{$key}<done>.status != Planned {
@@ -283,10 +293,10 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
         return False if !$may-have-pane || daemon-gone();
         die 'Startup pane identity is unavailable; recovery owner is retained'
             unless (%cleanup<pane> // '').chars;
-        my $result = cleanup-command(%cleanup<argv>.List);
+        my $result = client-command(%cleanup<argv>.List);
         return True if $result<success>;
         return False if daemon-gone();
-        my $probe = cleanup-command(%cleanup<probe>.List);
+        my $probe = client-command(%cleanup<probe>.List);
         die 'Cannot confirm original pane cleanup' unless $probe<success>;
         return False unless $probe<stdout>.decode('utf8-c8').lines
             .first(* eq %cleanup<pane>).defined;
@@ -295,7 +305,7 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
             && %cleanup<refusals>.first(* eq $result<stderr>.decode('utf8-c8')).defined;
         if $refused {
             return False if $group >= 0;
-            my $current = cleanup-command(%cleanup<inspect>.List);
+            my $current = client-command(%cleanup<inspect>.List);
             if $current<success> {
                 my @identity = $current<stdout>.decode('utf8-c8').lines[0].split('|');
                 return False if @identity.elems == 2 && @identity[0] eq %cleanup<pane>
@@ -349,7 +359,8 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
                     native-close($group) if $group >= 0;
                     $group = -1;
                     die 'Program lease directory was replaced' unless directory-original();
-                    for <startup-error bootstrap-ready bootstrap-ready.tmp> -> $name {
+                    for <startup-error bootstrap-ready bootstrap-ready.tmp
+                        bootstrap-accepted bootstrap-accepted.tmp> -> $name {
                         my $record = $directory.add($name);
                         if $record.e || $record.l {
                             die 'Program bootstrap report was replaced' if $record.l || !$record.f;
@@ -456,7 +467,7 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
                     # Claim the pending tmux generation only after identity validation. A respawn
                     # before acquisition cannot transfer ownership to its replacement process.
                     die 'Bootstrap generation changed'
-                        unless cleanup-command(%request<admit>.List)<success>;
+                        unless client-command(%request<admit>.List)<success>;
                     $accepted = True;
                     CATCH { default { native-close($candidate); .rethrow } }
                 }
