@@ -1,0 +1,25 @@
+use v6.d;
+use lib $?FILE.IO.parent(2);
+use Test;
+use Scripts::Filesystem;
+
+my $directory = private-directory('libtmux-filesystem');
+LEAVE remove-tree($directory) if $directory.defined && $directory.e;
+
+ok $directory.d, 'a private directory is created';
+is $directory.mode.Int +& 0o777, 0o700, 'only its owner can enter it';
+my $second = private-directory('libtmux-filesystem');
+isnt $second.Str, $directory.Str, 'each call returns a new directory';
+remove-tree($second);
+
+my $outside = private-directory('libtmux-filesystem-outside');
+$outside.add('kept').spurt("kept\n");
+$directory.add('nested').mkdir;
+$directory.add('nested/file').spurt("file\n");
+symlink($outside.Str, $directory.add('link').Str);
+remove-tree($directory);
+nok $directory.e, 'a tree is removed with its files';
+ok $outside.add('kept').f, 'a symbolic link is removed without following it';
+remove-tree($outside);
+
+done-testing;

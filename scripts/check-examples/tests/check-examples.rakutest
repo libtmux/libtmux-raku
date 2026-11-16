@@ -1,11 +1,14 @@
 use v6.d;
+use lib $?FILE.IO.parent(3).add('lib');
 use Test;
+use Scripts::Filesystem;
 
 # The script finds its repository from its own path, so a copy in a throwaway
 # directory checks that directory's README, guide and examples.
 my $script = $?FILE.IO.parent.parent.add('check-examples.raku');
-my $root = $*TMPDIR.add("libtmux-examples-$*PID-{1_000_000.rand.Int}");
-LEAVE { run 'rm', '-rf', '--', $root.Str if $root.d }
+my $support = $?FILE.IO.parent(3).add('lib/Scripts/Filesystem.rakumod');
+my $root = private-directory('libtmux-examples');
+LEAVE remove-tree($root) if $root.defined && $root.e;
 
 my $example = "use v6.d;\nsay 'hello';\n";
 
@@ -27,6 +30,7 @@ sub check() {
 }
 
 put('scripts/check-examples/check-examples.raku', $script.slurp);
+put('scripts/lib/Scripts/Filesystem.rakumod', $support.slurp);
 put('examples/hello.raku', $example);
 documents();
 my ($status, $out, $err) = check();

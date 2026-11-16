@@ -1,25 +1,12 @@
 use v6.d;
+use lib $?FILE.IO.parent(2).add('lib');
 use JSON::Fast;
-use NativeCall;
-
-sub mkdtemp(CArray[uint8] --> Pointer) is native { * }
+use Scripts::Filesystem;
 
 sub MAIN(Str:D :$archive = '', Bool :$registry = False) {
     die 'Choose an archive or the registry' if $archive.chars && $registry;
     my $source = $?FILE.IO.parent(3).absolute.IO;
-    my $template = $*TMPDIR.add('libtmux-raku-install-XXXXXX').Str.encode;
-    my $bytes = CArray[uint8].new(|$template.list, 0);
-    die 'could not create isolated installation directory' unless mkdtemp($bytes);
-    my $temporary = Blob.new((^$template.elems).map({ $bytes[$_] })).decode.IO;
-
-    sub remove-tree(IO::Path:D $path) {
-        if $path.d && !$path.l {
-            remove-tree($_) for $path.dir;
-            $path.rmdir;
-        } else {
-            $path.unlink;
-        }
-    }
+    my $temporary = private-directory('libtmux-raku-install');
     LEAVE remove-tree($temporary) if $temporary.defined && $temporary.e;
 
     my $started = now;

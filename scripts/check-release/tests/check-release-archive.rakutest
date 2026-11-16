@@ -1,16 +1,17 @@
 use v6.d;
+use lib $?FILE.IO.parent(3).add('lib');
 use Test;
 use JSON::Fast;
+use Scripts::Filesystem;
 
 my $root = $?FILE.IO.parent(4);
-my $directory = $*TMPDIR.add("libtmux-archive-$*PID-{1_000_000.rand.Int}");
-$directory.mkdir;
+my $directory = private-directory('libtmux-archive');
 my $metadata = $directory.add('META6.json');
 my %meta = from-json($root.add('META6.json').slurp);
 $metadata.spurt(to-json(%meta));
 my $archive = $directory.add("LibTmux-{%meta<version>}.tar.gz");
 my $sums = $directory.add('SHA256SUMS');
-LEAVE { run 'rm', '-rf', '--', $directory.Str if $directory.d }
+LEAVE remove-tree($directory) if $directory.defined && $directory.e;
 sub fixture-git(*@arguments) {
     my $process = run 'git', '-C', $directory.Str,
         '-c', 'user.name=Release fixture', '-c', 'user.email=fixture@example.invalid',
