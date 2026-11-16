@@ -131,6 +131,67 @@ with-tmux(sub ($fixture) {
         $record.unlink;
     };
 
+    subtest 'a single-pane resize preserves the application observer' => {
+        my $program = $server.start-program(['/bin/sh', '-c',
+            'IFS= read -r answer; printf "ANSWER:%s\n" "$answer"']);
+        LEAVE $program.close if $program.defined;
+        my $window = $server.snapshot.panes.where(%(id => $program.pane.id)).single.window.ref;
+        $window.resize(:width(100), :height(30));
+        $window.resize(:width(80), :height(24));
+        throws-like { $program.wait(:timeout-ms(20)) }, X::LibTmux::Command,
+            :kind<timeout>, 'a resize leaves application observation active';
+        $program.send-text("resized\n");
+        is $program.wait.exitcode, 0, 'input and completion still work after resizing';
+    };
+
+    subtest 'pane removal settles observation before an HUP-ignoring process exits' => {
+        my $ready = Promise.new;
+        my $vow = $ready.vow;
+        my $lock = Lock.new;
+        my $tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+            $lock.protect({ $vow.keep(True) if $ready.status == Planned
+                && $event.path.IO.basename eq $record.basename && $record.e });
+        });
+        LEAVE $tap.close if $tap.defined;
+        my $program = $server.start-program(['/bin/sh', '-c', q:to/SH/,
+            trap '' HUP TERM
+            sleep 30 &
+            printf '%s\n' "$$" > "$1.tmp"
+            mv "$1.tmp" "$1"
+            wait
+            SH
+            'managed-application', $record.Str]);
+        LEAVE $program.close if $program.defined;
+        await-record($ready);
+        my $root = ExitWatch.new(:pid($record.slurp.trim.Int));
+        LEAVE $root.close if $root.defined;
+        my $pending = $program.wait-async;
+        $fixture.cmd('kill-pane', '-t', $program.pane.id);
+        nok $root.wait(:timeout-ms(0)), 'native removal leaves the ignored-HUP process alive';
+        throws-like { await $pending }, X::LibTmux::StaleReference,
+            'native unlink ends observation without waiting for process exit';
+        $program.close;
+        ok $root.wait, 'cleanup still joins the retained original process group';
+        ok $program.group-empty, 'successful cleanup includes the empty-group receipt';
+        $record.unlink;
+    };
+
+    subtest 'an external split invalidates observation and preserves the foreign pane' => {
+        my $program = $server.start-program(['/bin/cat']);
+        LEAVE $program.close if $program.defined;
+        my $pending = $program.wait-async;
+        my $foreign = $program.pane.split(:shell-command('exec cat'));
+        LEAVE try $foreign.kill if $foreign.defined;
+        throws-like { await $pending }, X::LibTmux::StaleReference,
+            'pane cardinality changes end this owner\'s observation';
+        $program.close;
+        is $foreign.inspect.id, $foreign.id, 'cleanup preserves the externally added pane';
+        is $fixture.cmd('wait-for', '-E', '-l', 'window-layout-changed'), '',
+            'cleanup joins layout observers';
+        is $fixture.cmd('wait-for', '-E', '-l', 'window-unlinked'), '',
+            'cleanup joins unlink observers';
+    };
+
     subtest 'cancellation during native creation cannot release the application' => {
         my $channel = 'program-create-' ~ $fixture.directory.basename;
         my $release = $channel ~ '-release';

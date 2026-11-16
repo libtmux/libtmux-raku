@@ -220,11 +220,13 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
     sub watch(%request --> Nil) {
         for %watchers.keys -> $key {
             if %watchers{$key}<done>.status != Planned {
+                my $notified = await %watchers{$key}<notify>
+                    if %watchers{$key}<notify>.defined;
                 .close for %watchers{$key}<taps>.list;
                 %watchers{$key}:delete;
             }
         }
-        die 'Too many retained generation observers' if %watchers.elems >= 3;
+        die 'Too many retained native observers' if %watchers.elems >= 5;
         my $process = Proc::Async.new(:w, |%request<argv>);
         my $size = 0;
         my @taps = $process.stdout(:bin).tap(-> $chunk {
@@ -237,7 +239,19 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
         my $done = $process.start;
         $process.close-stdin;
         my $pid = await $process.pid;
-        %watchers{%request<id>} = %(process => $process, :$done, :$pid, taps => @taps.List);
+        my Promise $notifier;
+        if %request<notify> {
+            $notifier = start {
+                try {
+                    my $result = await $done;
+                    report(%(kind => (!$result.exitcode && !$result.signal
+                        ?? 'topology-changed' !! 'observer-error'))) unless $gate-closed;
+                    CATCH { default { report(%(kind => 'observer-error')) unless $gate-closed } }
+                }
+            };
+        }
+        %watchers{%request<id>} = %(process => $process, :$done, :$pid,
+            taps => @taps.List, notify => $notifier);
         report(%(kind => 'watched', id => %request<id>, :$pid));
     }
 
@@ -324,6 +338,7 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
                 my $settled = await Promise.anyof($entry<done>, Promise.in(0.5));
                 die 'Generation client did not exit' if $entry<done>.status == Planned;
                 my $reaped = await $entry<done>;
+                my $notified = await $entry<notify> if $entry<notify>.defined;
                 .close for $entry<taps>.list;
                 %watchers{$key}:delete;
                 CATCH { default { @failures.push($_) } }

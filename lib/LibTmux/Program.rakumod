@@ -148,6 +148,7 @@ has Str $!token;
 has Str $.session-name;
 #| Native session ID accepted during setup.
 has SessionId $.session-id;
+has WindowId $!window-id;
 #| Pane reference bound to the daemon incarnation accepted during setup.
 has PaneRef $.pane;
 has Int $!pid;
@@ -260,8 +261,9 @@ method !operation(&body --> Promise:D) {
     $done
 }
 method !condition(--> Str:D) {
-    '#{&&:#{||:#{pane_dead},#{==:#{pane_pid},' ~ $!pid
-        ~ '}},#{==:#{LIBTMUX_PROGRAM_TOKEN},' ~ $!token ~ '}}'
+    '#{&&:#{&&:#{||:#{pane_dead},#{==:#{pane_pid},' ~ $!pid
+        ~ '}},#{==:#{LIBTMUX_PROGRAM_TOKEN},' ~ $!token
+        ~ '}},#{==:#{window_id},' ~ $!window-id ~ '}}'
 }
 method !claim(Int:D $pid --> Str:D) {
     Invocation.new(:argv(['wait-for', '-E', '-w', "client-$pid", 'pane-created'])).source
@@ -271,7 +273,9 @@ method !mark(Str:D $value --> Str:D) {
         '@libtmux-program-generation', $value])).source
 }
 method !guard(@argv, Int:D :$claim!, Int:D :$barrier!, Str:D :$marker! --> Invocation:D) {
-    Invocation.new(:argv(['if-shell', '-F', '-t', $!pane.id, self!condition,
+    my $condition = self!condition;
+    $condition = '#{&&:' ~ $condition ~ ',#{==:#{window_panes},1}}' if $!starting;
+    Invocation.new(:argv(['if-shell', '-F', '-t', $!pane.id, $condition,
         self!claim($claim) ~ ' ; ' ~ self!mark($marker) ~ ' ; '
             ~ self!claim($barrier) ~ ' ; ' ~ Invocation.new(:argv(@argv.List)).source,
         'run-shell -C libtmux-program-stale-' ~ $!token]))
@@ -310,20 +314,24 @@ method !request(%request, Instant:D $deadline, Bool :$teardown = False) {
     await $!owner.write((to-json(%(|%request, :$id), :!pretty) ~ "\n").encode);
     await $reply
 }
-method !watch(Instant:D $deadline --> Int:D) {
-    my $wait = Invocation.new(:argv(['wait-for', '-E', '-F',
-        $!pane.defined ?? '#{==:#{pane},' ~ $!pane.id ~ '}' !! '#{created_respawn}',
-        'pane-created']));
+method !watch-event(Str:D $event, Str:D $filter, Instant:D $deadline,
+                    Bool :$notify = False --> Int:D) {
+    my $wait = Invocation.new(:argv(['wait-for', '-E', '-F', $filter, $event]));
     my @argv = $!runtime.prepare-owned-command($wait,
         :incarnation($!observation.incarnation));
-    my $pid = self!request(%(kind => 'watch', :@argv), $deadline).Int;
+    my $pid = self!request(%(kind => 'watch', :@argv, :$notify), $deadline).Int;
     loop {
-        my @waiters = self!command(['wait-for', '-E', '-l', 'pane-created']).stdout.decode.lines;
+        my @waiters = self!command(['wait-for', '-E', '-l', $event]).stdout.decode.lines;
         return $pid if @waiters.first(* eq "client-$pid").defined;
         failure('owner', 'Generation observer exited before registration').throw
             unless self!request(%(kind => 'status', :$pid), $deadline);
         failure('timeout', 'Program setup deadline expired').throw if now >= $deadline;
     }
+}
+method !watch(Instant:D $deadline --> Int:D) {
+    self!watch-event('pane-created',
+        $!pane.defined ?? '#{==:#{pane},' ~ $!pane.id ~ '}' !! '#{created_respawn}',
+        $deadline)
 }
 method !cleanup(Int:D $generation, Str :$marker = $!generation-marker,
                 Int :$fallback = Int --> Map:D) {
@@ -476,6 +484,11 @@ method !event(%event) {
         when 'cleanup-incomplete' {
             $!cleanup-error = failure('cleanup', %event<message>);
         }
+        when 'topology-changed' {
+            $!invalid = True;
+            self!settle-error(X::LibTmux::StaleReference.new(
+                :message('Program pane placement or cardinality changed')));
+        }
         when 'exited' {
             my $accepted = $!lock.protect({
                 if $!finisher-started || ($!closing && $!done.status != Planned) { False }
@@ -572,7 +585,7 @@ method !runner(--> List:D) {
 }
 method !creation(Str:D $gate, List:D $runner --> Invocation:D) {
     my @environment = $!spec<environment>.sort.map({ (.key, .value).Slip });
-    Invocation.new(:argv(['new-session', '-d', '-P', '-F', '#{session_id}|#{pane_id}|#{pane_pid}',
+    Invocation.new(:argv(['new-session', '-d', '-P', '-F', '#{session_id}|#{pane_id}|#{pane_pid}|#{window_id}',
         '-s', $!session-name, '-x', $!spec<width>.Str, '-y', $!spec<height>.Str,
         '-e', 'LIBTMUX_PROGRAM_TOKEN=' ~ $!token,
         '--', |$runner,
@@ -581,9 +594,11 @@ method !creation(Str:D $gate, List:D $runner --> Invocation:D) {
 }
 method !remember-creation(Blob:D $bytes --> Bool:D) {
     my @created = ($bytes.decode('utf8-c8').lines[0] // '').split('|');
-    return False unless @created.elems == 3 && @created[0] ~~ SessionId
-        && @created[1] ~~ PaneId && @created[2] ~~ /^ <[0..9]>+ $/;
+    return False unless @created.elems == 4 && @created[0] ~~ SessionId
+        && @created[1] ~~ PaneId && @created[2] ~~ /^ <[0..9]>+ $/
+        && @created[3] ~~ WindowId;
     $!session-id = @created[0]; $!pid = @created[2].Int;
+    $!window-id = @created[3];
     $!pane = PaneRef.new(:endpoint($!runtime.endpoint),
         :incarnation($!observation.incarnation), :id(@created[1]));
     True
@@ -726,6 +741,14 @@ method !setup(--> Nil) {
     failure('protocol', 'Program creation returned invalid identities').throw
         unless $!pane.defined;
     self!request(%(kind => 'cleanup', command => self!cleanup($!generation)), $deadline);
+    self!watch-event('window-unlinked', '#{&&:#{==:#{window},' ~ $!window-id
+        ~ '},#{==:#{session},' ~ $!session-id ~ '}}', $deadline, :notify);
+    # Event payloads have IDs but no default target. Native loops establish
+    # the session/window context before reading its current pane count.
+    my $count = '#{S:#{?#{==:#{session_id},' ~ $!session-id
+        ~ '},#{W:#{?#{==:#{window_id},' ~ $!window-id ~ '},#{window_panes},}},}}';
+    self!watch-event('window-layout-changed', '#{&&:#{==:#{window},' ~ $!window-id
+        ~ '},#{!=:' ~ $count ~ ',1}}', $deadline, :notify);
     my $barrier = self!watch($deadline);
     my $next = self!watch($deadline);
     my $marker = nonce();
@@ -764,6 +787,7 @@ sub open-program(Runtime:D $runtime, Observation:D $observation, Map:D $spec) is
     $observation.capabilities.require('managed-program');
     $observation.capabilities.require($_) for <event-wait event-wait-claim>;
     $observation.capabilities.require-field('pane', $_) for <pid dead dead-status dead-signal>;
+    $observation.capabilities.require-field('window', 'id');
     require-process-groups;
     my $token = nonce();
     my $owned = Runtime.new(:endpoint($runtime.endpoint),
@@ -1023,6 +1047,11 @@ same command queue as the effect. External respawn invalidates the handle;
 cleanup preserves the replacement and exposes C<pane-removed> as False.
 Borrowed daemons and sibling sessions remain borrowed. A Server closes the
 Programs it accepted when it closes itself.
+
+The initial owner keeps one pane in its original window. External splits,
+placement changes and window unlinking invalidate observation; resizing a
+single-pane window remains valid. Cleanup still terminates the retained owned
+group and preserves a pane moved outside the accepted window.
 
 After ownership is accepted, the private watchdog's lifetime pipe is the
 recovery lease if the caller VM exits. A caller crash during creation before
