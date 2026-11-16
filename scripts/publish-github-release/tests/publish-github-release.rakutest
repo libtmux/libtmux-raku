@@ -57,7 +57,7 @@ temp %*ENV<RELEASE_FIXTURE> = $directory.Str;
 sub publish() {
     my $process = run $*EXECUTABLE.Str, $script.Str,
         $directory.Str, 'v0.0.1', 'libtmux/libtmux-raku', :out, :err;
-    my $out = $process.out.slurp(:close);
+    $process.out.slurp(:close);
     my $err = $process.err.slurp(:close);
     ($process.exitcode, $err)
 }

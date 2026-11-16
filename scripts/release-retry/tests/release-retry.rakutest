@@ -44,7 +44,7 @@ sub check(Str:D $mode, Str:D $attempt = '2') {
     my $process = run $*EXECUTABLE.Str, $script.Str,
         |($mode eq 'archive' ?? ($mode, $directory.Str) !! ($mode,)),
         :env(%environment), :out, :err;
-    my $out = $process.out.slurp(:close);
+    $process.out.slurp(:close);
     my $err = $process.err.slurp(:close);
     ($process.exitcode, $err)
 }
