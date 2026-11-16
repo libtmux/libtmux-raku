@@ -411,6 +411,23 @@ method !row(Bool :$finishing = False --> List:D) {
 method !capture(Bool :$finishing = False --> Blob:D) {
     self!action(['capture-pane', '-p', '-J', '-N', '-S', '-', '-t', $!pane.id], :$finishing).stdout
 }
+method !bootstrap-report(Str:D $name) {
+    my $path = $!directory.add($name);
+    return unless $path.e;
+    failure('identity', 'Program bootstrap report was replaced').throw if $path.l || !$path.f;
+    my $handle = $path.open(:r, :bin);
+    my $bytes = $handle.read(513); $handle.close;
+    failure('overflow', 'Program bootstrap report exceeds its bound').throw if $bytes.elems > 512;
+    my $report = from-json($bytes.decode('utf8'));
+    $!lock.protect({
+        if $name eq 'bootstrap-ready' {
+            $!bootstrap-vow.keep($report) if $!bootstrap-ready.status == Planned;
+        } else {
+            $!bootstrap-accepted-vow.keep($report) if $!bootstrap-accepted.status == Planned;
+        }
+    });
+    $report
+}
 method !finish-wait(Int:D $id, Mu $value = Mu, Exception :$error = Exception --> Nil) {
     my $entry = $!lock.protect({ %!waiters{$id}:delete });
     return unless $entry.defined;
@@ -524,9 +541,16 @@ method !event(%event) {
                         $!checker-ended.emit(True); $!checker-ended.done;
                     }
                     try {
-                        $!starting
-                            ?? self!settle-error(failure('owner', 'Program bootstrap exited before release'))
-                            !! self!row;
+                        # Acceptance is renamed into place before exec. Reading after
+                        # terminal process readiness also covers a delayed file event.
+                        self!bootstrap-report('bootstrap-accepted')
+                            if $!bootstrap-accepted.status == Planned;
+                        my $accepted = $!bootstrap-accepted.status == Kept
+                            ?? $!bootstrap-accepted.result !! Map.new;
+                        if !$accepted<accepted> || ($accepted<pid> // 0) != $!pid
+                            || ($accepted<token> // '') ne $!token {
+                            self!settle-error(failure('owner', 'Program bootstrap exited before accepting release'));
+                        } else { self!row }
                         CATCH { default { self!settle-error($_) unless $!closing } } }
                 };
             }
@@ -626,14 +650,23 @@ method !write-grant(Str:D $gate, Instant:D $deadline, Blob:D $message --> Nil) {
 method !release(Str:D $gate, Instant:D $deadline --> Nil) {
     $!actions.protect({
         my $previous = $!generation;
-        my $barrier = self!watch($deadline);
+        my @barriers;
+        @barriers.push(self!watch($deadline)) for ^3;
         my $next = self!watch($deadline);
         my $marker = nonce();
         self!request(%(kind => 'cleanup', command =>
             self!cleanup($next, :$marker, :fallback($previous))), $deadline);
-        my @argv = $!runtime.prepare-owned-command(self!guard([
-            'set-option', '-t', $!session-id, 'history-limit', $!spec<history-limit>.Str],
-            :claim($previous), :$barrier, :$marker), :incarnation($!observation.incarnation));
+        my $guard = self!guard(['set-option', '-p', '-t', $!pane.id, 'remain-on-exit', 'on'],
+            :claim($previous), :barrier(@barriers[0]), :$marker);
+        my @commands = |$guard.argv;
+        @commands[5] ~= ' ; ' ~ self!claim(@barriers[1]) ~ ' ; '
+            ~ Invocation.new(:argv(['set-option', '-p', '-t', $!pane.id,
+                'remain-on-exit-format', ''])).source
+            ~ ' ; ' ~ self!claim(@barriers[2]) ~ ' ; '
+            ~ Invocation.new(:argv(['set-option', '-t', $!session-id,
+                'history-limit', $!spec<history-limit>.Str])).source;
+        my @argv = $!runtime.prepare-owned-command(Invocation.new(:argv(@commands.List)),
+            :incarnation($!observation.incarnation));
         my $grant = (to-json(%(token => $!token, pid => $!pid, :@argv), :!pretty) ~ "\n").encode;
         failure('overflow', 'Program release exceeds the atomic FIFO bound').throw
             if $grant.elems > 4096;
@@ -647,7 +680,7 @@ method !release(Str:D $gate, Instant:D $deadline --> Nil) {
             unless $accepted<token> eq $!token && $accepted<pid> == $!pid
                 && $accepted<accepted>;
         self!request(%(kind => 'retire', pid => $previous), $deadline);
-        self!request(%(kind => 'retire', pid => $barrier), $deadline);
+        self!request(%(kind => 'retire', pid => $_), $deadline) for @barriers;
     });
 }
 method !setup(--> Nil) {
@@ -697,22 +730,9 @@ method !setup(--> Nil) {
     $!directory = self!await-setup($!ready, $deadline).IO;
     my $bootstrap-tap = IO::Notification.watch-path($!directory).act(-> $event {
         my $name = $event.path.IO.basename;
-        my $path = $!directory.add($name);
-        if $name eq any(<bootstrap-ready bootstrap-accepted>) && $path.e {
+        if $name eq any(<bootstrap-ready bootstrap-accepted>) {
             try {
-                failure('identity', 'Program bootstrap report was replaced').throw if $path.l || !$path.f;
-                my $handle = $path.open(:r, :bin);
-                my $bytes = $handle.read(513); $handle.close;
-                failure('overflow', 'Program bootstrap report exceeds its bound').throw if $bytes.elems > 512;
-                my $report = from-json($bytes.decode('utf8'));
-                $!lock.protect({
-                    if $name eq 'bootstrap-ready' {
-                        $!bootstrap-vow.keep($report) if $!bootstrap-ready.status == Planned;
-                    } else {
-                        $!bootstrap-accepted-vow.keep($report)
-                            if $!bootstrap-accepted.status == Planned;
-                    }
-                });
+                self!bootstrap-report($name);
                 CATCH { default { self!settle-error($_) } }
             }
         }
@@ -778,8 +798,6 @@ method !setup(--> Nil) {
         last if @waiters.first(* eq "client-$observer").defined;
         failure('timeout', 'Exit observer registration deadline expired').throw if now >= $deadline;
     }
-    self!action(['set-option', '-p', '-t', $!pane.id, 'remain-on-exit', 'on']);
-    self!action(['set-option', '-p', '-t', $!pane.id, 'remain-on-exit-format', '']);
     my $bootstrap = self!await-setup($!bootstrap-ready, min($deadline, now + 1));
     failure('identity', 'Program bootstrap readiness has another owner').throw
         unless $bootstrap<token> eq $!token && $bootstrap<pid> == $!pid;
@@ -1024,6 +1042,9 @@ stream. The final result keeps the last C<max-output-bytes> bytes, reports the
 omitted byte count and conservatively marks history that reached its row bound.
 Truncation can split a character; inspect bytes or decode with C<utf8-c8>.
 Normal exit and signal termination are distinct result variants.
+Completion follows the pane's primary process. Same-group descendants can
+remain alive until C<close>; writes after primary-process completion are
+outside that retained result.
 
 =head2 Cancellation and cleanup
 

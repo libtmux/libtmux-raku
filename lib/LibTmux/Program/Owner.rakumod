@@ -242,7 +242,7 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
                 %watchers{$key}:delete;
             }
         }
-        die 'Too many retained native observers' if %watchers.elems >= 5;
+        die 'Too many retained native observers' if %watchers.elems >= 7;
         my $process = Proc::Async.new(:w, |%request<argv>);
         my $size = 0;
         my @taps = $process.stdout(:bin).tap(-> $chunk {

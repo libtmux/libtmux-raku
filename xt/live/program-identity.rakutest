@@ -110,8 +110,16 @@ with-tmux(sub ($fixture) {
             });
             LEAVE $tap.close;
             $fixture.cmd('respawn-pane', '-k', '-t', $replacement);
+            my $current = from-json($record.slurp)<pid>;
+            $lock.protect({ $vow.keep($current)
+                if $ready.status == Planned && $current != $old });
             await Promise.anyof($ready, Promise.in(1));
-            die 'Replacement bootstrap did not open its gate' unless $ready.status == Kept;
+            unless $ready.status == Kept {
+                note 'Replacement native state: ' ~ $fixture.cmd('display-message', '-p',
+                    '-t', $replacement, '#{pane_pid}|#{pane_dead}|#{pane_dead_status}').trim;
+                note 'Replacement screen: ' ~ $fixture.cmd('capture-pane', '-p', '-t', $replacement).trim;
+                die 'Replacement bootstrap did not open its gate';
+            }
             $replacement-exit = ExitWatch.new(:pid((await $ready).Int));
             $applied++;
         };
@@ -123,8 +131,6 @@ with-tmux(sub ($fixture) {
             'startup refuses the replaced bootstrap';
         is $applied, 1, 'the replacement opened the original gate before its write';
         ok $replacement-exit.wait, 'the replacement consumed and refused the PID-bound grant';
-        is $fixture.cmd('display-message', '-p', '-t', $replacement,
-            '#{pane_dead_status}').trim, '125', 'the replay exited through bootstrap refusal';
         nok $effect.e, 'the replacement never executed the promised application';
     };
 
