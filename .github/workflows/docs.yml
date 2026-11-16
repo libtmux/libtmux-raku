@@ -45,7 +45,7 @@ concurrency:
 jobs:
   build:
     if: github.repository == 'libtmux/libtmux-raku'
-    uses: libtmux/docs/.github/workflows/port-docs.yml@a76b1a3b8685e3c05feaab14aa77a87afb785af8
+    uses: libtmux/docs/.github/workflows/port-docs.yml@e28ecee40dc475a32dee35c311345df6a7098d72
     with:
       port: raku
       tag-prefix: ''
@@ -66,7 +66,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: libtmux/docs/.github/workflows/reusable-deploy.yml@a76b1a3b8685e3c05feaab14aa77a87afb785af8
+    uses: libtmux/docs/.github/workflows/reusable-deploy.yml@e28ecee40dc475a32dee35c311345df6a7098d72
     with:
       path-prefix: raku/${{ matrix.version }}
       artifact: docs-raku-${{ matrix.version }}
