@@ -1,0 +1,33 @@
+use v6.d;
+use lib $?FILE.IO.parent(3).add('lib');
+use Test;
+use Scripts::Filesystem;
+
+my $script = $?FILE.IO.parent.parent.add('check-skips.raku');
+my $directory = private-directory('libtmux-skips');
+LEAVE remove-tree($directory) if $directory.defined && $directory.e;
+my $tap = $directory.add('tap');
+
+sub check(Str:D $text) {
+    $tap.spurt($text);
+    my $input = $tap.open;
+    my $process = run $*EXECUTABLE.Str, $script.Str, :in($input), :out, :err;
+    $input.close;
+    my $out = $process.out.slurp(:close);
+    my $err = $process.err.slurp(:close);
+    ($process.exitcode, $out, $err)
+}
+
+my ($status, $out, $err) = check("1..2\nok 1 - starts\nok 2 - skipping is a word\n# skipped is not a directive\n");
+is $status, 0, 'TAP without a skip directive passes';
+is $out, "1..2\nok 1 - starts\nok 2 - skipping is a word\n# skipped is not a directive\n",
+    'the TAP is copied unchanged';
+
+for 'ok 2 # SKIP no tmux', 'ok 2 - name # skip', 'ok 2 #Skip reason', 'ok 2 - name  #  SKIP' -> $line {
+    ($status, $out, $err) = check("1..2\nok 1\n$line\n");
+    is $status, 1, "'$line' fails";
+    like $err, /'must not skip tests'/, "'$line' names the rule";
+    ok $err.contains($line), "'$line' is quoted";
+}
+
+done-testing;
