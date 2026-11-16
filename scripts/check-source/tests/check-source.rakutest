@@ -1,0 +1,57 @@
+use v6.d;
+use Test;
+use JSON::Fast;
+
+# The script finds its repository from its own path, so a copy in a throwaway
+# repository checks that repository's files.
+my $script = $?FILE.IO.parent.parent.add('check-source.raku');
+my $root = $*TMPDIR.add("libtmux-source-$*PID-{1_000_000.rand.Int}");
+LEAVE { run 'rm', '-rf', '--', $root.Str if $root.d }
+
+sub put(Str:D $relative, Str:D $text) {
+    $root.add($relative).parent.mkdir;
+    $root.add($relative).spurt($text);
+}
+
+sub check() {
+    my $process = run $*EXECUTABLE.Str, $root.add('scripts/check-source/check-source.raku').Str,
+        :out, :err;
+    ($process.exitcode, $process.out.slurp(:close), $process.err.slurp(:close))
+}
+
+$root.mkdir;
+die 'Could not create a repository' if (run 'git', '-C', $root.Str, 'init', '--quiet').exitcode;
+put('scripts/check-source/check-source.raku', $script.slurp);
+put('META6.json', to-json(%(provides => %(LibTmux => 'lib/LibTmux.rakumod'), resources => [])) ~ "\n");
+put('lib/LibTmux.rakumod', "use v6.d;\nunit module LibTmux;\n");
+put('.github/CONTRIBUTING.md', "# Contributing\n");
+put('.github/WRITING.md', "# Writing\n");
+put('AGENTS.md', "# Agents\n");
+die 'Could not link CLAUDE.md' if (run 'ln', '-s', 'AGENTS.md', 'CLAUDE.md', :cwd($root)).exitcode;
+
+my ($status, $out, $err) = check();
+is $status, 0, 'a clean repository passes';
+
+my @faults =
+    'README.md', "text \n", 'trailing whitespace', 'trailing whitespace is found',
+    'README.md', "text", 'missing final LF', 'a missing final newline is found',
+    'README.md', "text\r\n", 'CR line endings', 'CR line endings are found',
+    'README.md', "[gone](missing.md)\n", 'missing relative link target', 'a broken link is found',
+    'README.md', "```sh\nls\n```\n", 'shell examples must use console fences', 'a shell fence is found',
+    'lib/Extra.rakumod', "unit module Extra;\n", 'missing stable language declaration', 'a module without use v6.d is found',
+    'CONTRIBUTING.md', "# Contributing\n", 'belongs under .github', 'a guide outside .github is found';
+for @faults -> $path, $text, $message, $name {
+    my $file = $root.add($path);
+    put($path, $text);
+    ($status, $out, $err) = check();
+    isnt $status, 0, $name;
+    like $err, /$message/, "$name by its message";
+    $file.unlink;
+}
+
+put('lib/Extra.rakumod', "use v6.d;\nunit module Extra;\n");
+($status, $out, $err) = check();
+isnt $status, 0, 'a module missing from META6.json provides is found';
+like $err, /'provides does not match'/, 'the inventory failure names provides';
+
+done-testing;

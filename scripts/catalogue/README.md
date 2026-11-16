@@ -20,3 +20,9 @@ $ raku -I. scripts/catalogue/catalogue.raku \
     --format=rakudoc \
     --output=docs/reference/catalogue.rakudoc
 ```
+
+Test that a stale file fails the check:
+
+```console
+$ raku -I. scripts/catalogue/tests/catalogue.rakutest
+```

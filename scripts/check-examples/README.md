@@ -17,3 +17,9 @@ against:
 ```console
 $ LIBTMUX_TEST_TMUX=/usr/local/bin/tmux raku scripts/check-examples/check-examples.raku
 ```
+
+Test that a snippet which differs from its example fails the check:
+
+```console
+$ raku scripts/check-examples/tests/check-examples.rakutest
+```

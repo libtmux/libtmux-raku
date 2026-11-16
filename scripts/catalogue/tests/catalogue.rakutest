@@ -1,0 +1,35 @@
+use v6.d;
+use Test;
+
+my $script = $?FILE.IO.parent.parent.add('catalogue.raku');
+my $directory = $*TMPDIR.add("libtmux-catalogue-$*PID-{1_000_000.rand.Int}");
+$directory.mkdir;
+LEAVE { .unlink for $directory.dir; $directory.rmdir if $directory.d }
+my $reference = $directory.add('catalogue.rakudoc');
+
+sub render(*@arguments) {
+    my $process = run $*EXECUTABLE.Str, '-I.', $script.Str, |@arguments, :out, :err;
+    ($process.exitcode, $process.out.slurp(:close), $process.err.slurp(:close))
+}
+
+my ($status, $out, $err) = render('--format=rakudoc', "--output=$reference");
+is $status, 0, 'a reference is written';
+
+($status, $out, $err) = render('--format=rakudoc', "--output=$reference", '--check');
+is $status, 0, 'a reference the catalogue produced passes the check';
+like $out, /'generated output matches'/, 'the check reports the match';
+
+$reference.spurt($reference.slurp ~ "stale\n");
+($status, $out, $err) = render('--format=rakudoc', "--output=$reference", '--check');
+isnt $status, 0, 'a reference that differs from the catalogue fails the check';
+like $err, /'Generated catalogue differs'/, 'the failure names the stale file';
+
+$reference.unlink;
+($status, $out, $err) = render('--format=rakudoc', "--output=$reference", '--check');
+isnt $status, 0, 'a missing reference fails the check';
+
+($status, $out, $err) = render('--format=unknown');
+isnt $status, 0, 'an unknown format is refused';
+like $err, /'Unknown catalogue format'/, 'the refusal names the format problem';
+
+done-testing;

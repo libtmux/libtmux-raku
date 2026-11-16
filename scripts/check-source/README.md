@@ -17,3 +17,10 @@ It is not a formatter. `ci.yml` runs it first in the quality job:
 ```console
 $ raku scripts/check-source/check-source.raku
 ```
+
+Test that each kind of fault fails, in a throwaway repository that holds a copy
+of the script:
+
+```console
+$ raku scripts/check-source/tests/check-source.rakutest
+```

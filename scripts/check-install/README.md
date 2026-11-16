@@ -14,3 +14,9 @@ $ raku scripts/check-install/check-install.raku --archive=LibTmux-0.0.1.tar.gz
 
 `ci.yml` runs it on the tested archive and `release.yml` runs it with
 `--registry` after the upload. It needs `zef`, `git` and `tar` on `PATH`.
+
+Test the option and archive checks, which need no network:
+
+```console
+$ raku scripts/check-install/tests/check-install.rakutest
+```

@@ -1,0 +1,21 @@
+use v6.d;
+use Test;
+
+# The install itself needs zef and a network, so only the checks that stop the
+# script before it installs anything run here.
+my $script = $?FILE.IO.parent.parent.add('check-install.raku');
+
+sub install(*@arguments) {
+    my $process = run $*EXECUTABLE.Str, $script.Str, |@arguments, :out, :err;
+    ($process.exitcode, $process.err.slurp(:close))
+}
+
+my ($status, $err) = install('--archive=LibTmux-0.0.0.tar.gz', '--registry');
+isnt $status, 0, 'an archive together with the registry is refused';
+like $err, /'Choose an archive or the registry'/, 'the refusal names the choice';
+
+($status, $err) = install("--archive=$*TMPDIR.add("libtmux-no-archive-$*PID.tar.gz")");
+isnt $status, 0, 'an archive that does not exist is refused';
+like $err, /'Package archive does not exist'/, 'the refusal names the archive';
+
+done-testing;

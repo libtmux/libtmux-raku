@@ -12,8 +12,9 @@ my %text = set(<rakumod rakutest raku rakudoc md json yml yaml toml>);
 for @paths -> $relative {
     my $path = $root.add($relative);
     next if $path.l || !$path.f || !(%text{$path.extension}:exists);
+    # Raku reads CR LF as one grapheme, so only the bytes show a CR.
+    @errors.push("$relative: CR line endings") if $path.slurp(:bin).list.first(13).defined;
     my $text = $path.slurp;
-    @errors.push("$relative: CR line endings") if $text.contains("\r");
     @errors.push("$relative: missing final LF") if $text.chars && !$text.ends-with("\n");
     for $text.lines.kv -> $index, $line {
         @errors.push("$relative:{$index + 1}: trailing whitespace") if $line ~~ / <[\t\ ]> $/;

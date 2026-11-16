@@ -1,0 +1,56 @@
+use v6.d;
+use Test;
+
+# The script finds its repository from its own path, so a copy in a throwaway
+# directory checks that directory's README, guide and examples.
+my $script = $?FILE.IO.parent.parent.add('check-examples.raku');
+my $root = $*TMPDIR.add("libtmux-examples-$*PID-{1_000_000.rand.Int}");
+LEAVE { run 'rm', '-rf', '--', $root.Str if $root.d }
+
+my $example = "use v6.d;\nsay 'hello';\n";
+
+sub put(Str:D $relative, Str:D $text) {
+    $root.add($relative).parent.mkdir;
+    $root.add($relative).spurt($text);
+}
+
+sub documents(Str:D $readme-code = $example, Str:D $guide-code = $example) {
+    put('README.md', "<!-- runs: examples/hello.raku -->\n\n```raku\n{$readme-code}```\n");
+    put('lib/LibTmux.rakumod',
+        "=comment runs: examples/hello.raku\n\n=begin code :lang<raku>\n{$guide-code}=end code\n");
+}
+
+sub check() {
+    my $process = run $*EXECUTABLE.Str, $root.add('scripts/check-examples/check-examples.raku').Str,
+        '--check-source', :out, :err;
+    ($process.exitcode, $process.out.slurp(:close), $process.err.slurp(:close))
+}
+
+put('scripts/check-examples/check-examples.raku', $script.slurp);
+put('examples/hello.raku', $example);
+documents();
+my ($status, $out, $err) = check();
+is $status, 0, 'snippets that equal their examples pass';
+like $out, /'2 complete documentation examples'/, 'the README and the guide are both counted';
+
+documents("use v6.d;\nsay 'changed';\n");
+($status, $out, $err) = check();
+isnt $status, 0, 'a README snippet that differs from its example fails';
+like $err, /'README.md snippet differs from examples/hello.raku'/, 'the failure names the README';
+
+documents($example, "use v6.d;\nsay 'changed';\n");
+($status, $out, $err) = check();
+isnt $status, 0, 'a guide snippet that differs from its example fails';
+like $err, /'lib/LibTmux.rakumod snippet differs from examples/hello.raku'/, 'the failure names the guide';
+
+put('README.md', "```raku\nsay 'unmarked';\n```\n");
+($status, $out, $err) = check();
+isnt $status, 0, 'a Raku block without its example marker fails';
+like $err, /'must mark every Raku example'/, 'the failure names the missing marker';
+
+put('README.md', "<!-- runs: ../elsewhere.raku -->\n\n```raku\n{$example}```\n");
+($status, $out, $err) = check();
+isnt $status, 0, 'a marker that leaves examples/ fails';
+like $err, /'Invalid example path'/, 'the failure names the path';
+
+done-testing;

@@ -106,6 +106,13 @@ jobs:
           /usr/bin/time -f 'whole command: %e s' raku scripts/check-release/tests/check-release-archive.rakutest
           /usr/bin/time -f 'whole command: %e s' raku scripts/publish-github-release/tests/publish-github-release.rakutest
           /usr/bin/time -f 'whole command: %e s' raku scripts/release-retry/tests/release-retry.rakutest
+      - name: Script contracts
+        run: |
+          /usr/bin/time -f 'whole command: %e s' raku -I. scripts/catalogue/tests/catalogue.rakutest
+          /usr/bin/time -f 'whole command: %e s' raku scripts/check-examples/tests/check-examples.rakutest
+          /usr/bin/time -f 'whole command: %e s' raku scripts/check-install/tests/check-install.rakutest
+          /usr/bin/time -f 'whole command: %e s' raku scripts/check-source/tests/check-source.rakutest
+          /usr/bin/time -f 'whole command: %e s' raku -I. scripts/ci-matrix/tests/ci-matrix.rakutest
       - name: Generated accessors and reference
         run: |
           /usr/bin/time -f 'whole command: %e s' raku -I. scripts/catalogue/catalogue.raku \

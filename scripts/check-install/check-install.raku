@@ -20,7 +20,7 @@ sub MAIN(Str:D :$archive = '', Bool :$registry = False) {
             $path.unlink;
         }
     }
-    LEAVE remove-tree($temporary) if $temporary.e;
+    LEAVE remove-tree($temporary) if $temporary.defined && $temporary.e;
 
     my $started = now;
     my $installed = $temporary.add('installed');
