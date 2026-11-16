@@ -1,5 +1,7 @@
 use v6.d;
 
+use nqp;
+
 unit module LibTmux::Command;
 
 use LibTmux::Types;
@@ -14,11 +16,11 @@ sub admit-operation(Capture:D $capture, :%named = {}, Bool:D :$forwarded = False
         is export(:internals) {
     for $capture.list -> Mu $value {
         invalid('An operation argument must be one value, not a Junction')
-            if $value.^isa(Junction);
+            if nqp::istype($value, Junction);
     }
     for $capture.hash.kv -> $name, Mu $value {
         invalid('An operation argument must be one value, not a Junction')
-            if $value.^isa(Junction);
+            if nqp::istype($value, Junction);
         invalid("Unknown operation argument $name")
             unless $forwarded || (%named{$name}:exists);
     }
@@ -65,13 +67,13 @@ class Invocation is export {
     submethod BUILD(Mu :$argv!, Mu :$max-bytes = 12 * 1024, *%unknown) {
         invalid('Unknown command setting ' ~ %unknown.keys.sort.join(', ')) if %unknown;
         invalid('Command size limit must be a positive integer')
-            if $max-bytes.^isa(Junction) || $max-bytes !~~ Positive:D;
+            if nqp::istype($max-bytes, Junction) || $max-bytes !~~ Positive:D;
         invalid('A command needs a nonempty argument vector')
-            if $argv.^isa(Junction) || $argv !~~ Positional:D || !$argv.elems;
+            if nqp::istype($argv, Junction) || $argv !~~ Positional:D || !$argv.elems;
         my @copied;
         for $argv.list -> Mu $argument {
             invalid('Command arguments must be defined strings')
-                if $argument.^isa(Junction) || $argument !~~ Str:D;
+                if nqp::istype($argument, Junction) || $argument !~~ Str:D;
             invalid('Command arguments cannot contain NUL') if $argument.contains("\0");
             @copied.push($argument.Str);
         }

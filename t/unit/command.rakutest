@@ -44,7 +44,7 @@ class SingleOperationProbe {
     has Int $.calls is rw = 0;
     method typed(Str:D $value, Str:D :socket-name(:$socket) = 'default' --> Str:D)
             is single-operation { $!calls++; $value ~ $socket }
-    method untyped($value = 'default' --> Str:D) is single-operation { $!calls++; $value.Str }
+    method untyped($value = 'default' --> Str:D) is single-operation { $!calls++; $value.gist }
     method forwarded(*%options --> Map:D) is single-operation { $!calls++; %options.Map }
     method binding(Str:D $value where { ++$binding-effects; True }
             = do { ++$binding-effects; 'default' } --> Str:D) is single-operation { $value }
@@ -55,6 +55,16 @@ class SingleOperationProbe {
     }
 }
 class InheritedOperationProbe is SingleOperationProbe { }
+
+subtest 'subset defaults remain single admitted values' => {
+    my $probe = SingleOperationProbe.new;
+    my $options = $probe.forwarded(:timeout-ms(Positive));
+    ok $options<timeout-ms> === Positive,
+        'a forwarded optional subset type keeps its identity';
+    lives-ok { $probe.untyped(Positive) },
+        'a positional subset type passes the same non-Junction guard';
+    is $probe.calls, 2, 'each accepted subset value enters the body once';
+};
 
 subtest 'single operation capture precedes typed binding and preserves signatures' => {
     my $probe = InheritedOperationProbe.new;
