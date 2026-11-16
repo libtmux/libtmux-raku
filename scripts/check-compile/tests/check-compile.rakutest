@@ -1,0 +1,40 @@
+use v6.d;
+use lib $?FILE.IO.parent(3).add('lib');
+use Test;
+use Scripts::Filesystem;
+
+my $script = $?FILE.IO.parent.parent.add('check-compile.raku');
+my $root = private-directory('libtmux-compile');
+LEAVE remove-tree($root) if $root.defined && $root.e;
+
+sub put(Str:D $relative, Str:D $text) {
+    $root.add($relative).parent.mkdir;
+    $root.add($relative).spurt($text);
+}
+sub check(*@directories) {
+    my $process = run $*EXECUTABLE.Str, $script.Str, "--root=$root", |@directories, :out, :err;
+    ($process.exitcode, $process.out.slurp(:close), $process.err.slurp(:close))
+}
+
+put('examples/hello.raku', "use v6.d;\nsay 'hello';\n");
+put('examples/nested/Helper.rakumod', "use v6.d;\nunit module Helper;\n");
+put('examples/notes.md', "not Raku \{\n");
+my ($status, $out, $err) = check('examples');
+is $status, 0, 'sources that compile pass';
+like $out, /'2 files compile'/, 'scripts and modules are found below subdirectories, other files are not';
+
+put('examples/broken.raku', "use v6.d;\nsay 'unterminated;\n");
+($status, $out, $err) = check('examples');
+isnt $status, 0, 'a file that does not compile fails';
+like $err, /'FAIL: examples/broken.raku'/, 'the failure names the file';
+$root.add('examples/broken.raku').unlink;
+
+put('t/lib/Local.rakumod', "use v6.d;\nunit module Local;\n");
+put('t/lib/Uses.rakumod', "use v6.d;\nuse Local;\n");
+($status, $out, $err) = check('t/lib');
+is $status, 0, 'a test helper finds the other helpers in t/lib';
+
+($status, $out, $err) = check('missing');
+isnt $status, 0, 'a directory that does not exist fails';
+
+done-testing;
