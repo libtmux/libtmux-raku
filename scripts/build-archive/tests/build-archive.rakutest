@@ -1,0 +1,54 @@
+use v6.d;
+use lib $?FILE.IO.parent(3).add('lib');
+use Test;
+use Scripts::Filesystem;
+
+my $script = $?FILE.IO.parent.parent.add('build-archive.raku');
+my $directory = private-directory('libtmux-build-archive');
+LEAVE remove-tree($directory) if $directory.defined && $directory.e;
+my $source = $directory.add('source');
+my $output = $directory.add('release');
+
+sub git(*@arguments --> Str:D) {
+    my $process = run 'git', '-C', $source.Str,
+        '-c', 'user.name=Archive fixture', '-c', 'user.email=fixture@example.invalid',
+        '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', |@arguments, :out;
+    die "git {@arguments[0]} failed" if $process.exitcode;
+    $process.out.slurp(:close)
+}
+$source.mkdir;
+git 'init', '--quiet';
+$source.add('META6.json').spurt("\{\}\n");
+git 'add', 'META6.json';
+git 'commit', '--quiet', '-m', 'Archive fixture';
+$source.add('untracked').spurt("not committed\n");
+
+sub build(*@arguments) {
+    my $process = run $*EXECUTABLE.Str, $script.Str, "--source=$source", |@arguments, :out, :err;
+    ($process.exitcode, $process.err.slurp(:close))
+}
+
+my ($status, $err) = build($output.Str, '0.0.1');
+is $status, 0, 'the archive is built';
+my $archive = $output.add('LibTmux-0.0.1.tar.gz');
+ok $archive.f, 'the archive is named for the version';
+
+my $unpack = run 'gzip', '-dc', $archive.Str, :out;
+my $identity = run 'git', 'get-tar-commit-id', :in($unpack.out), :out;
+is $identity.out.slurp(:close).trim, git('rev-parse', 'HEAD').trim, 'the archive records the committed head';
+my $listing = run 'tar', '-tzf', $archive.Str, :out;
+is $listing.out.slurp(:close).lines.sort.List, ('META6.json',), 'only committed files are packed';
+
+my $check = run 'sha256sum', '--check', '--status', 'SHA256SUMS', :cwd($output);
+is $check.exitcode, 0, 'SHA256SUMS matches the archive';
+
+($status, $err) = build($output.Str, '0.0.1');
+isnt $status, 0, 'a directory that holds the archive is refused';
+like $err, /'already holds'/, 'the refusal says why';
+
+($status, $err) = build($directory.add('other').Str, '../0.0.1');
+isnt $status, 0, 'a version that could escape the directory is refused';
+like $err, /'three numeric components'/, 'the refusal names the version rule';
+nok $directory.add('other').e, 'a refused version creates no directory';
+
+done-testing;
