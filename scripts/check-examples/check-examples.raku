@@ -48,6 +48,12 @@ my %expected =
         ~ "tmux filter: #\{e|>=:#\{pane_width},60}\n"
         ~ "Matches: editor\n"
         ~ "require: refused, title stays local\n"],
+    program-command => ["Managed programs require a qualified tmux 3.8 daemon\n",
+        "Exit: 0\nScreen: hello \$() ; literal\n"],
+    program-input => ["Managed programs require a qualified tmux 3.8 daemon\n",
+        "Wait cancelled; program retained\nANSWER:Raku\nExit: 0\n"],
+    program-deadline => ["Managed programs require a qualified tmux 3.8 daemon\n",
+        "Run deadline expired; owned program closed\nOther session preserved\n"],
     batch-recovery => ["set-option: Complete (scope: command)\n"
         ~ "invalid-command: Failed (scope: command)\n"
         ~ "skipped-option: Skipped (scope: command)\n"
@@ -86,7 +92,8 @@ for @examples -> $example {
     die "Example output did not match the documented result: $name"
         if (%expected{$name}:exists) && !%expected{$name}.first(* eq $output).defined;
     die "Example left an owned socket directory: $name"
-        if $temporary.dir.first(*.basename.starts-with('libtmux-owned-')).defined;
+        if $temporary.dir.first({ .basename.starts-with('libtmux-owned-')
+            || .basename.starts-with('libtmux-program-') }).defined;
     print $output;
 }
 say "PASS: {@examples.elems} executable examples";

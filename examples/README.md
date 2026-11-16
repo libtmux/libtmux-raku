@@ -24,6 +24,9 @@ $ zef install .
 | Task | Program | Raku facilities |
 | --- | --- | --- |
 | Create and find panes | [Quickstart](quickstart.raku) | Objects, `LEAVE`, a native predicate |
+| Run an application | [Program result](program-command.raku) | Literal argv, final rendered screen, precise exit status |
+| Supply interactive input | [Program input](program-input.raku) | `Program`, independent wait cancellation, literal text |
+| End an owning run | [Program deadline](program-deadline.raku) | Typed deadline errors and completed cleanup |
 | Resize and remove panes | [Resize panes](resize-panes.raku) | `resize`, `kill`, fresh snapshots |
 | Select wide panes | [Pane queries](query-panes.raku) | Typed selections, query hashes, `grep`, `map`, `sort` |
 | Choose where a query runs | [Query plan](explain-query.raku) | `explain-panes`, `:pushdown` |
@@ -42,6 +45,35 @@ $ raku -I. examples/quickstart.raku
 ```
 
 It prints `editor: 2 panes`.
+
+## Run an application
+
+[`program-command.raku`](program-command.raku) runs literal argv in a PTY and
+prints `Exit: 0` and `Screen: hello $() ; literal` after cleanup.
+
+```console
+$ raku -I. examples/program-command.raku
+```
+
+[`program-input.raku`](program-input.raku) cancels one wait, supplies input to
+the still-owned application, and prints `ANSWER:Raku` and `Exit: 0`.
+
+```console
+$ raku -I. examples/program-input.raku
+```
+
+[`program-deadline.raku`](program-deadline.raku) ends an owning run and checks
+that its sibling session remains. It prints `Run deadline expired; owned
+program closed` and `Other session preserved`.
+
+```console
+$ raku -I. examples/program-deadline.raku
+```
+
+Each checks the connected daemon's `managed-program` capability. An older
+daemon prints the requirement instead. The
+[Program contract](../lib/LibTmux/Program.rakumod) defines platform requirements,
+bounded output, cancellation and recoverable cleanup.
 
 ## Resize and remove panes
 
