@@ -10,6 +10,8 @@ on:
       - scripts/publish-github-release/**
       - scripts/release-retry/**
       - scripts/check-release/**
+      - scripts/fez-upload/**
+      - scripts/lib/**
   workflow_dispatch:
     inputs:
       mode:
@@ -62,10 +64,10 @@ jobs:
         with:
           name: release-candidate
           path: dist/
+      - name: Install declared dependencies
+        run: zef install --deps-only .
       - name: Verify the retained archive
-        run: |
-          zef install --deps-only .
-          raku scripts/check-release/check-release.raku --dist=dist "v$RELEASE_VERSION"
+        run: raku scripts/check-release/check-release.raku --dist=dist "v$RELEASE_VERSION"
       - name: Check earlier upload attempts
         id: upload
         env:
@@ -78,20 +80,7 @@ jobs:
         if: steps.upload.outputs.needed == 'true'
         env:
           FEZ_KEY: ${{ secrets.FEZ_KEY }}
-          PUBLISH_CONFIG: ${{ runner.temp }}/fez-publish.json
-        run: |
-          test -n "$FEZ_KEY" || { echo 'Set FEZ_KEY in the fez environment before publishing.' >&2; exit 1; }
-          umask 077
-          trap 'rm -f "$PUBLISH_CONFIG"' EXIT
-          raku -e '
-            use Fez::Util::Config;
-            use Fez::Util::Json;
-            my %config = env-config;
-            %config<ecosystems> = { zef => %config<host> };
-            %config<key> = %*ENV<FEZ_KEY>;
-            %*ENV<PUBLISH_CONFIG>.IO.spurt(to-j(%config));
-          '
-          FEZ_CONFIG="$PUBLISH_CONFIG" fez --unattended upload --file="dist/LibTmux-$RELEASE_VERSION.tar.gz"
+        run: raku scripts/fez-upload/fez-upload.raku "dist/LibTmux-$RELEASE_VERSION.tar.gz"
 
   registry:
     name: Verify registry installation
@@ -111,9 +100,10 @@ jobs:
       - uses: Raku/setup-raku@8602b3572876ee7a5e304837c3183cf913a78f47 # v1.15.0
         with:
           raku-version: ${{ needs.verify.outputs.compiler }}
+      - name: Install declared dependencies
+        run: zef install --deps-only .
       - name: Install and exercise the exact public distribution
         run: |
-          zef install --deps-only .
           /usr/bin/time -f 'whole command: %e s' raku scripts/check-install/check-install.raku --registry
 
   github-release:
@@ -142,10 +132,10 @@ jobs:
         with:
           name: release-candidate
           path: dist/
+      - name: Install declared dependencies
+        run: zef install --deps-only .
       - name: Verify the retained archive
-        run: |
-          zef install --deps-only .
-          raku scripts/check-release/check-release.raku --dist=dist "$RELEASE_TAG"
+        run: raku scripts/check-release/check-release.raku --dist=dist "$RELEASE_TAG"
       - name: Publish the verified archive and checksums
         env:
           GH_TOKEN: ${{ github.token }}
