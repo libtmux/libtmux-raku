@@ -56,7 +56,8 @@ sub MAIN(Str:D :$archive = '', Bool :$registry = False) {
     my $distribution = $registry
         ?? "{$metadata<name>}:ver<{$metadata<version>}>:auth<{$metadata<auth>}>"
         !! $package.Str;
-    my $installation = run 'zef', |($registry ?? ['--update'] !! []), 'install', $distribution,
+    my $installation = run 'zef', |($registry ?? ['--update'] !! []), '--/precompile-install',
+        'install', $distribution,
         "--install-to=inst#{$installed}", :env(%environment);
     die 'isolated package installation failed' unless $installation.exitcode == 0;
 
@@ -91,6 +92,28 @@ sub MAIN(Str:D :$archive = '', Bool :$registry = False) {
             && $unit.distribution.meta<auth> eq from-json(@*ARGS[2])<auth>;
     die 'installed runtime dependency inventory changed'
         unless $unit.distribution.meta<depends>.List eqv from-json(@*ARGS[1]).List;
+    my $binary = @*ARGS[3];
+    if $binary.chars {
+        die 'installed live consumer needs an absolute executable'
+            unless $binary.IO.is-absolute && $binary.IO.f && $binary.IO.x;
+        my $live = Server.start(:$binary, :name<installed-program>, :shell-command('exec cat'));
+        LEAVE $live.close if $live.defined;
+        if $live.capabilities.supports('managed-program') {
+            my $result = $live.run-program(['/usr/bin/printf', '%s', 'installed $() ; literal']);
+            die 'installed native ownership execution failed'
+                unless $result.exitcode == 0
+                    && $result.screen.decode('utf8-c8').contains('installed $() ; literal');
+            die 'installed application session survived cleanup'
+                unless $live.snapshot.sessions.elems == 1;
+        } else {
+            my $refused = False;
+            try {
+                $live.start-program(['/bin/true']);
+                CATCH { when X::LibTmux::Unsupported { $refused = .feature eq 'managed-program' } }
+            }
+            die 'installed consumer did not refuse the actual old daemon' unless $refused;
+        }
+    }
     CONSUMER
     $code ~= @loads.join("\n") ~ "\n";
     if $metadata<provides>{'LibTmux::Catalogue'}:exists {
@@ -106,6 +129,7 @@ sub MAIN(Str:D :$archive = '', Bool :$registry = False) {
     %environment<RAKULIB PERL6LIB>:delete;
     my $result = run $*EXECUTABLE.Str, "-Iinst#{$installed}", 'main.raku', "inst#{$installed}",
         to-json($metadata<depends>, :!pretty), to-json($metadata, :!pretty),
+        (%*ENV<LIBTMUX_TEST_TMUX> // ''),
         :cwd($consumer), :env(%environment);
     die 'installed consumer failed' unless $result.exitcode == 0;
     say "whole command: {(now - $started).round(0.001)} s";

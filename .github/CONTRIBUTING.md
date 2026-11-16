@@ -97,11 +97,18 @@ $ mise exec -- raku -I. -c lib/LibTmux.rakumod
 ```
 
 Install into a temporary repository and load it from a fresh process outside
-the checkout. This outer check removes its temporary installation afterward:
+the checkout. The consumer loads every provided module; installation defers
+precompilation to that repository chain. This outer check removes its temporary
+installation afterward:
 
 ```console
 $ mise exec -- raku scripts/check-install/check-install.raku
 ```
+
+With `LIBTMUX_TEST_TMUX` set, the installed consumer also starts an owned
+application outside the checkout. It checks native ownership-module loading,
+literal arguments, the rendered result and cleanup, or the older daemon's
+capability refusal.
 
 The outer live suite requires an explicit tmux binary. Set `LIBTMUX_TEST_TMUX`
 to its absolute executable path; never point a fixture at an existing socket.
