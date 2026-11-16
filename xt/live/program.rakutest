@@ -27,12 +27,20 @@ with-tmux(sub ($fixture) {
     my $capabilities = $server.capabilities;
     unless $capabilities.supports('managed-program') {
         my $before = $fixture.cmd('list-sessions', '-F', '#{session_id}');
+        my $leases = 0;
+        my $lock = Lock.new;
+        my $tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+            $lock.protect({ $leases++
+                if $event.path.IO.basename.starts-with('libtmux-program-') });
+        });
+        LEAVE $tap.close if $tap.defined;
         throws-like { $server.start-program(['/bin/true']) }, X::LibTmux::Unsupported,
             :feature<managed-program>, 'the actual floor daemon refuses before creation';
         is $fixture.cmd('list-sessions', '-F', '#{session_id}'), $before,
             'capability refusal leaves the borrowed daemon unchanged';
         is $fixture.directory.dir.grep(*.basename.starts-with('libtmux-program-')).elems, 0,
             'capability refusal creates no private ownership lease';
+        is $lock.protect({ $leases }), 0, 'admission never creates and removes a transient lease';
         return;
     }
 
