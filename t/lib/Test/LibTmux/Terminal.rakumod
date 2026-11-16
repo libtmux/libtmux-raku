@@ -21,6 +21,20 @@ constant O_RDWR = 2;
 constant O_NOCTTY = 0o400;
 constant TIOCSWINSZ = 0x5414;
 constant POLLIN = 1;
+# Entries of the poll set built in `pump`.
+constant MASTER-ENTRY = 0;
+constant WAKE-ENTRY = 1;
+
+#| The `revents` field of a poll entry: the high half of its second int32.
+sub revents(CArray[int32] $fds, Int:D $entry --> Int:D) { $fds[2 * $entry + 1] +> 16 }
+
+# The constants and the pollfd layout above are those of Linux on a
+# little-endian CPU. Refuse anywhere else rather than misread descriptors.
+BEGIN {
+    my $little-endian = buf8.new(1, 0).read-uint16(0, NativeEndian) == 1;
+    die 'Test::LibTmux::Terminal needs Linux on a little-endian CPU'
+        unless $*KERNEL.name eq 'linux' && $little-endian;
+}
 
 #| An outer-test PTY. The test owns the master descriptor, and a reader thread
 #| blocks in poll(2) until output arrives or `close` wakes it.
@@ -64,8 +78,8 @@ class Terminal is export {
                 next;
             }
             $failures = 0;
-            last if $fds[3] +> 16;
-            next unless $fds[1] +> 16;
+            last if revents($fds, WAKE-ENTRY);
+            next unless revents($fds, MASTER-ENTRY);
             my $count = pty-read($!master, $buffer, 4096);
             last if $count <= 0;
             self!received(Blob.new((^$count).map({ $buffer[$_] })));
@@ -109,7 +123,10 @@ class Terminal is export {
         $!closed = True;
         $!handle.close if $!handle.defined;
         if $!reader.defined {
-            pty-write($!wake, CArray[uint8].new(1, 0, 0, 0, 0, 0, 0, 0), 8);
+            # An eventfd takes an 8-byte counter. Without the wake the reader
+            # would block in poll forever, so a failed write must not reach `finish`.
+            die FixtureError.new(:message('could not wake the terminal reader'))
+                unless pty-write($!wake, CArray[uint8].new(1, 0, 0, 0, 0, 0, 0, 0), 8) == 8;
             $!reader.finish;
         }
         pty-close($!master) if $!master >= 0;

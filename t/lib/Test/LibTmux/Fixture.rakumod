@@ -34,9 +34,12 @@ class ExitWatch is export {
 
     method wait(Int:D :$timeout-ms = 1_000 --> Bool:D) {
         my $event = PollEvent.new(:fd($!pidfd));
-        # A signal can interrupt poll; the wait restarts.
+        my $deadline = now + $timeout-ms / 1000;
+        # A signal can interrupt poll; the wait resumes with what is left of
+        # the one deadline, so retries never extend it.
         for ^3 {
-            my $ready = poll($event, 1, $timeout-ms);
+            my $remaining = (($deadline - now) * 1000).ceiling max 0;
+            my $ready = poll($event, 1, $remaining);
             return so $ready == 1 && $event.revents +& 1 if $ready >= 0;
         }
         False
