@@ -1,7 +1,8 @@
 # Contributing
 
-Read [AGENTS.md](../AGENTS.md) for change discipline and
-[WRITING.md](WRITING.md) for prose and commit conventions.
+Read [AGENTS.md](../AGENTS.md) for change discipline,
+[WRITING.md](WRITING.md) for prose and commit conventions, and
+[SCRIPTS.md](SCRIPTS.md) for the support scripts.
 
 ## Toolchain
 
@@ -132,6 +133,22 @@ NativeCall and blocks in `poll`. Stand-ins for the tmux binary are Raku scripts
 that `Test::LibTmux::Wrapper` writes and that replace themselves with the real
 binary, and the daemon-exit waits use pidfds.
 
+A wrapper start is one `raku` launch that loads the fixture modules. The
+stand-in is a file that `write-wrapper` writes and that runs `exec-program` on
+`/bin/true`. This command timed it on a host at a load average near 5, with
+the precompiled modules warm:
+
+```console
+$ hyperfine -N --warmup 3 --runs 20 ./wrapper
+```
+
+The mean was 0.22 s. One launch with a fresh precompile store took 0.85 s, from
+`time ./wrapper` with `RAKUDO_PRECOMP_DIR` pointing at an empty directory. The
+15 s ceiling in `client.rakutest` and the 30 s ceilings in `server.rakutest`
+and `control-no-start.rakutest` are about 18 and 35 times that cold start, so a
+loaded host passes and a hung wrapper still fails. A ceiling adds no wait to a
+passing run. These figures are from the local host, not from a CI runner.
+
 Check that the README and native guide quote complete canonical example files.
 This check requires no tmux process:
 
@@ -182,6 +199,25 @@ out of inner and mid loops. Tag slow checks with a reason and run them in
 the outer loop. Investigate excessive setup before adding tests. Investigate waits
 over one second; prefer events and subscriptions. Benchmarks are separate:
 less than ten minutes per run and one hour per sweep.
+
+## Script tests
+
+Each script under `scripts/<name>/` has a `README.md` and `tests/`. Run every
+script test with the runner CI uses:
+
+```console
+$ mise exec -- prove6 --jobs=2 -I. scripts
+```
+
+Run one script's test by name. `catalogue`, `ci-matrix` and `export-docs` need
+`-I.`; `check-source` does not:
+
+```console
+$ mise exec -- raku scripts/check-source/tests/check-source.rakutest
+```
+
+The script tests start no tmux and need no network.
+[SCRIPTS.md](SCRIPTS.md) lists the checks CI runs on the scripts themselves.
 
 ## Raku conventions
 

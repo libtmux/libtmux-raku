@@ -70,8 +70,8 @@ or verify that they remain aligned.
 - Start and clean up the example's own tmux server through the library, never
   through `tmux` or `rm` in the shell.
 - Show only examples that come from a file CI runs. Mark each with
-  `<!-- runs: examples/NAME.raku -->`; `scripts/check-examples/check-examples.raku` compares the
-  bytes.
+  `<!-- runs: examples/NAME.raku -->`;
+  `scripts/check-examples/check-examples.raku` compares the bytes.
 - Show the features the library has, each under an API-linked heading with a
   checked example: queries and filters, the query planner, batches and control
   mode.

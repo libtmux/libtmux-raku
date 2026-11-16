@@ -28,7 +28,8 @@ conventions and keep changes scoped to the active implementation goal.
 - Documentation, comments, and commit messages:
   [.github/WRITING.md](.github/WRITING.md).
 - Support scripts: what may stay, their language, layout and checks:
-  [.github/SCRIPTS.md](.github/SCRIPTS.md).
+  [.github/SCRIPTS.md](.github/SCRIPTS.md). Their tests live in
+  `scripts/<name>/tests/`; run them all with `prove6 --jobs=2 -I. scripts`.
 
 Each guide is the single home for its subject. Keep both guides under
 `.github/`. `CLAUDE.md` is a relative symlink to this file.
