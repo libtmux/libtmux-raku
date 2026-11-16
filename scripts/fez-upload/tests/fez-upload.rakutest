@@ -1,0 +1,77 @@
+use v6.d;
+use lib $?FILE.IO.parent(3).add('lib');
+use Test;
+use JSON::Fast;
+use Scripts::Filesystem;
+
+my $script = $?FILE.IO.parent.parent.add('fez-upload.raku');
+my $directory = private-directory('libtmux-fez-upload');
+LEAVE remove-tree($directory) if $directory.defined && $directory.e;
+my $record = $directory.add('record');
+
+# Stand-ins for the two Fez modules the script loads and for `fez` itself. The
+# stand-in `fez` records its arguments, the config it was given and the mode
+# of the directory that holds it, and exits with $FEZ_STATUS.
+$directory.add('lib/Fez/Util').mkdir;
+$directory.add('lib/Fez/Util/Config.rakumod').spurt(q:to/RAKU/);
+use v6.d;
+unit module Fez::Util::Config;
+sub env-config(--> Hash:D) is export { %(host => 'https://registry.example.invalid', other => 'kept') }
+RAKU
+$directory.add('lib/Fez/Util/Json.rakumod').spurt(q:to/RAKU/);
+use v6.d;
+use JSON::Fast;
+unit module Fez::Util::Json;
+sub to-j($value --> Str:D) is export { to-json($value) }
+RAKU
+my $fez = $directory.add('bin/fez');
+$fez.parent.mkdir;
+$fez.spurt(q:to/RAKU/);
+#!/usr/bin/env raku
+use JSON::Fast;
+my $config = %*ENV<FEZ_CONFIG>.IO;
+%*ENV<FEZ_RECORD>.IO.spurt(to-json(%(
+    arguments => @*ARGS.List,
+    config => $config.slurp,
+    path => $config.Str,
+    directory-mode => $config.parent.mode.Int +& 0o777,
+)));
+exit %*ENV<FEZ_STATUS>.Int;
+RAKU
+$fez.chmod(0o700);
+
+sub upload(Str:D :$key = 'secret-key', Str:D :$status = '0') {
+    $record.unlink if $record.e;
+    my %environment = %*ENV;
+    %environment<PATH> = $fez.parent.Str ~ ':' ~ %environment<PATH>;
+    %environment<FEZ_RECORD> = $record.Str;
+    %environment<FEZ_STATUS> = $status;
+    %environment<FEZ_KEY> = $key;
+    my $process = run $*EXECUTABLE.Str, "-I{$directory.add('lib')}", $script.Str,
+        'dist/LibTmux-0.0.1.tar.gz', :env(%environment), :out, :err;
+    ($process.exitcode, $process.out.slurp(:close) ~ $process.err.slurp(:close))
+}
+
+my ($exit, $output) = upload();
+is $exit, 0, 'an accepted upload succeeds';
+my %seen = from-json($record.slurp);
+is-deeply %seen<arguments>, ['--unattended', 'upload', '--file=dist/LibTmux-0.0.1.tar.gz'],
+    'fez uploads the named archive without prompting';
+my %config = from-json(%seen<config>);
+is %config<key>, 'secret-key', 'the config holds the key';
+is %config<ecosystems><zef>, 'https://registry.example.invalid', 'the config points the zef ecosystem at the host';
+is %config<other>, 'kept', 'the rest of the Fez environment config is kept';
+is %seen<directory-mode>, 0o700, 'the config sits in a directory only its owner can enter';
+nok %seen<path>.IO.e, 'the config is removed after the upload';
+nok $output.contains('secret-key'), 'the key is not printed';
+
+($exit, $output) = upload(:status<3>);
+is $exit, 3, 'a failed upload exits with the status of fez';
+nok from-json($record.slurp)<path>.IO.e, 'the config is removed after a failed upload';
+
+($exit, $output) = upload(:key(''));
+isnt $exit, 0, 'a missing key is refused';
+like $output, /'Set FEZ_KEY in the fez environment'/, 'the refusal says what to set';
+nok $record.e, 'fez does not run without a key';
+
+done-testing;
