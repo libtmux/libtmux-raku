@@ -4,6 +4,7 @@ unit module LibTmux;
 
 need LibTmux::Exceptions;
 need LibTmux::Server;
+need LibTmux::Program;
 need LibTmux::Control::Connection;
 need LibTmux::Attachment;
 need LibTmux::Model;
@@ -18,6 +19,8 @@ need LibTmux::Capabilities;
 need LibTmux::Types;
 
 my constant Server is export = LibTmux::Server;
+my constant Program is export = LibTmux::Program;
+my constant ProgramResult is export = LibTmux::Program::Completion;
 my constant ControlConnection is export = LibTmux::Control::Connection;
 my constant Attachment is export = LibTmux::Attachment;
 my constant Snapshot is export = LibTmux::Model::Snapshot;

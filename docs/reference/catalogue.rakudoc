@@ -1444,6 +1444,36 @@ Source: L<https://github.com/tmux/tmux/blob/81f88f8517c9fc5371b56cf117530c6b477c
 
 =head2 Features and required handling
 
+=item C<event-wait>
+
+feature; refuse; since 3.8. Event waits use the released 3.8 wait-for -E registration and event filters.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/cmd-wait-for.c#L228>
+
+=item C<event-wait-claim>
+
+feature; refuse; since 3.8. Event-mode wait-for -w fails when its named pending waiter is absent.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/cmd-wait-for.c#L309>
+
+=item C<managed-program>
+
+feature; refuse; since 3.8. Owned programs require the released 3.8 event waiters and retained pane exit status.
+
+
+
+
+
+Source: L<https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/cmd-wait-for.c>
+
 =item C<managed-commands>
 
 feature; refuse; since 3.3a. Managed commands require an exact declared daemon release profile.

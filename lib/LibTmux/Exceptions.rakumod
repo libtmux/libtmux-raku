@@ -99,6 +99,16 @@ class GLOBAL::X::LibTmux::Unsupported is X::LibTmux {
 #| A target belongs to a daemon incarnation which is no longer current.
 class GLOBAL::X::LibTmux::StaleReference is X::LibTmux { }
 
+#| Preserve application/setup failure and cleanup failure with the recoverable owner.
+class GLOBAL::X::LibTmux::Program is X::LibTmux {
+    #| Original failure before cleanup, when present.
+    has Exception $.primary;
+    #| Failure establishing cleanup completion.
+    has Exception $.cleanup;
+    #| Program whose cleanup can be inspected or retried by the caller.
+    has Mu $.owner;
+}
+
 #| Contextual rows disagree about one physical entity in a capture interval.
 class GLOBAL::X::LibTmux::InconsistentSnapshot is X::LibTmux {
     #| Entity schema associated with this failure.

@@ -1,0 +1,53 @@
+use v6.d;
+use Test;
+use LibTmux;
+
+subtest 'completion values own bytes and keep exit variants distinct' => {
+    my $bytes = Buf.new(65, 66);
+    my $result = ProgramResult.new(:exitcode(0), :screen($bytes));
+    $bytes[0] = 90;
+    is-deeply $result.screen, Blob.new(65, 66), 'a caller cannot mutate retained result bytes';
+    my $copy = $result.clone(:screen($bytes));
+    $bytes[1] = 90;
+    is-deeply $copy.screen, Blob.new(90, 66), 'replacement bytes are copied during clone too';
+    throws-like { ProgramResult.new(:exitcode(0), :signal('15'), :screen(Blob.new)) },
+        X::LibTmux::Command, :kind<argument>, 'a normal status and signal cannot coexist';
+};
+
+
+subtest 'program support belongs to the observed daemon profile' => {
+    my $current = Capabilities.new(:daemon-version<3.8>, :client-version<3.3a>);
+    for <managed-program event-wait event-wait-claim> -> $feature {
+        ok $current.supports($feature), 'the connected released daemon offers ' ~ $feature;
+        ok $current.features.first(*.id eq $feature).source.chars,
+            'applications can discover its pinned capability evidence';
+    }
+    for <3.3a 3.7 3.8a 3.8-rc next-3.9> -> $version {
+        throws-like {
+            Capabilities.new(:daemon-version($version), :client-version<3.8>)
+                .require('managed-program')
+        }, X::LibTmux::Unsupported, :feature<managed-program>,
+            'the client cannot upgrade an older or unknown daemon profile';
+    }
+};
+
+subtest 'invalid program input fails before daemon observation' => {
+    my $server = Server.new(:binary('/nonexistent/libtmux-no-io'),
+        :socket-path('/nonexistent/libtmux-no-io.sock'));
+    LEAVE $server.close;
+    for [], [''], ["command\0"], ['echo', "argument\0"] -> @argv {
+        my $pending = $server.start-program-async(@argv);
+        isa-ok $pending, Promise, 'invalid input still returns one Promise';
+        throws-like { await $pending }, X::LibTmux::Command,
+            :kind<argument>, :outcome(NotStarted),
+            'argv validation precedes the nonexistent executable';
+    }
+    my $cancel = Cancellation.new;
+    $cancel.cancel;
+    throws-like {
+        await $server.start-program-async(['/bin/cat'], :$cancel)
+    }, X::LibTmux::Command, :kind<cancelled>, :outcome(NotStarted),
+        'pre-cancelled setup accepts no application work';
+};
+
+done-testing;

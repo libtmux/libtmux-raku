@@ -1,0 +1,153 @@
+use v6.d;
+use Test;
+use LibTmux;
+use Test::LibTmux::Fixture;
+
+# Outer: external mutations and daemon replacement exercise native authority.
+my $binary = %*ENV<LIBTMUX_TEST_TMUX> // die 'LIBTMUX_TEST_TMUX is required';
+
+sub source(@argv --> Str:D) { Invocation.new(:argv(@argv.List)).source }
+
+sub during-exit($fixture, Str:D $pane, &operation --> Nil) {
+    my $process = Proc::Async.new(:w, $binary, '-S', $fixture.socket-path.Str,
+        'wait-for', '-E', '-F', '#{==:#{pane},' ~ $pane ~ '}', 'pane-died');
+    my @taps = ($process.stdout(:bin).tap(-> $chunk {}),
+        $process.stderr(:bin).tap(-> $chunk {}));
+    LEAVE .close for @taps;
+    my $done = $process.start;
+    $process.close-stdin;
+    LEAVE {
+        try $process.kill(9) if $done.defined && $done.status == Planned;
+        my $reaped = try await $done if $done.defined;
+        Nil;
+    }
+    my $pid = await $process.pid;
+    my $deadline = now + 1;
+    loop {
+        last if $fixture.cmd('wait-for', '-E', '-l', 'pane-died').lines
+            .first(* eq "client-$pid").defined;
+        die 'Native exit observation was not registered'
+            if now >= $deadline || $done.status != Planned;
+    }
+    operation();
+    await Promise.anyof($done, Promise.in(1));
+    die 'Replacement did not reach native pane exit' if $done.status == Planned;
+    die 'Native exit observer failed' if (await $done).exitcode;
+}
+
+with-tmux(-> $fixture {
+    temp $*TMPDIR = $fixture.directory;
+    my $server = Server.new(:$binary, :socket-path($fixture.socket-path.Str));
+    LEAVE $server.close;
+    unless $server.capabilities.supports('managed-program') {
+        throws-like { $server.start-program(['/bin/true']) }, X::LibTmux::Unsupported,
+            :feature<managed-program>, 'unsupported profiles refuse before program effects';
+        return;
+    }
+
+    subtest 'renaming the new session preserves native ownership' => {
+        $fixture.cmd('set-hook', '-g', 'after-new-session',
+            source(['rename-session', 'externally-renamed']));
+        LEAVE $fixture.cmd('set-hook', '-gu', 'after-new-session');
+        my $result = $server.run-program(['/usr/bin/printf', 'rename-survived']);
+        is $result.exitcode, 0, 'a mutable session name is not ownership authority';
+        ok $result.screen.decode('utf8-c8').contains('rename-survived'),
+            'the accepted application still runs after the rename';
+    };
+
+    subtest 'rename and respawn before acquisition cannot transfer ownership' => {
+        $fixture.cmd('set-hook', '-g', 'after-new-session',
+            source(['rename-session', 'external-replacement']) ~ ' ; '
+                ~ source(['respawn-pane', '-k', '--', '/bin/sleep', '30']));
+        LEAVE $fixture.cmd('set-hook', '-gu', 'after-new-session');
+        LEAVE try $fixture.cmd('kill-session', '-t', '=external-replacement');
+        throws-like { $server.start-program(['/bin/true']) }, X::LibTmux::Command,
+            :kind<owner>, 'the precreation generation claim refuses the replay';
+        my $pid = $fixture.cmd('display-message', '-p', '-t', '=external-replacement:',
+            '#{pane_pid}').trim.Int;
+        my $watch = ExitWatch.new(:$pid);
+        LEAVE $watch.close;
+        nok $watch.wait(:timeout-ms(0)), 'failed admission did not signal the replacement';
+        is $fixture.cmd('wait-for', '-E', '-l', 'pane-created'), '',
+            'failed setup retired its generation observers';
+    };
+
+    subtest 'a dead external replacement remains outside cleanup authority' => {
+        my $program = $server.start-program(['/bin/cat']);
+        LEAVE $program.close;
+        my $pane = $program.pane.id;
+        LEAVE try $fixture.cmd('kill-pane', '-t', $pane);
+        during-exit($fixture, $pane, {
+            $fixture.cmd('respawn-pane', '-k', '-t', $pane, '--', '/bin/true');
+        });
+        is $fixture.cmd('display-message', '-p', '-t', $pane, '#{pane_dead}').trim, '1',
+            'the replacement is retained and dead before a successor can be registered';
+        throws-like { $program.send-text('forbidden') }, X::LibTmux::StaleReference,
+            'input refuses the old generation';
+        throws-like { $program.send-text('retry') }, X::LibTmux::StaleReference,
+            'a retry cannot adopt the replacement';
+        $program.close;
+        nok $program.pane-removed, 'cleanup discloses replacement preservation';
+        is $fixture.cmd('display-message', '-p', '-t', $pane, '#{pane_id}').trim, $pane,
+            'cleanup did not transfer authority to a newly registered waiter';
+    };
+
+    subtest 'a marker hook cannot deliver input to its respawn replacement' => {
+        my $record = $fixture.directory.add('replacement-input');
+        LEAVE $record.unlink if $record.e;
+        my $program = $server.start-program(['/bin/cat']);
+        LEAVE $program.close;
+        my $pane = $program.pane.id;
+        LEAVE try $fixture.cmd('kill-pane', '-t', $pane);
+        my $replacement = q[IFS= read -r value; printf '%s' "$value" > "$1"; sleep 30];
+        $fixture.cmd('set-hook', '-g', 'after-set-option',
+            source(['set-hook', '-gu', 'after-set-option']) ~ ' ; '
+                ~ source(['respawn-pane', '-k', '-t', $pane, '--',
+                    '/bin/sh', '-c', $replacement, 'external-replacement', $record.Str]));
+        LEAVE try $fixture.cmd('set-hook', '-gu', 'after-set-option');
+        throws-like { $program.send-text("FORBIDDEN\n") }, X::LibTmux::StaleReference,
+            'the hook barrier refuses input after the marker mutation';
+        $program.close;
+        nok $program.pane-removed, 'cleanup leaves the hook-created replacement intact';
+        my $written = Promise.new;
+        my $vow = $written.vow;
+        my $lock = Lock.new;
+        my $tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+            $lock.protect({ $vow.keep(True) if $written.status == Planned && $record.e
+                && $event.path.IO.basename eq $record.basename });
+        });
+        LEAVE $tap.close;
+        $fixture.cmd('send-keys', '-H', '-t', $pane, '0a');
+        await Promise.anyof($written, Promise.in(1));
+        is $written.status, Kept, 'the replacement consumed the controlled input';
+        is $record.slurp, '', 'the replacement received none of the forbidden input';
+    };
+
+    subtest 'a restarted daemon cannot reuse a Program identity' => {
+        my $program = $server.start-program(['/bin/cat']);
+        LEAVE $program.close;
+        my $old-pane = $program.pane.id;
+        my $old-daemon = ExitWatch.new(:pid($fixture.pid));
+        LEAVE $old-daemon.close;
+        $fixture.cmd('kill-server');
+        ok $old-daemon.wait, 'the original daemon exited before endpoint reuse';
+        $fixture.cmd('new-session', '-d', '-s', 'new-daemon', '--', '/bin/cat');
+        my $replacement;
+        for ^$old-pane.substr(1).Int -> $index {
+            $replacement = $fixture.cmd('new-session', '-d', '-P', '-F', '#{pane_id}',
+                '-s', "reused-pane-$index", '--', '/bin/cat').trim;
+        }
+        my $new-pid = $fixture.cmd('display-message', '-p', '#{pid}').trim.Int;
+        my $new-daemon = ExitWatch.new(:pid($new-pid));
+        LEAVE $new-daemon.close;
+        is $replacement, $old-pane, 'the replacement daemon reused the numeric pane ID';
+        throws-like { $program.send-text('forbidden') }, X::LibTmux::StaleReference,
+            'input checks the original incarnation';
+        $program.close;
+        is $fixture.cmd('display-message', '-p', '-t', $replacement, '#{pane_id}').trim,
+            $replacement, 'stale cleanup preserves the new daemon and reused pane';
+        $fixture.cmd('kill-server');
+        ok $new-daemon.wait, 'the test also joined its replacement daemon';
+    };
+});
+done-testing;
