@@ -2,7 +2,32 @@ use v6.d;
 use Test;
 use LibTmux::Types;
 use LibTmux::Exceptions;
-use LibTmux::Transport;
+use LibTmux::Transport :DEFAULT, :internals;
+
+subtest 'cancellation subscriptions can retire without cancelling the token' => {
+    my $token = Cancellation.new;
+    my $calls = 0;
+    my &unsubscribe = subscribe-cancellation($token, { $calls++ });
+    unsubscribe();
+    $token.cancel;
+    is $calls, 0, 'completed waits can remove their cancellation callback';
+    my &late = subscribe-cancellation($token, { $calls++ });
+    late();
+    $token.cancel;
+    is $calls, 1, 'late observation runs once and repeated cancellation stays idempotent';
+};
+
+subtest 'setup admission commits against the same cancellation state' => {
+    my $token = Cancellation.new;
+    my $effects = 0;
+    is commit-cancellation($token, { ++$effects; 42 }, X::AdHoc.new(payload => 'cancelled')),
+        42, 'a committed bounded action returns its value';
+    $token.cancel;
+    throws-like {
+        commit-cancellation($token, { ++$effects }, X::AdHoc.new(payload => 'cancelled'))
+    }, X::AdHoc, 'cancellation refuses a later action';
+    is $effects, 1, 'refused admission has no action side effect';
+};
 
 subtest 'malformed argv is refused before process admission' => {
     my $executor = Executor.new;

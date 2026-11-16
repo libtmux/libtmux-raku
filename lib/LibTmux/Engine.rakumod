@@ -134,7 +134,8 @@ class Observation is export {
     }
 }
 
-sub process-evidence(Int:D $pid --> Map:D) {
+# The watchdog reuses the same Linux identity evidence before retaining a pidfd.
+sub process-evidence(Int:D $pid --> Map:D) is export(:internals) {
     my %evidence;
     my $failure;
     try {
@@ -329,6 +330,14 @@ class Runtime does Acquirer does CommandExecutor is export {
         LibTmux::Capabilities.new(:daemon-version($incarnation.daemon-version),
             :incarnation($incarnation.key)).require('managed-commands');
         self!guard($command, $incarnation, 'libtmux-stale-' ~ ('0' x 32) ~ '=');
+    }
+
+    # The application watchdog executes this already-qualified argv; it owns no
+    # tmux targeting, quoting or protocol decisions of its own.
+    method prepare-owned-command(Invocation:D $command, Incarnation:D :$incarnation! --> List:D) {
+        self.validate-command($command, :$incarnation);
+        (|$!endpoint.argv, |self!guard($command, $incarnation,
+            'libtmux-stale-' ~ nonce() ~ '=').as-argv).List
     }
 
     #| Dispatch inside a PID/start-time fence after checking Linux process identity.

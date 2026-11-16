@@ -2000,6 +2000,36 @@
   ],
   "capabilities": [
     {
+      "id": "event-wait",
+      "name": "Native event waiters",
+      "handling": "refuse",
+      "reason": "Event waits use the released 3.8 wait-for -E registration and event filters.",
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/cmd-wait-for.c#L228",
+      "commands": [],
+      "since": "3.8",
+      "kind": "feature"
+    },
+    {
+      "id": "event-wait-claim",
+      "name": "Pending event waiter claim",
+      "handling": "refuse",
+      "reason": "Event-mode wait-for -w fails when its named pending waiter is absent.",
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/cmd-wait-for.c#L309",
+      "commands": [],
+      "since": "3.8",
+      "kind": "feature"
+    },
+    {
+      "id": "managed-program",
+      "name": "Owned PTY program",
+      "handling": "refuse",
+      "reason": "Owned programs require the released 3.8 event waiters and retained pane exit status.",
+      "source": "https://github.com/tmux/tmux/blob/7f2a35ad3321f9ba57a1062ca73b1f3ff26aca53/cmd-wait-for.c",
+      "commands": [],
+      "since": "3.8",
+      "kind": "feature"
+    },
+    {
       "id": "managed-commands",
       "name": "Qualified managed commands",
       "handling": "refuse",

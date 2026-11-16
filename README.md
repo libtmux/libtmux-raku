@@ -84,6 +84,46 @@ $ raku -I. examples/quickstart.raku
 
 More: the [native API guide][repo-lib-libtmux-rakumod].
 
+## Run an application and read its result
+
+### [`Server.run-program`][api-server-run-program]: own a PTY application through cleanup
+
+Pass an argument vector and read the exit code and final rendered screen.
+[`Server.start-program`][api-server-start-program] returns a running handle for
+input, observation and explicit cleanup. Check the connected daemon's
+capabilities before starting either operation.
+
+<!-- runs: examples/program-command.raku -->
+
+```raku
+use v6.d;
+use LibTmux;
+
+sub MAIN(Str:D :$tmux = 'tmux') {
+    my $server = Server.start(:binary($tmux), :name<programs>, :shell-command('exec cat'));
+    LEAVE $server.close if $server.defined;
+    unless $server.capabilities.supports('managed-program') {
+        say 'Managed programs require a qualified tmux 3.8 daemon';
+        return;
+    }
+
+    my $result = $server.run-program(['/usr/bin/printf', '%s\n', 'hello $() ; literal']);
+    say 'Exit: ' ~ $result.exitcode;
+    say 'Screen: ' ~ $result.screen.decode('utf8-c8').lines.first(*.chars);
+}
+```
+
+It prints `Exit: 0` and `Screen: hello $() ; literal`. An older daemon prints
+the capability refusal instead.
+
+- A Program wait can be cancelled while the application stays owned. Cancelling
+  an owning run waits for termination and cleanup.
+- Output is a bounded rendered PTY screen with loss metadata. A signal has its
+  own result field; stdout and stderr share the terminal.
+
+More: the [application examples][repo-examples-readme-md] cover input and
+deadlines; the [Program contract][api-program] covers limits and recovery.
+
 ## Resize and remove panes
 
 ### [`PaneRef.resize`][api-pane-resize] and [`PaneRef.kill`][api-pane-kill]: size and remove panes
@@ -434,6 +474,7 @@ Headings above link to the native declarations and their RakuDoc comments.
 [api-pane-send-keys]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L248
 [api-pane-send-text]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L244
 [api-pane-split]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L279
+[api-program]: https://github.com/libtmux/libtmux-raku/blob/f81c3627dbf4009714f777e4bdd9e282a3ea16f6/lib/LibTmux/Program.rakumod
 [api-server-close]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L685
 [api-server-explain-panes]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L432
 [api-server-hooks]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L565
@@ -445,7 +486,9 @@ Headings above link to the native declarations and their RakuDoc comments.
 [api-server-options]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L551
 [api-server-query-panes]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L430
 [api-server-run-batch]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L608
+[api-server-run-program]: https://github.com/libtmux/libtmux-raku/blob/14193060595d3cb1e6622629d604af45841a620a/lib/LibTmux/Server.rakumod#L417
 [api-server-start]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L622
+[api-server-start-program]: https://github.com/libtmux/libtmux-raku/blob/14193060595d3cb1e6622629d604af45841a620a/lib/LibTmux/Server.rakumod#L394
 [api-session-kill]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L169
 [api-session-new-window]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L135
 [api-snapshot-capabilities]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L662

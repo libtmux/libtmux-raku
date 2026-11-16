@@ -12,6 +12,7 @@ use LibTmux::Engine;
 use LibTmux::Transport;
 use LibTmux::Model;
 use LibTmux::Operations;
+use LibTmux::Program :internals;
 use LibTmux::Query::Plan :DEFAULT, :internal;
 use LibTmux::Query::Execution;
 need LibTmux::Configuration;
@@ -275,6 +276,7 @@ has Bool $!closing = False;
 has Promise $!closed .= new;
 has $!closed-vow;
 has %!work;
+has %!programs;
 has Int $!next = 0;
 
 submethod BUILD(:$!endpoint!, :$runtime!, :$owner = OwnedDaemon,
@@ -386,6 +388,55 @@ method capabilities(Cancellation :$cancel = Cancellation --> LibTmux::Capabiliti
 #| Resolve to one fresh immutable daemon capability observation.
 method capabilities-async(Cancellation :$cancel = Cancellation --> Promise:D) is single-operation('async') {
     self!operation(-> $deadline { self!observation($deadline, :$cancel).capabilities })
+}
+
+#| Start literal argv in an owned retained PTY session on this daemon.
+method start-program(Mu $argv, *%options --> LibTmux::Program:D) is single-operation {
+    await self.start-program-async($argv, |%options)
+}
+#| Validate and copy settings before asynchronous capability and ownership admission.
+method start-program-async(Mu $argv, Mu :$directory = $*CWD.Str,
+    Mu :$environment = Map.new, Mu :$width = 80, Mu :$height = 24,
+    Mu :$history-limit = 2000, Mu :$max-output-bytes = 1024 * 1024,
+    Mu :$max-pending = 32, Mu :$setup-timeout-ms = 5000,
+    Mu :$cancel = Cancellation --> Promise:D) is single-operation('async') {
+    my $spec = prepare-program($argv, :$directory, :$environment, :$width, :$height,
+        :$history-limit, :$max-output-bytes, :$max-pending, :$setup-timeout-ms, :$cancel);
+    self!operation(-> $deadline {
+        my $observation = self!observation($deadline, :cancel($spec<cancel>));
+        my $program = open-program($!runtime, $observation, $spec);
+        my $id = $program.WHICH.Str;
+        $!lock.protect({ %!programs{$id} = $program });
+        $program.closed.then(-> $completed {
+            $!lock.protect({ %!programs{$id}:delete }) if $completed.status == Kept;
+        });
+        $program
+    })
+}
+#| Run literal argv, retain its final screen/status and close the owned process group.
+method run-program(Mu $argv, *%options --> LibTmux::Program::Completion:D) is single-operation {
+    await self.run-program-async($argv, |%options)
+}
+#| Cancellation or a run deadline terminates this run; a Program wait does not.
+method run-program-async(Mu $argv, :$timeout-ms = Positive,
+                         Cancellation :$cancel = Cancellation, *%options --> Promise:D)
+    is single-operation('async') {
+    invalid('Invalid program run timeout')
+        unless $timeout-ms === Positive || $timeout-ms ~~ Positive:D;
+    my $pending = self.start-program-async($argv, :$cancel, |%options);
+    start {
+        my $program = await $pending;
+        my $result; my Exception $primary; my Exception $cleanup;
+        try { $result = await $program.wait-async(:$timeout-ms, :$cancel);
+            CATCH { default { $primary = $_ } } }
+        try { $program.close; CATCH { default { $cleanup = $_ } } }
+        if $cleanup.defined {
+            X::LibTmux::Program.new(:$primary, :$cleanup, :owner($program),
+                :message('Program run cleanup failed; ownership is retained')).throw;
+        }
+        $primary.throw if $primary.defined;
+        $result
+    }
 }
 
 #| Observe capabilities and explain an explicit source query without executing its listing.
@@ -694,6 +745,10 @@ method close-async(--> Promise:D) {
             my $failure;
             try { $!runtime.close; CATCH { default { $failure = $_ } } }
             await Promise.allof(@active);
+            my @programs = $!lock.protect({ %!programs.values.List });
+            for @programs -> $program {
+                try { $program.close; CATCH { default { $failure //= $_ } } }
+            }
             try { $!owner.stop if $!owner.defined; CATCH { default { $failure //= $_ } } }
             $failure.defined ?? $!closed-vow.break($failure) !! $!closed-vow.keep(True);
         };
@@ -742,6 +797,15 @@ daemon and returns a SessionRef built from the ID tmux reports. Names are
 literal text: controls, backslash, dot and colon are refused before creation.
 
 =item Create a session: C<new-session>
+
+B<Owning a terminal application.> C<start-program> returns a running Program
+with a real PTY, literal input, rendered capture and retained exit information.
+C<run-program> waits for completion and closes that owner. A cancelled Program
+wait leaves the application alive; a cancelled owning run closes it. Require
+C<managed-program> from this Server's capabilities before selecting this path.
+
+=item Start an application: C<start-program>, C<start-program-async>
+=item Run and clean up an application: C<run-program>, C<run-program-async>
 
 B<Commands and batches.> C<command> runs one explicit tmux command, given as
 an Invocation, in the observed daemon. It adds no target and interprets no

@@ -51,6 +51,22 @@ class Cancellation is export {
     method !unsubscribe(Int:D $id --> Nil) {
         $!lock.protect({ %!observers{$id}:delete });
     }
+    method !commit(&body, Exception:D $error) {
+        $!lock.protect({
+            $error.throw if $!cancelled;
+            body()
+        })
+    }
+
+    sub subscribe-cancellation(Cancellation:D $token, &observer --> Callable:D)
+        is export(:internals) {
+        my $id = $token!subscribe(&observer);
+        -> { $token!unsubscribe($id) }
+    }
+    sub commit-cancellation(Cancellation:D $token, &body, Exception:D $error)
+        is export(:internals) {
+        $token!commit(&body, $error)
+    }
 }
 
 #| Internal retained-output accounting shared by command executor adapters.

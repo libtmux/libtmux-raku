@@ -101,6 +101,18 @@ subtest 'unqualified versions remain unknown and observations are immutable' => 
         'a copied observation recomputes its version evidence';
 };
 
+subtest 'managed application primitives require the released daemon profile' => {
+    for ['3.3a', NotSupported], ['3.7a', NotSupported], ['3.8', Supported],
+        ['3.8a', Unknown], ['3.8-rc', Unknown], ['3.9', Unknown] -> @case {
+        my $cap = LibTmux::Capabilities.new(:daemon-version(@case[0]), :client-version<3.8>);
+        for <managed-program event-wait event-wait-claim> -> $feature {
+            is $cap.status($feature).state, @case[1], "{@case[0]} $feature release boundary";
+            is $cap.features.first(*.id eq $feature).state, @case[1],
+                'discovery reports the same daemon-bound support';
+        }
+    }
+};
+
 subtest 'literal name separators follow domain and daemon capability' => {
     for ['3.3a', False, True], ['3.7', False, False],
         ['3.7a', True, True], ['3.8', True, True] -> @case {

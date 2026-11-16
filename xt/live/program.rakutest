@@ -1,0 +1,198 @@
+use v6.d;
+use Test;
+use LibTmux;
+use Test::LibTmux::Fixture;
+
+# Outer: owned PTYs, native exit draining and process-group teardown require tmux.
+my $binary = %*ENV<LIBTMUX_TEST_TMUX> // die 'LIBTMUX_TEST_TMUX is required';
+CATCH {
+    when X::LibTmux::Program {
+        note 'Primary: ' ~ .primary.gist if .primary.defined;
+        note 'Cleanup: ' ~ .cleanup.gist if .cleanup.defined;
+        note 'Cleanup cause: ' ~ .cleanup.cause.gist
+            if .cleanup ~~ X::LibTmux::Command && .cleanup.cause.defined;
+        .rethrow;
+    }
+}
+with-tmux(sub ($fixture) {
+    temp $*TMPDIR = $fixture.directory;
+    my $server = Server.new(:binary(%*ENV<LIBTMUX_TEST_CLIENT> // $binary),
+        :socket-path($fixture.socket-path.Str));
+    LEAVE {
+        try {
+            $server.close if $server.defined;
+            CATCH { default { note 'Facade cleanup: ' ~ .gist } }
+        }
+    }
+    my $capabilities = $server.capabilities;
+    unless $capabilities.supports('managed-program') {
+        my $before = $fixture.cmd('list-sessions', '-F', '#{session_id}');
+        my $leases = 0;
+        my $lock = Lock.new;
+        my $tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+            $lock.protect({ $leases++
+                if $event.path.IO.basename.starts-with('libtmux-program-') });
+        });
+        LEAVE $tap.close if $tap.defined;
+        throws-like { $server.start-program(['/bin/true']) }, X::LibTmux::Unsupported,
+            :feature<managed-program>, 'the actual floor daemon refuses before creation';
+        is $fixture.cmd('list-sessions', '-F', '#{session_id}'), $before,
+            'capability refusal leaves the borrowed daemon unchanged';
+        is $fixture.directory.dir.grep(*.basename.starts-with('libtmux-program-')).elems, 0,
+            'capability refusal creates no private ownership lease';
+        is $lock.protect({ $leases }), 0, 'admission never creates and removes a transient lease';
+        return;
+    }
+
+    subtest 'literal argv, native terminal settings and precise completion' => {
+        my $empty = $server.run-program(['/bin/true']);
+        is $empty.exitcode, 0, 'a lone executable is argv, not shell source';
+        nok $empty.signal.defined, 'normal completion has no signal';
+        my $literal = 'cash$() ; quote" slash\\ #{pid}';
+        my $result = $server.run-program(['/usr/bin/printf', '<%s>\n', '', $literal]);
+        is $result.exitcode, 0, 'the direct application supplied its exit status';
+        ok $result.screen.decode('utf8-c8').contains("<>\n<$literal>"),
+            'empty arguments and metacharacters survive all interpretation layers';
+        my $terminal = $server.run-program(['/bin/sh', '-c',
+            'test -t 0 && test -t 1 && printf "%s|%s|" "$PWD" "$LIBTMUX_PROGRAM_TEST"; stty size'],
+            :directory($fixture.directory.Str), :environment(%(LIBTMUX_PROGRAM_TEST => $literal)),
+            :width(91), :height(27));
+        my $screen = $terminal.screen.decode('utf8-c8');
+        ok $screen.contains($fixture.directory.Str ~ '|' ~ $literal ~ '|27 91'),
+            'the real PTY, cwd, environment and geometry reach the application';
+        my $signaled = $server.run-program(['/bin/sh', '-c', 'kill -TERM $$']);
+        nok $signaled.exitcode.defined, 'a signal does not masquerade as a normal exit code';
+        ok $signaled.signal ~~ / 'TERM' | '15' /, 'the native terminating signal is retained';
+    };
+
+    subtest 'argument bytes and executable metacharacters survive direct execution' => {
+        my $record = $fixture.directory.add('argv-bytes');
+        my $executable = $fixture.directory.add('program $() ; " executable');
+        LEAVE { $record.unlink if $record.e; $executable.unlink if $executable.l }
+        symlink('/bin/true', $executable.Str) or die 'Could not create owned executable fixture';
+        is $server.run-program([$executable.Str]).exitcode, 0,
+            'a singleton executable with metacharacters is not evaluated by a shell';
+        my @arguments = '', 'cash$() ; quote" slash\\ #{pid}', "line\nfeed", "λ終",
+            Blob.new(0xff, 0x61).decode('utf8-c8');
+        my $result = $server.run-program(['/bin/sh', '-c',
+            'printf "%s\\0" "$@" > "$0"', $record.Str, |@arguments]);
+        is $result.exitcode, 0, 'the byte-recording application completed';
+        is-deeply $record.slurp(:bin).list, Blob.new(|@arguments.map({
+            (|.encode('utf8-c8').list, 0).Slip
+        })).list, 'NUL-delimited argv preserves empty, multiline, Unicode and undecodable bytes';
+        is $server.run-program(['/bin/true'],
+            :environment(%(RAKUDO_OPT => '-Mlibtmux_program_forbidden_module'))).exitcode, 0,
+            'application runtime options cannot alter the native ownership bootstrap';
+    };
+
+    subtest 'captures exclude hook output and preserve borrowed buffers' => {
+        my $name = 'borrowed-program-capture-' ~ $*PID;
+        $server.buffers.put($name, Blob.new('borrowed bytes'.encode.list));
+        LEAVE try $server.buffers.delete($name);
+        my $before = $server.buffers.list.map(*.name).sort.List;
+        my $hooks = $server.hooks;
+        $hooks.set('after-capture-pane', Invocation.new(:argv([
+            'display-message', '-p', 'UNRELATED-CAPTURE-HOOK'])));
+        $hooks.set('after-list-buffers', Invocation.new(:argv([
+            'display-message', '-p', 'UNRELATED-BUFFER-HOOK'])));
+        LEAVE { try $hooks.unset($_) for <after-capture-pane after-list-buffers> }
+        my $program = $server.start-program(['/usr/bin/printf', '%s\n',
+            'APPLICATION $() ; "quote" \ path | café', '%begin 1 2 3']);
+        LEAVE $program.close if $program.defined;
+        my $result = $program.wait;
+        ok $result.screen.decode('utf8-c8').contains('APPLICATION $() ; "quote" \ path | café'),
+            'encoded capture preserves literal and Unicode terminal data';
+        nok $result.screen.decode('utf8-c8').contains('UNRELATED-'),
+            'capture and buffer-list diagnostics are excluded from final output';
+        is-deeply $program.screen, $result.screen, 'live capture uses the same attributed bytes';
+        $program.close;
+        $hooks.unset($_) for <after-capture-pane after-list-buffers>;
+        is-deeply $server.buffers.list.map(*.name).sort.List, $before,
+            'owned capture cleanup preserves every borrowed buffer';
+        is-deeply $server.buffers.get($name), Blob.new('borrowed bytes'.encode.list),
+            'borrowed buffer bytes are unchanged';
+    };
+
+    subtest 'large Unicode capture applies its decoded result bound' => {
+        my $result = $server.run-program([$*EXECUTABLE.Str, '-e',
+            'print "é" x 300000; print "\nLARGE-END\n"'],
+            :width(10000), :height(4), :history-limit(128), :max-output-bytes(63));
+        is $result.exitcode, 0, 'the large Unicode application completes normally';
+        is $result.screen.elems, 63, 'the result is bounded in decoded bytes';
+        ok $result.screen.decode('utf8-c8').contains('LARGE-END'), 'the final marker survives encoding and truncation';
+        ok $result.dropped-bytes > 500000, 'loss counts decoded terminal bytes, not encoded transport';
+    };
+
+    subtest 'interactive input and independent observation cancellation' => {
+        my $program = await $server.start-program-async(['/bin/sh', '-c',
+            'IFS= read -r answer; printf "ANSWER:%s\n" "$answer"']);
+        LEAVE $program.close if $program.defined;
+        isa-ok $program.pane, PaneRef, 'the running handle exposes its native pane reference';
+        my $cancel = Cancellation.new;
+        $cancel.cancel;
+        throws-like { await $program.wait-async(:$cancel) }, X::LibTmux::Command,
+            :kind<cancelled>, 'cancelling observation leaves the application owned';
+        throws-like { $program.wait(:timeout-ms(20)) }, X::LibTmux::Command,
+            :kind<timeout>, 'a wait deadline does not terminate the application';
+        my $pending = $program.wait-async;
+        is (await Promise.in(0.01).then({ 'responsive' })), 'responsive',
+            'an outstanding application wait leaves sibling Promise work responsive';
+        await $program.send-text-async('literal $() ; " input' ~ "\n");
+        my $result = await $pending;
+        ok $result.screen.decode('utf8-c8').contains('ANSWER:literal $() ; " input'),
+            'literal input reaches the program without an implicit shell or Enter';
+        is $program.wait, $result, 'completion is retained for later observers';
+        $program.close;
+        ok $program.pane-removed, 'close witnesses deletion of the original pane';
+    };
+
+    subtest 'bounded final screen includes the fast last write' => {
+        my $result = $server.run-program(['/bin/sh', '-c',
+            'i=0; while [ "$i" -lt 1200 ]; do printf "line-%s-xxxxxxxxxxxxxxxxxxxxxxxx\n" "$i"; i=$((i+1)); done; printf FINAL-DRAIN-MARKER'],
+            :history-limit(12), :max-output-bytes(128));
+        is $result.exitcode, 0, 'high output completes without a protocol marker';
+        ok $result.screen.elems <= 128 && $result.dropped-bytes > 0,
+            'result bytes have a finite bound with explicit byte loss';
+        ok $result.history-limited, 'the result discloses the bounded terminal history';
+        ok $result.screen.decode('utf8-c8').contains('FINAL-DRAIN-MARKER'),
+            'native completion accounts for the last PTY output before capture';
+    };
+
+    subtest 'waiter bounds recover after independent cancellation' => {
+        my $program = $server.start-program(['/bin/sh', '-c',
+            'IFS= read -r answer; printf "ANSWER:%s\n" "$answer"'], :max-pending(2));
+        LEAVE $program.close if $program.defined;
+        my $cancel = Cancellation.new;
+        my $first = $program.wait-async(:$cancel);
+        my $second = $program.wait-async;
+        throws-like { await $program.wait-async }, X::LibTmux::Command,
+            :kind<capacity>, :outcome(NotStarted), 'excess waiters are refused';
+        $cancel.cancel;
+        throws-like { await $first }, X::LibTmux::Command, :kind<cancelled>,
+            'cancellation retires one observer without terminating its application';
+        my $replacement = $program.wait-async;
+        await $program.send-text-async("still-owned\n");
+        my $result = await $second;
+        is (await $replacement), $result, 'the retired slot accepts a new observer';
+        ok $result.screen.decode('utf8-c8').contains('ANSWER:still-owned'),
+            'input has independent bounded admission while completion waiters are full';
+        $program.close;
+        ok $program.group-empty, 'successful cleanup includes a native group-empty receipt';
+        lives-ok { $program.close }, 'repeated close shares completed cleanup';
+    };
+
+    subtest 'native startup errors differ from application status' => {
+        throws-like {
+            $server.run-program([$fixture.directory.add('missing-executable').Str])
+        }, X::LibTmux::Command, :kind<spawn>, :exitcode(127), :message(/ 'errno 2' /),
+            'a missing executable is a native startup failure';
+        throws-like {
+            $server.run-program(['/bin/true'],
+                :directory($fixture.directory.add('missing-directory').Str))
+        }, X::LibTmux::Command, :kind<spawn>, :exitcode(126), :message(/ 'errno 2' /),
+            'an unavailable working directory is a native startup failure';
+        is $server.run-program(['/bin/sh', '-c', 'exit 127']).exitcode, 127,
+            'application exit 127 remains an ordinary completion';
+    };
+});
+done-testing;

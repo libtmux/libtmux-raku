@@ -4,6 +4,7 @@ unit module LibTmux;
 
 need LibTmux::Exceptions;
 need LibTmux::Server;
+need LibTmux::Program;
 need LibTmux::Control::Connection;
 need LibTmux::Attachment;
 need LibTmux::Model;
@@ -18,6 +19,8 @@ need LibTmux::Capabilities;
 need LibTmux::Types;
 
 my constant Server is export = LibTmux::Server;
+my constant Program is export = LibTmux::Program;
+my constant ProgramResult is export = LibTmux::Program::Completion;
 my constant ControlConnection is export = LibTmux::Control::Connection;
 my constant Attachment is export = LibTmux::Attachment;
 my constant Snapshot is export = LibTmux::Model::Snapshot;
@@ -326,6 +329,118 @@ the daemon already ran.
 =item After reconnecting, take a fresh observation; events do not add up to a
 complete current graph.
 =item L<Attachment|LibTmux::Attachment> is a separate terminal client owner.
+
+=head1 Run an application and keep its result
+
+L<Program|LibTmux::Program> owns one PTY application. C<run-program> waits for
+completion and cleanup, then returns a L<ProgramResult|LibTmux::Program::Completion>.
+Arguments stay literal; the result holds a bounded rendered screen and either
+a normal exit code or a terminating signal. Check the connected daemon's
+C<managed-program> capability first.
+
+=comment runs: examples/program-command.raku
+
+=begin code :lang<raku>
+use v6.d;
+use LibTmux;
+
+sub MAIN(Str:D :$tmux = 'tmux') {
+    my $server = Server.start(:binary($tmux), :name<programs>, :shell-command('exec cat'));
+    LEAVE $server.close if $server.defined;
+    unless $server.capabilities.supports('managed-program') {
+        say 'Managed programs require a qualified tmux 3.8 daemon';
+        return;
+    }
+
+    my $result = $server.run-program(['/usr/bin/printf', '%s\n', 'hello $() ; literal']);
+    say 'Exit: ' ~ $result.exitcode;
+    say 'Screen: ' ~ $result.screen.decode('utf8-c8').lines.first(*.chars);
+}
+=end code
+
+It prints C<Exit: 0> and C<Screen: hello $() ; literal>. An unsupported daemon
+prints the capability requirement. See L<LibTmux::Program> for platform
+requirements, output bounds and recovery limits.
+
+=head1 Supply input without cancelling the application
+
+C<start-program> returns the running owner. A cancelled C<wait-async> ends
+only that observation. C<send-text> adds no implicit newline, and C<LEAVE>
+closes the application on any exit.
+
+=comment runs: examples/program-input.raku
+
+=begin code :lang<raku>
+use v6.d;
+use LibTmux;
+
+sub MAIN(Str:D :$tmux = 'tmux') {
+    my $server = Server.start(:binary($tmux), :name<programs>, :shell-command('exec cat'));
+    LEAVE $server.close if $server.defined;
+    unless $server.capabilities.supports('managed-program') {
+        say 'Managed programs require a qualified tmux 3.8 daemon';
+        return;
+    }
+
+    my $program = $server.start-program(['/bin/sh', '-c',
+        'IFS= read -r answer; printf "ANSWER:%s\n" "$answer"']);
+    LEAVE $program.close if $program.defined;
+    my $cancel = Cancellation.new;
+    $cancel.cancel;
+    try {
+        await $program.wait-async(:$cancel);
+        CATCH {
+            when X::LibTmux::Command {
+                .rethrow unless .kind eq 'cancelled';
+                say 'Wait cancelled; program retained';
+            }
+        }
+    }
+    $program.send-text("Raku\n");
+    my $result = $program.wait;
+    say $result.screen.decode('utf8-c8').lines.first(*.starts-with('ANSWER:'));
+    say 'Exit: ' ~ $result.exitcode;
+}
+=end code
+
+It prints C<Wait cancelled; program retained>, C<ANSWER:Raku> and C<Exit: 0>.
+
+=head1 End an owning run at its deadline
+
+An owning run waits for termination and cleanup before reporting its timeout
+or cancellation. Its deadline starts after setup. Borrowed daemons and sibling
+sessions remain borrowed.
+
+=comment runs: examples/program-deadline.raku
+
+=begin code :lang<raku>
+use v6.d;
+use LibTmux;
+
+sub MAIN(Str:D :$tmux = 'tmux') {
+    my $server = Server.start(:binary($tmux), :name<programs>, :shell-command('exec cat'));
+    LEAVE $server.close if $server.defined;
+    unless $server.capabilities.supports('managed-program') {
+        say 'Managed programs require a qualified tmux 3.8 daemon';
+        return;
+    }
+
+    try {
+        $server.run-program(['/bin/cat'], :timeout-ms(20));
+        CATCH {
+            when X::LibTmux::Command {
+                .rethrow unless .kind eq 'timeout';
+                say 'Run deadline expired; owned program closed';
+            }
+        }
+    }
+    die 'The program session remained after cleanup' unless $server.snapshot.sessions.elems == 1;
+    say 'Other session preserved';
+}
+=end code
+
+It prints C<Run deadline expired; owned program closed> and
+C<Other session preserved>.
 
 =head1 Recover from partial completion
 

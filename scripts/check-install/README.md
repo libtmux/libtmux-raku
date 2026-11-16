@@ -5,6 +5,12 @@ separate consumer program, so a missing file or a wrong dependency fails here
 and not on a user's machine. The consumer also checks that the installed
 version, authority and dependencies match `META6.json`.
 
+The fresh consumer loads every provided module. Installation defers
+precompilation to that consumer's repository chain. With `LIBTMUX_TEST_TMUX`
+set to an absolute executable, it also runs an owned PTY application, checks
+literal arguments and the final screen, and verifies cleanup. An older daemon
+must refuse through its connected-daemon capability observation.
+
 By default it packs the working tree. `--archive` installs a release archive,
 and `--registry` installs the version `META6.json` names from the Zef registry:
 

@@ -1,0 +1,370 @@
+use v6.d;
+use Test;
+use JSON::Fast;
+use LibTmux;
+use Test::LibTmux::Fixture;
+
+# Outer: retained process-group identity and descendant exit need a live kernel.
+my $binary = %*ENV<LIBTMUX_TEST_TMUX> // die 'LIBTMUX_TEST_TMUX is required';
+
+sub await-record(Promise:D $ready, Promise :$terminal = Promise --> Nil) {
+    await ($terminal.defined ?? Promise.anyof($ready, $terminal)
+        !! Promise.anyof($ready, Promise.in(1)));
+    die 'Application did not publish its native process identities' if $ready.status == Planned;
+    await $ready;
+}
+
+with-tmux(sub ($fixture) {
+    temp $*TMPDIR = $fixture.directory;
+    my $server = Server.new(:$binary, :socket-path($fixture.socket-path.Str));
+    LEAVE $server.close;
+    unless $server.capabilities.supports('managed-program') {
+        throws-like { $server.start-program(['/bin/true']) }, X::LibTmux::Unsupported,
+            :feature<managed-program>, 'unsupported daemons refuse ownership admission';
+        return;
+    }
+    my $record = $fixture.directory.add('application-pids');
+    my $partial = $fixture.directory.add('application-pids.tmp');
+    LEAVE {
+        $record.unlink if $record.defined && $record.e;
+        $partial.unlink if $partial.defined && $partial.e;
+    }
+    my $application = q:to/SH/;
+        trap '' TERM
+        sleep 30 &
+        child=$!
+        printf '%s\n%s\n' "$$" "$child" > "$1.tmp"
+        mv "$1.tmp" "$1"
+        wait
+        SH
+
+    subtest 'explicit close proves TERM-resistant descendant exit' => {
+        my $ready = Promise.new;
+        my $vow = $ready.vow;
+        my $lock = Lock.new;
+        my $tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+            $lock.protect({ $vow.keep(True) if $ready.status == Planned
+                && $event.path.IO.basename eq $record.basename && $record.e });
+        });
+        LEAVE $tap.close if $tap.defined;
+        my $program = $server.start-program(['/bin/sh', '-c', $application,
+            'managed-application', $record.Str]);
+        LEAVE $program.close if $program.defined;
+        await-record($ready);
+        my ($root, $child) = $record.lines.map(*.Int);
+        my $root-exit = ExitWatch.new(:pid($root));
+        my $child-exit = ExitWatch.new(:pid($child));
+        LEAVE {
+            $root-exit.close if $root-exit.defined;
+            $child-exit.close if $child-exit.defined;
+        }
+        $program.close;
+        ok $root-exit.wait, 'the original leader exited';
+        ok $child-exit.wait, 'the independently watched descendant exited';
+        ok $program.group-empty, 'the retained group has no remaining tasks';
+        ok $program.pane-removed, 'the original native pane was removed';
+        my $result = $program.wait;
+        ok $result.signal ~~ / 'KILL' | '9' /,
+            'final completion preserves forced termination rather than a cleanup status';
+        $record.unlink;
+    };
+
+    subtest 'owning run cancellation waits for descendant cleanup' => {
+        my $ready = Promise.new;
+        my $vow = $ready.vow;
+        my $lock = Lock.new;
+        my $tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+            $lock.protect({ $vow.keep(True) if $ready.status == Planned
+                && $event.path.IO.basename eq $record.basename && $record.e });
+        });
+        LEAVE $tap.close if $tap.defined;
+        my $before = $fixture.cmd('list-sessions', '-F', '#{session_id}');
+        my $cancel = Cancellation.new;
+        my $run = $server.run-program-async(['/bin/sh', '-c', $application,
+            'managed-application', $record.Str], :$cancel);
+        await-record($ready, :terminal($run));
+        my ($root, $child) = $record.lines.map(*.Int);
+        my $child-exit = ExitWatch.new(:pid($child));
+        LEAVE $child-exit.close if $child-exit.defined;
+        $cancel.cancel;
+        throws-like { await $run }, X::LibTmux::Command, :kind<cancelled>,
+            'owning cancellation retains its primary reason after successful cleanup';
+        ok $child-exit.wait, 'cancellation settled after the descendant exited';
+        is $fixture.cmd('list-sessions', '-F', '#{session_id}'), $before,
+            'the borrowed daemon and its sibling session remain intact';
+        $record.unlink;
+    };
+
+    subtest 'cleanup retains the group after its original leader exits' => {
+        my $ready = Promise.new;
+        my $vow = $ready.vow;
+        my $lock = Lock.new;
+        my $tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+            $lock.protect({ $vow.keep(True) if $ready.status == Planned
+                && $event.path.IO.basename eq $record.basename && $record.e });
+        });
+        LEAVE $tap.close if $tap.defined;
+        my $program = $server.start-program(['/bin/sh', '-c', q:to/SH/,
+            trap '' TERM HUP
+            sleep 30 &
+            printf '%s\n' "$!" > "$1.tmp"
+            mv "$1.tmp" "$1"
+            exit 0
+            SH
+            'managed-application', $record.Str]);
+        LEAVE $program.close if $program.defined;
+        await-record($ready);
+        my $child-exit = ExitWatch.new(:pid($record.slurp.trim.Int));
+        LEAVE {
+            if $child-exit.defined {
+                $child-exit.terminate unless $child-exit.wait(:timeout-ms(0));
+                $child-exit.close;
+            }
+        }
+        my $result = $program.wait;
+        is $result.exitcode, 0, 'application completion records the already exited leader';
+        nok $child-exit.wait(:timeout-ms(0)), 'the same-group descendant remains alive';
+        $program.close;
+        ok $child-exit.wait, 'the retained original group terminates its surviving descendant';
+        ok $program.group-empty, 'completed cleanup proves that group is empty';
+        is $program.wait, $result, 'cleanup preserves the original normal completion';
+        $record.unlink;
+    };
+
+    subtest 'a single-pane resize preserves the application observer' => {
+        my $program = $server.start-program(['/bin/sh', '-c',
+            'IFS= read -r answer; printf "ANSWER:%s\n" "$answer"']);
+        LEAVE $program.close if $program.defined;
+        my $window = $server.snapshot.panes.where(%(id => $program.pane.id)).single.window.ref;
+        $window.resize(:width(100), :height(30));
+        $window.resize(:width(80), :height(24));
+        throws-like { $program.wait(:timeout-ms(20)) }, X::LibTmux::Command,
+            :kind<timeout>, 'a resize leaves application observation active';
+        $program.send-text("resized\n");
+        is $program.wait.exitcode, 0, 'input and completion still work after resizing';
+    };
+
+    subtest 'pane removal settles observation before an HUP-ignoring process exits' => {
+        my $ready = Promise.new;
+        my $vow = $ready.vow;
+        my $lock = Lock.new;
+        my $tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+            $lock.protect({ $vow.keep(True) if $ready.status == Planned
+                && $event.path.IO.basename eq $record.basename && $record.e });
+        });
+        LEAVE $tap.close if $tap.defined;
+        my $program = $server.start-program(['/bin/sh', '-c', q:to/SH/,
+            trap '' HUP TERM
+            sleep 30 &
+            printf '%s\n' "$$" > "$1.tmp"
+            mv "$1.tmp" "$1"
+            wait
+            SH
+            'managed-application', $record.Str]);
+        LEAVE $program.close if $program.defined;
+        await-record($ready);
+        my $root = ExitWatch.new(:pid($record.slurp.trim.Int));
+        LEAVE $root.close if $root.defined;
+        my $pending = $program.wait-async;
+        $fixture.cmd('kill-pane', '-t', $program.pane.id);
+        nok $root.wait(:timeout-ms(0)), 'native removal leaves the ignored-HUP process alive';
+        throws-like { await $pending }, X::LibTmux::StaleReference,
+            'native unlink ends observation without waiting for process exit';
+        $program.close;
+        ok $root.wait, 'cleanup still joins the retained original process group';
+        ok $program.group-empty, 'successful cleanup includes the empty-group receipt';
+        $record.unlink;
+    };
+
+    subtest 'an external split invalidates observation and preserves the foreign pane' => {
+        my $program = $server.start-program(['/bin/cat']);
+        LEAVE $program.close if $program.defined;
+        my $pending = $program.wait-async;
+        my $foreign = $program.pane.split(:shell-command('exec cat'));
+        LEAVE try $foreign.kill if $foreign.defined;
+        throws-like { await $pending }, X::LibTmux::StaleReference,
+            'pane cardinality changes end this owner\'s observation';
+        $program.close;
+        is $foreign.inspect.id, $foreign.id, 'cleanup preserves the externally added pane';
+        is $fixture.cmd('wait-for', '-E', '-l', 'window-layout-changed'), '',
+            'cleanup joins layout observers';
+        is $fixture.cmd('wait-for', '-E', '-l', 'window-unlinked'), '',
+            'cleanup joins unlink observers';
+    };
+
+    subtest 'cancellation during native creation cannot release the application' => {
+        my $channel = 'program-create-' ~ $fixture.directory.basename;
+        my $release = $channel ~ '-release';
+        my $entered = Proc::Async.new(:w, $binary, '-S', $fixture.socket-path.Str,
+            'wait-for', $channel);
+        my @taps = ($entered.stdout(:bin).tap(-> $chunk {}),
+            $entered.stderr(:bin).tap(-> $chunk {}));
+        LEAVE .close for @taps;
+        my $entered-done = $entered.start;
+        $entered.close-stdin;
+        LEAVE {
+            try $fixture.cmd('set-hook', '-gu', 'after-new-session');
+            try $fixture.cmd('wait-for', '-S', $release);
+            try $entered.kill(9) if $entered-done.status == Planned;
+            my $reaped = try await $entered-done;
+            Nil;
+        }
+        my $client = await $entered.pid;
+        my $deadline = now + 1;
+        loop {
+            last if $fixture.cmd('wait-for', '-l', $channel).lines
+                .first(* eq "client-$client").defined;
+            die 'Creation barrier observer was not registered'
+                if now >= $deadline || $entered-done.status != Planned;
+        }
+        $fixture.cmd('set-hook', '-g', 'after-new-session',
+            "wait-for -S $channel ; wait-for $release");
+        my $before = $fixture.cmd('list-sessions', '-F', '#{session_id}');
+        my $effect = $fixture.directory.add('forbidden-setup-effect');
+        LEAVE $effect.unlink if $effect.e;
+        my $cancel = Cancellation.new;
+        my $opening = $server.start-program-async(['/bin/sh', '-c',
+            'printf forbidden > "$1"', 'managed-application', $effect.Str], :$cancel);
+        await Promise.anyof($entered-done, $opening);
+        die 'Setup ended before entering the native creation barrier'
+            if $entered-done.status != Kept;
+        $cancel.cancel;
+        my $error;
+        try { await $opening; CATCH { default { $error = $_ } } }
+        my $primary = $error ~~ X::LibTmux::Program ?? $error.primary !! $error;
+        isa-ok $primary, X::LibTmux::Command, 'setup preserves a typed primary failure';
+        is $primary.kind, 'cancelled', 'native creation cancellation remains the primary reason';
+        $fixture.cmd('set-hook', '-gu', 'after-new-session');
+        $fixture.cmd('wait-for', '-S', $release);
+        $error.owner.close if $error ~~ X::LibTmux::Program;
+        nok $effect.e, 'cancellation never releases application side effects';
+        is $fixture.cmd('list-sessions', '-F', '#{session_id}'), $before,
+            'cleanup removes the cancelled creation and preserves borrowed sessions';
+    };
+
+    subtest 'caller VM death leaves the watchdog responsible for cleanup' => {
+        my $buffers = $server.buffers.list.map(*.name).sort.List;
+        my $source = $fixture.directory.add('caller.raku');
+        LEAVE $source.unlink if $source.e;
+        $source.spurt(q:to/RAKU/);
+            use v6.d;
+            use JSON::Fast;
+            use LibTmux;
+            my ($binary, $socket, $record) = @*ARGS;
+            my $server = Server.new(:$binary, :socket-path($socket));
+            my $program = $server.start-program(['/bin/sh', '-c', q:to/SH/,
+                trap '' TERM
+                sleep 30 &
+                child=$!
+                printf '%s\n%s\n' "$$" "$child" > "$1.tmp"
+                mv "$1.tmp" "$1"
+                wait
+                SH
+                'managed-application', $record]);
+            $program.screen;
+            $*OUT.out-buffer = False;
+            say to-json(%(pane => $program.pane.id,
+                directory => $program.cleanup-location.Str), :!pretty);
+            $program.wait;
+            RAKU
+        my $metadata = Promise.new;
+        my $metadata-vow = $metadata.vow;
+        my $application-ready = Promise.new;
+        my $application-vow = $application-ready.vow;
+        my $lock = Lock.new;
+        my $files = IO::Notification.watch-path($fixture.directory).act(-> $event {
+            $lock.protect({ $application-vow.keep(True)
+                if $application-ready.status == Planned && $record.e
+                    && $event.path.IO.basename eq $record.basename });
+        });
+        LEAVE $files.close if $files.defined;
+        my $caller = Proc::Async.new(:w, $*EXECUTABLE.Str, '-I', $*CWD.Str,
+            $source.Str, $binary, $fixture.socket-path.Str, $record.Str);
+        my $output = '';
+        my $errors = '';
+        my @taps = ($caller.stdout.tap(-> $chunk {
+            $output ~= $chunk;
+            if $output.contains("\n") && $metadata.status == Planned {
+                try {
+                    $metadata-vow.keep(from-json($output.lines[0]));
+                    CATCH { default { $metadata-vow.break($_) } }
+                }
+            }
+        }), $caller.stderr.tap(-> $chunk { $errors ~= $chunk if $errors.chars < 4096 }));
+        LEAVE .close for @taps;
+        my %environment = %*ENV;
+        %environment<TMPDIR> = $fixture.directory.Str;
+        %environment<TMUX TMUX_PANE>:delete;
+        my $caller-done = $caller.start(:ENV(%environment));
+        $caller.close-stdin;
+        LEAVE {
+            try $caller.kill(9) if $caller-done.defined && $caller-done.status == Planned;
+            my $reaped = try await $caller-done if $caller-done.defined;
+            Nil;
+        }
+        await Promise.anyof(Promise.allof($metadata, $application-ready), $caller-done);
+        die 'Caller VM failed before application readiness: ' ~ $errors
+            if $metadata.status != Kept || $application-ready.status != Kept;
+        my %owned = await $metadata;
+        my ($root, $child) = $record.lines.map(*.Int);
+        my $root-exit = ExitWatch.new(:pid($root));
+        my $child-exit = ExitWatch.new(:pid($child));
+        LEAVE {
+            $root-exit.close if $root-exit.defined;
+            $child-exit.close if $child-exit.defined;
+        }
+        my $directory = %owned<directory>.IO;
+        ok $directory.parent eq $fixture.directory && $directory.d,
+            'the application lease uses the caller-owned local directory';
+        my $removed = Promise.new;
+        my $removed-vow = $removed.vow;
+        my $cleanup-tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+            $lock.protect({ $removed-vow.keep(True) if $removed.status == Planned
+                && !$directory.e && $event.path.IO.basename eq $directory.basename });
+        });
+        LEAVE $cleanup-tap.close if $cleanup-tap.defined;
+        $caller.kill(9);
+        my $result = await $caller-done;
+        is $result.signal, 9, 'the caller VM ended without running finalizers';
+        ok $root-exit.wait, 'the watchdog terminated the original application leader';
+        ok $child-exit.wait, 'the watchdog terminated its TERM-resistant descendant';
+        await Promise.anyof($removed, Promise.in(1));
+        is $removed.status, Kept, 'the watchdog removed its lease after VM pipe loss';
+        nok $fixture.cmd('list-panes', '-a', '-F', '#{pane_id}').lines
+            .first(* eq %owned<pane>).defined,
+            'the original pane was removed after the VM died';
+        is $fixture.cmd('list-sessions', '-F', '#{session_name}').trim, 'fixture',
+            'the borrowed daemon and its other session survived';
+        is-deeply $server.buffers.list.map(*.name).sort.List, $buffers,
+            'the watchdog also removed the accepted capture buffer';
+        $record.unlink;
+    };
+
+    subtest 'a native cleanup failure retains the owner for retry' => {
+        my $buffers = $server.buffers.list.map(*.name).sort.List;
+        my $program = $server.start-program(['/bin/cat']);
+        $program.screen;
+        is $server.buffers.list.elems, $buffers.elems + 1, 'capture has one bounded owned buffer';
+        LEAVE $program.close if $program.defined;
+        my $saved = $fixture.directory.add('temporarily-moved-socket');
+        LEAVE {
+            $saved.rename($fixture.socket-path)
+                if $saved.defined && $saved.e && !$fixture.socket-path.e;
+        }
+        my $daemon-exit = ExitWatch.new(:pid($fixture.pid));
+        LEAVE $daemon-exit.close if $daemon-exit.defined;
+        $fixture.socket-path.rename($saved);
+        throws-like { $program.close }, X::LibTmux::Command, :kind<cleanup>,
+            'a missing endpoint is not a successful stale-generation refusal';
+        is $program.closed.status, Planned, 'terminal cleanup completion remains pending';
+        ok $program.cleanup-location.d, 'failed cleanup retains its private lease';
+        nok $daemon-exit.wait(:timeout-ms(0)), 'the original borrowed daemon is still alive';
+        $saved.rename($fixture.socket-path);
+        $program.close;
+        is $program.closed.status, Kept, 'the same owner completes cleanup after endpoint recovery';
+        ok $program.pane-removed, 'the original pane deletion is witnessed after retry';
+        is-deeply $server.buffers.list.map(*.name).sort.List, $buffers,
+            'retry also releases the capture buffer';
+    };
+});
+done-testing;

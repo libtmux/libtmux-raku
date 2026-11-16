@@ -36,6 +36,8 @@
     "LibTmux::Selection": "lib/LibTmux/Selection.rakumod",
     "LibTmux::Model": "lib/LibTmux/Model.rakumod",
     "LibTmux::Server": "lib/LibTmux/Server.rakumod",
+    "LibTmux::Program": "lib/LibTmux/Program.rakumod",
+    "LibTmux::Program::Owner": "lib/LibTmux/Program/Owner.rakumod",
     "LibTmux::Fields": "lib/LibTmux/Fields.rakumod",
     "LibTmux::Operations": "lib/LibTmux/Operations.rakumod",
     "LibTmux::Control": "lib/LibTmux/Control.rakumod",
