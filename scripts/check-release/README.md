@@ -2,7 +2,11 @@
 
 Checks a release tag against `META6.json` and prints the package version. It
 requires the tag to be `v` and the version, the distribution to be `LibTmux`
-and the authority to be `zef:libtmux`.
+and the authority to be `zef:libtmux`. An empty tag stands for the tag of the
+metadata's own version, which is what CI checks on a branch.
+
+`--github-output` prints `version=X.Y.Z`, the line a workflow step appends to
+`$GITHUB_OUTPUT`.
 
 With `--dist=DIRECTORY` it also checks the archive in that directory: its
 checksum must match `SHA256SUMS`, its recorded commit must be `--commit`

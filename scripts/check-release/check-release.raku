@@ -1,15 +1,18 @@
 use v6.d;
 use JSON::Fast;
 
+#| Check a release tag against META6.json and print the package version.
+#| An empty tag stands for the tag of the metadata's own version.
+#| `--github-output` prints `version=X.Y.Z` for $GITHUB_OUTPUT.
 sub MAIN(Str:D $tag, Str:D :$meta = 'META6.json', Str:D :$dist = '',
-         Str:D :$commit = 'HEAD') {
+         Str:D :$commit = 'HEAD', Bool :$github-output = False) {
     my %metadata = from-json($meta.IO.slurp);
     die 'Release distribution must be LibTmux' unless %metadata<name> eq 'LibTmux';
     my $version = %metadata<version>;
     die 'Release version must have three numeric components'
         unless $version ~~ Str && $version ~~ /^ \d+ '.' \d+ '.' \d+ $/;
     die "Tag must match META6.json version: expected v$version"
-        unless $tag eq "v$version";
+        unless ($tag || "v$version") eq "v$version";
     die 'Release authority must be zef:libtmux'
         unless %metadata<auth> eq 'zef:libtmux';
     if $dist.chars {
@@ -29,7 +32,7 @@ sub MAIN(Str:D $tag, Str:D :$meta = 'META6.json', Str:D :$dist = '',
         my %packed = from-json(capture('tar', '-xOf', $archive.Str, 'META6.json'));
         die 'Archive metadata does not match META6.json' unless %packed eqv %metadata;
     }
-    say $version;
+    say $github-output ?? "version=$version" !! $version;
 }
 
 sub capture(*@command, :$cwd = $*CWD --> Str:D) {

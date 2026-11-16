@@ -11,4 +11,9 @@ is-deeply $matrix-data<include>, support-policy().endpoints.map({
     %(tmux => .version, commit => .commit)
 }).Array, 'the matrix is exactly the typed endpoint profiles';
 
+my $github = run $*EXECUTABLE.Str, '-I.', $script.Str, '--github-output', :out;
+my $line = $github.out.slurp(:close).chomp;
+ok $line.starts-with('value='), 'the output flag names the value for $GITHUB_OUTPUT';
+is-deeply from-json($line.substr(6)), $matrix-data, 'the output flag carries the same matrix';
+
 done-testing;

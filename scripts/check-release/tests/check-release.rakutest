@@ -12,9 +12,9 @@ my %meta = from-json($root.add('META6.json').slurp);
 %meta<auth> = 'zef:libtmux';
 $metadata.spurt(to-json(%meta));
 
-sub check(Str:D $tag) {
+sub check(Str:D $tag, *@options) {
     my $process = run $*EXECUTABLE.Str, $root.add('scripts/check-release/check-release.raku').Str,
-        "--meta=$metadata", $tag, :out, :err;
+        "--meta=$metadata", |@options, $tag, :out, :err;
     my $out = $process.out.slurp(:close);
     my $err = $process.err.slurp(:close);
     ($process.exitcode, $out, $err)
@@ -23,6 +23,10 @@ sub check(Str:D $tag) {
 my ($status, $out, $err) = check("v{%meta<version>}");
 is $status, 0, 'a matching release tag is accepted';
 is $out.trim, %meta<version>, 'the validated package version is returned';
+
+($status, $out, $err) = check('', '--github-output');
+is $status, 0, 'an empty tag stands for the metadata version';
+is $out.trim, "version={%meta<version>}", 'the output flag names the version for $GITHUB_OUTPUT';
 
 ($status, $out, $err) = check('v999.0.0');
 isnt $status, 0, 'a different package version is rejected';
