@@ -9,8 +9,8 @@ Checks the files Git tracks or would track for what the other tools assume:
   examples;
 - `META6.json` `provides` and `resources` that list exactly the modules and
   resource files present;
-- `CONTRIBUTING.md` and `WRITING.md` under `.github`, and `CLAUDE.md` as a
-  relative symlink to `AGENTS.md`.
+- `CONTRIBUTING.md`, `RELEASE.md`, `SCRIPTS.md` and `WRITING.md` under
+  `.github`, and `CLAUDE.md` as a relative symlink to `AGENTS.md`.
 
 It is not a formatter. `ci.yml` runs it first in the quality job:
 

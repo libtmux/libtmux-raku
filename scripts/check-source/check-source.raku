@@ -44,11 +44,12 @@ my @provided = $meta<provides>.values.sort;
 my @resources = @paths.grep(*.starts-with('resources/')).map(*.substr(10)).sort;
 @errors.push('META6.json resources does not match runtime resource inventory')
     unless @resources.List eqv $meta<resources>.sort.List;
-for <CONTRIBUTING.md WRITING.md> -> $guide {
+for <CONTRIBUTING.md RELEASE.md SCRIPTS.md WRITING.md> -> $guide {
     @errors.push("$guide belongs under .github") if $root.add($guide).e;
     @errors.push("Missing .github/$guide") unless $root.add('.github').add($guide).f;
 }
+my $agents-link = $root.add('CLAUDE.md');
 @errors.push('CLAUDE.md must remain a relative AGENTS.md symlink')
-    unless $root.add('CLAUDE.md').l && $root.add('CLAUDE.md').resolve eq $root.add('AGENTS.md');
+    unless $agents-link.l && $agents-link.readlink.Str eq 'AGENTS.md';
 die @errors.join("\n") if @errors;
 say "PASS: source hygiene, relative file links and {@modules.elems} provided modules";
