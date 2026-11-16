@@ -95,7 +95,7 @@ Run the checks in [CONTRIBUTING.md](CONTRIBUTING.md#checks), including the
 release identity contracts:
 
 ```console
-$ /usr/bin/time -p mise exec -- raku xt/release.rakutest
+$ /usr/bin/time -p mise exec -- raku scripts/check-release/tests/check-release.rakutest
 ```
 
 CI builds an archive from its checked-out commit and installs that exact
@@ -135,7 +135,7 @@ Confirm that the master CI run for this commit passed. Validate the tag
 against the local metadata:
 
 ```console
-$ mise exec -- raku tools/check-release.raku v0.0.2
+$ mise exec -- raku scripts/check-release/check-release.raku v0.0.2
 ```
 
 Create an annotated tag:

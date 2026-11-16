@@ -6,7 +6,7 @@ sub mkdtemp(CArray[uint8] --> Pointer) is native { * }
 
 sub MAIN(Str:D :$archive = '', Bool :$registry = False) {
     die 'Choose an archive or the registry' if $archive.chars && $registry;
-    my $source = $?FILE.IO.parent.parent.absolute.IO;
+    my $source = $?FILE.IO.parent(3).absolute.IO;
     my $template = $*TMPDIR.add('libtmux-raku-install-XXXXXX').Str.encode;
     my $bytes = CArray[uint8].new(|$template.list, 0);
     die 'could not create isolated installation directory' unless mkdtemp($bytes);

@@ -1,0 +1,14 @@
+use v6.d;
+use Test;
+use JSON::Fast;
+use LibTmux::Catalogue;
+
+my $script = $?FILE.IO.parent.parent.add('ci-matrix.raku');
+my $matrix = run $*EXECUTABLE.Str, '-I.', $script.Str, :out;
+my $matrix-data = from-json($matrix.out.slurp(:close));
+is $matrix.exitcode, 0, 'the matrix script succeeds';
+is-deeply $matrix-data<include>, support-policy().endpoints.map({
+    %(tmux => .version, commit => .commit)
+}).Array, 'the matrix is exactly the typed endpoint profiles';
+
+done-testing;

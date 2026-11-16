@@ -61,12 +61,12 @@ jobs:
           RELEASE_TAG: ${{ inputs.release && github.ref_type == 'tag' && github.ref_name || '' }}
         run: |
           tag="${RELEASE_TAG:-v$(jq --raw-output .version META6.json)}"
-          version=$(raku tools/check-release.raku "$tag")
+          version=$(raku scripts/check-release/check-release.raku "$tag")
           printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
       - name: Derive supported endpoints
         id: matrix
         run: |
-          matrix=$(raku -I. tools/ci-matrix.raku)
+          matrix=$(raku -I. scripts/ci-matrix/ci-matrix.raku)
           printf 'value=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
 
   quality:
@@ -90,7 +90,7 @@ jobs:
           zef install Test::META App::Prove6
       - name: Source hygiene and package inventory
         run: |
-          /usr/bin/time -f 'whole command: %e s' raku tools/check-source.raku
+          /usr/bin/time -f 'whole command: %e s' raku scripts/check-source/check-source.raku
       - name: Compile the public import
         run: |
           /usr/bin/time -f 'whole command: %e s' raku -I. -c lib/LibTmux.rakumod
@@ -102,33 +102,33 @@ jobs:
           /usr/bin/time -f 'whole command: %e s' raku xt/meta.rakutest
       - name: Release identity contracts
         run: |
-          /usr/bin/time -f 'whole command: %e s' raku xt/release.rakutest
-          /usr/bin/time -f 'whole command: %e s' raku xt/release-archive.rakutest
+          /usr/bin/time -f 'whole command: %e s' raku scripts/check-release/tests/check-release.rakutest
+          /usr/bin/time -f 'whole command: %e s' raku scripts/check-release/tests/check-release-archive.rakutest
           /usr/bin/time -f 'whole command: %e s' raku scripts/publish-github-release/tests/publish-github-release.rakutest
           /usr/bin/time -f 'whole command: %e s' raku scripts/release-retry/tests/release-retry.rakutest
       - name: Generated accessors and reference
         run: |
-          /usr/bin/time -f 'whole command: %e s' raku -I. tools/catalogue.raku \
+          /usr/bin/time -f 'whole command: %e s' raku -I. scripts/catalogue/catalogue.raku \
             --format=raku \
             --output=lib/LibTmux/Fields.rakumod \
             --check
-          /usr/bin/time -f 'whole command: %e s' raku -I. tools/catalogue.raku \
+          /usr/bin/time -f 'whole command: %e s' raku -I. scripts/catalogue/catalogue.raku \
             --format=rakudoc \
             --output=docs/reference/catalogue.rakudoc \
             --check
       - name: Native documentation extraction contracts
         run: |
-          /usr/bin/time -f 'whole command: %e s' prove6 -I. xt/docs
+          /usr/bin/time -f 'whole command: %e s' prove6 -I. scripts/export-docs/tests/export-docs.rakutest
       - name: Extract the native public API
         run: |
-          /usr/bin/time -f 'whole command: %e s' raku -I. tools/export-docs.raku \
+          /usr/bin/time -f 'whole command: %e s' raku -I. scripts/export-docs/export-docs.raku \
             --output=docs/_build/api.json
           jq --exit-status \
             '(.missingDocumentation | type == "object" and length == 0)' \
             docs/_build/api.json
       - name: Compile executable examples
         run: |
-          /usr/bin/time -f 'whole command: %e s' raku tools/check-examples.raku --check-source
+          /usr/bin/time -f 'whole command: %e s' raku scripts/check-examples/check-examples.raku --check-source
           for example in examples/*.raku; do
             /usr/bin/time -f 'whole command: %e s' raku -I. -c "$example"
           done
@@ -152,8 +152,8 @@ jobs:
               sha256sum "LibTmux-$RELEASE_VERSION.tar.gz" > SHA256SUMS
             )
           fi
-          raku tools/check-release.raku --dist="$RUNNER_TEMP/release" "v$RELEASE_VERSION"
-          /usr/bin/time -f 'whole command: %e s' raku tools/check-install.raku --archive="$archive"
+          raku scripts/check-release/check-release.raku --dist="$RUNNER_TEMP/release" "v$RELEASE_VERSION"
+          /usr/bin/time -f 'whole command: %e s' raku scripts/check-install/check-install.raku --archive="$archive"
       - name: Retain the tested release archive
         if: inputs.release && steps.retained.outputs.restored != 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -212,7 +212,7 @@ jobs:
           fi
       - name: Execute self-checking examples
         run: |
-          /usr/bin/time -f 'whole command: %e s' raku tools/check-examples.raku
+          /usr/bin/time -f 'whole command: %e s' raku scripts/check-examples/check-examples.raku
 
   required:
     name: Required checks

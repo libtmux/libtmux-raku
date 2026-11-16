@@ -1,6 +1,5 @@
 use v6.d;
 use Test;
-use JSON::Fast;
 use LibTmux::Types;
 use LibTmux::Exceptions;
 use LibTmux::Catalogue;
@@ -15,12 +14,6 @@ subtest 'one ordered support policy and stable parsing' => {
         @versions[$_].at-least(@versions[$_ - 1])
             && @versions[$_].release ne @versions[$_ - 1].release
     })), 'release profiles are strictly ordered';
-    my $matrix = run $*EXECUTABLE.Str, '-I.', 'tools/ci-matrix.raku', :out;
-    my $matrix-data = from-json($matrix.out.slurp(:close));
-    is $matrix.exitcode, 0, 'CI matrix tool succeeds';
-    is-deeply $matrix-data<include>, $support.endpoints.map({
-        %(tmux => .version, commit => .commit)
-    }).Array, 'CI matrix exactly matches the typed endpoint profiles';
     ok parse-tmux-version('3.3a').at-least(parse-tmux-version('3.3')), 'letter release follows plain release';
     ok parse-tmux-version('3.10').at-least(parse-tmux-version('3.8')), 'minor versions compare numerically';
     is parse-tmux-version('tmux 3.8').release, '3.8', 'client banner parses';

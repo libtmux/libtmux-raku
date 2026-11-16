@@ -2,7 +2,7 @@ use v6.d;
 use Test;
 use JSON::Fast;
 
-my $root = $?FILE.IO.parent.parent;
+my $root = $?FILE.IO.parent(4);
 my $directory = $*TMPDIR.add("libtmux-release-$*PID-{1_000_000.rand.Int}");
 $directory.mkdir;
 my $metadata = $directory.add('META6.json');
@@ -13,7 +13,7 @@ my %meta = from-json($root.add('META6.json').slurp);
 $metadata.spurt(to-json(%meta));
 
 sub check(Str:D $tag) {
-    my $process = run $*EXECUTABLE.Str, $root.add('tools/check-release.raku').Str,
+    my $process = run $*EXECUTABLE.Str, $root.add('scripts/check-release/check-release.raku').Str,
         "--meta=$metadata", $tag, :out, :err;
     my $out = $process.out.slurp(:close);
     my $err = $process.err.slurp(:close);

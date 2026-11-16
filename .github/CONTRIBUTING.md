@@ -46,7 +46,7 @@ before advancing the pin.
 Check source hygiene, relative file links and distribution inventory:
 
 ```console
-$ mise exec -- raku tools/check-source.raku
+$ mise exec -- raku scripts/check-source/check-source.raku
 ```
 
 This check does not rewrite code, format Raku syntax or perform static analysis.
@@ -66,7 +66,7 @@ $ mise exec -- zef test .
 Check the catalogue-derived native accessors:
 
 ```console
-$ mise exec -- raku -I. tools/catalogue.raku \
+$ mise exec -- raku -I. scripts/catalogue/catalogue.raku \
     --format=raku \
     --output=lib/LibTmux/Fields.rakumod \
     --check
@@ -75,7 +75,7 @@ $ mise exec -- raku -I. tools/catalogue.raku \
 Check the generated human reference separately:
 
 ```console
-$ mise exec -- raku -I. tools/catalogue.raku \
+$ mise exec -- raku -I. scripts/catalogue/catalogue.raku \
     --format=rakudoc \
     --output=docs/reference/catalogue.rakudoc \
     --check
@@ -100,7 +100,7 @@ Install into a temporary repository and load it from a fresh process outside
 the checkout. This outer check removes its temporary installation afterward:
 
 ```console
-$ mise exec -- raku tools/check-install.raku
+$ mise exec -- raku scripts/check-install/check-install.raku
 ```
 
 The outer live suite requires an explicit tmux binary. Set `LIBTMUX_TEST_TMUX`
@@ -136,7 +136,7 @@ Check that the README and native guide quote complete canonical example files.
 This check requires no tmux process:
 
 ```console
-$ mise exec -- raku tools/check-examples.raku --check-source
+$ mise exec -- raku scripts/check-examples/check-examples.raku --check-source
 ```
 
 Run every example against the same explicit `LIBTMUX_TEST_TMUX` endpoint binary.
@@ -146,7 +146,7 @@ first on the child `PATH`, then removes that directory on exit. Programs other
 than the minimal quickstart also receive the binary through `--tmux`:
 
 ```console
-$ mise exec -- raku tools/check-examples.raku
+$ mise exec -- raku scripts/check-examples/check-examples.raku
 ```
 
 Logo exports and their upstream source provenance live in [docs/assets](../docs/assets/README.md).

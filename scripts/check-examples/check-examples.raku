@@ -3,10 +3,10 @@ use NativeCall;
 
 sub mkdtemp(CArray[uint8] --> Pointer) is native { * }
 
-my $root = $?FILE.IO.parent.parent.absolute.IO;
+my $root = $?FILE.IO.parent(3).absolute.IO;
 my $quickstart = $root.add('examples/quickstart.raku');
 my $source-only = @*ARGS.elems == 1 && @*ARGS[0] eq '--check-source';
-die 'Usage: raku tools/check-examples.raku [--check-source]' if @*ARGS && !$source-only;
+die 'Usage: raku scripts/check-examples/check-examples.raku [--check-source]' if @*ARGS && !$source-only;
 
 sub check-snippets(Str:D $document, Str:D $marker, Str:D $opening,
                    Str:D $code-start, Str:D $closing --> Int:D) {

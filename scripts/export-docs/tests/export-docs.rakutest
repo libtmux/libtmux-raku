@@ -51,7 +51,7 @@ wraps onto a second line.
 =item A short item.
 =end pod
 RAKU
-my $process = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku',
+my $process = run $*EXECUTABLE.Str, '-I.', 'scripts/export-docs/export-docs.raku',
     "--unit=$file", :out;
 my $output = $process.out.slurp(:close);
 is $process.exitcode, 0, 'native compiler extraction succeeds';
@@ -101,7 +101,7 @@ subtest 'native link resolution needs only the exported surface' => {
         ];
     sub check-links() {
         $links.spurt(to-json(%fixture));
-        my $process = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku',
+        my $process = run $*EXECUTABLE.Str, '-I.', 'scripts/export-docs/export-docs.raku',
             "--check-links=$links", :out, :err;
         my $stdout = $process.out.slurp(:close);
         my $stderr = $process.err.slurp(:close);
@@ -125,7 +125,7 @@ subtest 'native link resolution needs only the exported surface' => {
 subtest 'unsupported native link labels cannot bypass validation or rendering' => {
     for <Example::Surface Missing> -> $target {
         $file.spurt("use v6.d;\nunit module Example;\n#| See L<x]y|$target>.\nclass Surface is export \{ }\n");
-        my $process = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku', "--unit=$file", :out, :err;
+        my $process = run $*EXECUTABLE.Str, '-I.', 'scripts/export-docs/export-docs.raku', "--unit=$file", :out, :err;
         my $stdout = $process.out.slurp(:close);
         my $stderr = $process.err.slurp(:close);
         isnt $process.exitcode, 0, 'bracket label fails even when its target exists';
@@ -134,7 +134,7 @@ subtest 'unsupported native link labels cannot bypass validation or rendering' =
     }
 };
 subtest 'the Server class doc lists every public member in its capability directory' => {
-    my $unit = run $*EXECUTABLE.Str, '-I.', 'tools/export-docs.raku',
+    my $unit = run $*EXECUTABLE.Str, '-I.', 'scripts/export-docs/export-docs.raku',
         '--unit=lib/LibTmux/Server.rakumod', :out;
     my %server = from-json($unit.out.slurp(:close));
     is $unit.exitcode, 0, 'the Server module extracts';

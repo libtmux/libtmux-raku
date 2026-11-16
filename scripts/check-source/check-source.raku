@@ -2,7 +2,7 @@ use v6.d;
 use JSON::Fast;
 
 # Source hygiene and distribution inventory, not a formatter or static analyzer.
-my $root = $?FILE.IO.parent.parent.absolute.IO;
+my $root = $?FILE.IO.parent(3).absolute.IO;
 my $listing = run 'git', '-C', $root.Str, 'ls-files', '-z',
     '--cached', '--others', '--exclude-standard', :out;
 my @paths = $listing.out.slurp(:close).split("\0").grep(*.chars).unique.sort;

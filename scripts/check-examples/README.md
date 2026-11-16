@@ -1,0 +1,19 @@
+# check-examples
+
+Checks that every Raku snippet in `README.md` and `lib/LibTmux.rakumod` is the
+byte-for-byte text of the example it names, then runs each program in
+`examples/` and compares its output with the documented result.
+
+`ci.yml` runs the source check on every push and the full run in each tmux job.
+The source check needs no tmux:
+
+```console
+$ raku scripts/check-examples/check-examples.raku --check-source
+```
+
+The full run needs `LIBTMUX_TEST_TMUX`, the absolute path of the tmux to test
+against:
+
+```console
+$ LIBTMUX_TEST_TMUX=/usr/local/bin/tmux raku scripts/check-examples/check-examples.raku
+```

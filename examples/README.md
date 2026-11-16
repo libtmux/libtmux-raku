@@ -142,6 +142,6 @@ A failed batch does not undo commands that already succeeded.
 Every program except the quickstart takes `--tmux=PATH`. The quickstart runs
 `tmux` from `PATH`.
 
-The [example check](../tools/check-examples.raku) runs every program against
+The [example check](../scripts/check-examples/check-examples.raku) runs every program against
 `LIBTMUX_TEST_TMUX`, compares its output and rejects leftover sockets. See
 [Contributing](../.github/CONTRIBUTING.md#checks).
