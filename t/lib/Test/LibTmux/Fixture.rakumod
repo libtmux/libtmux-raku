@@ -42,6 +42,10 @@ class ExitWatch is export {
         False
     }
 
+    method terminate(--> Nil) {
+        pidfd_send_signal($!pidfd, 9, Pointer, 0) if $!pidfd >= 0;
+    }
+
     method close(--> Nil) {
         close($!pidfd) if $!pidfd >= 0;
         $!pidfd = -1;

@@ -14,7 +14,7 @@ sub await-record(Promise:D $ready, Promise :$terminal = Promise --> Nil) {
     await $ready;
 }
 
-with-tmux(-> $fixture {
+with-tmux(sub ($fixture) {
     temp $*TMPDIR = $fixture.directory;
     my $server = Server.new(:$binary, :socket-path($fixture.socket-path.Str));
     LEAVE $server.close;
@@ -25,7 +25,10 @@ with-tmux(-> $fixture {
     }
     my $record = $fixture.directory.add('application-pids');
     my $partial = $fixture.directory.add('application-pids.tmp');
-    LEAVE { $record.unlink if $record.e; $partial.unlink if $partial.e }
+    LEAVE {
+        $record.unlink if $record.defined && $record.e;
+        $partial.unlink if $partial.defined && $partial.e;
+    }
     my $application = q:to/SH/;
         trap '' TERM
         sleep 30 &
@@ -78,7 +81,7 @@ with-tmux(-> $fixture {
         my $before = $fixture.cmd('list-sessions', '-F', '#{session_id}');
         my $cancel = Cancellation.new;
         my $run = $server.run-program-async(['/bin/sh', '-c', $application,
-            'managed-application', $record.Str], :$cancel, :timeout-ms(1000));
+            'managed-application', $record.Str], :$cancel);
         await-record($ready, :terminal($run));
         my ($root, $child) = $record.lines.map(*.Int);
         my $child-exit = ExitWatch.new(:pid($child));
@@ -90,6 +93,92 @@ with-tmux(-> $fixture {
         is $fixture.cmd('list-sessions', '-F', '#{session_id}'), $before,
             'the borrowed daemon and its sibling session remain intact';
         $record.unlink;
+    };
+
+    subtest 'cleanup retains the group after its original leader exits' => {
+        my $ready = Promise.new;
+        my $vow = $ready.vow;
+        my $lock = Lock.new;
+        my $tap = IO::Notification.watch-path($fixture.directory).act(-> $event {
+            $lock.protect({ $vow.keep(True) if $ready.status == Planned
+                && $event.path.IO.basename eq $record.basename && $record.e });
+        });
+        LEAVE $tap.close if $tap.defined;
+        my $program = $server.start-program(['/bin/sh', '-c', q:to/SH/,
+            trap '' TERM HUP
+            sleep 30 &
+            printf '%s\n' "$!" > "$1.tmp"
+            mv "$1.tmp" "$1"
+            exit 0
+            SH
+            'managed-application', $record.Str]);
+        LEAVE $program.close if $program.defined;
+        await-record($ready);
+        my $child-exit = ExitWatch.new(:pid($record.slurp.trim.Int));
+        LEAVE {
+            if $child-exit.defined {
+                $child-exit.terminate unless $child-exit.wait(:timeout-ms(0));
+                $child-exit.close;
+            }
+        }
+        my $result = $program.wait;
+        is $result.exitcode, 0, 'application completion records the already exited leader';
+        nok $child-exit.wait(:timeout-ms(0)), 'the same-group descendant remains alive';
+        $program.close;
+        ok $child-exit.wait, 'the retained original group terminates its surviving descendant';
+        ok $program.group-empty, 'completed cleanup proves that group is empty';
+        is $program.wait, $result, 'cleanup preserves the original normal completion';
+        $record.unlink;
+    };
+
+    subtest 'cancellation during native creation cannot release the application' => {
+        my $channel = 'program-create-' ~ $fixture.directory.basename;
+        my $release = $channel ~ '-release';
+        my $entered = Proc::Async.new(:w, $binary, '-S', $fixture.socket-path.Str,
+            'wait-for', $channel);
+        my @taps = ($entered.stdout(:bin).tap(-> $chunk {}),
+            $entered.stderr(:bin).tap(-> $chunk {}));
+        LEAVE .close for @taps;
+        my $entered-done = $entered.start;
+        $entered.close-stdin;
+        LEAVE {
+            try $fixture.cmd('set-hook', '-gu', 'after-new-session');
+            try $fixture.cmd('wait-for', '-S', $release);
+            try $entered.kill(9) if $entered-done.status == Planned;
+            my $reaped = try await $entered-done;
+            Nil;
+        }
+        my $client = await $entered.pid;
+        my $deadline = now + 1;
+        loop {
+            last if $fixture.cmd('wait-for', '-l', $channel).lines
+                .first(* eq "client-$client").defined;
+            die 'Creation barrier observer was not registered'
+                if now >= $deadline || $entered-done.status != Planned;
+        }
+        $fixture.cmd('set-hook', '-g', 'after-new-session',
+            "wait-for -S $channel ; wait-for $release");
+        my $before = $fixture.cmd('list-sessions', '-F', '#{session_id}');
+        my $effect = $fixture.directory.add('forbidden-setup-effect');
+        LEAVE $effect.unlink if $effect.e;
+        my $cancel = Cancellation.new;
+        my $opening = $server.start-program-async(['/bin/sh', '-c',
+            'printf forbidden > "$1"', 'managed-application', $effect.Str], :$cancel);
+        await Promise.anyof($entered-done, $opening);
+        die 'Setup ended before entering the native creation barrier'
+            if $entered-done.status != Kept;
+        $cancel.cancel;
+        my $error;
+        try { await $opening; CATCH { default { $error = $_ } } }
+        my $primary = $error ~~ X::LibTmux::Program ?? $error.primary !! $error;
+        isa-ok $primary, X::LibTmux::Command, 'setup preserves a typed primary failure';
+        is $primary.kind, 'cancelled', 'native creation cancellation remains the primary reason';
+        $fixture.cmd('set-hook', '-gu', 'after-new-session');
+        $fixture.cmd('wait-for', '-S', $release);
+        $error.owner.close if $error ~~ X::LibTmux::Program;
+        nok $effect.e, 'cancellation never releases application side effects';
+        is $fixture.cmd('list-sessions', '-F', '#{session_id}'), $before,
+            'cleanup removes the cancelled creation and preserves borrowed sessions';
     };
 
     subtest 'caller VM death leaves the watchdog responsible for cleanup' => {
@@ -113,7 +202,7 @@ with-tmux(-> $fixture {
             $*OUT.out-buffer = False;
             say to-json(%(pane => $program.pane.id,
                 directory => $program.cleanup-location.Str), :!pretty);
-            $program.wait(:timeout-ms(1000));
+            $program.wait;
             RAKU
         my $metadata = Promise.new;
         my $metadata-vow = $metadata.vow;
