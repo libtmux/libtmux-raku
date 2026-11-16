@@ -5,6 +5,7 @@ unit module LibTmux::Program::Owner;
 
 use LibTmux::Engine :internals;
 use NativeCall;
+use nqp;
 use JSON::Fast;
 
 class PollEvent is repr('CStruct') {
@@ -65,8 +66,7 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
     LEAVE native-close($daemon-fd) if $daemon-fd >= 0;
     if (@arguments[0] // '') eq '--bootstrap' {
         my ($mode, $path, $token, $cwd, $environment-count, *@argv) = @arguments;
-        sub startup-failed(Int:D $status, Str:D $stage --> Nil) {
-            my $error = errno-location()[0].Int;
+        sub startup-failed(Int:D $status, Str:D $stage, Int:D $error --> Nil) {
             my $record = $path.IO.parent.add('startup-error');
             $record.spurt(to-json(%(:$token, :$stage, :$error), :!pretty));
             $record.chmod(0o600);
@@ -84,20 +84,23 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
         my $bytes = CArray[uint8].new; $bytes[63] = 0;
         my $message = Buf.new;
         loop {
-            my $count = native-read($fd, $bytes, 64);
+            my $errno = errno-location();
+            my int $count = native-read($fd, $bytes, 64);
+            my int32 $error = nqp::atpos_i(nqp::decont($errno), 0);
             if $count > 0 {
                 $message.append((^$count).map({ $bytes[$_] }));
                 exit 125 if $message.elems > 4096;
                 last if $message.list.first(* == 10).defined;
             } elsif $count == 0 { exit 125 }
             else {
-                my $error = errno-location()[0];
                 next if $error == 4;
                 exit 125 unless $error == 11;
             }
             my $event = PollEvent.new(:$fd);
-            my $ready = poll($event, 1, -1);
-            exit 125 if $ready < 0 && errno-location()[0] != 4;
+            $errno = errno-location();
+            my int32 $ready = poll($event, 1, -1);
+            $error = nqp::atpos_i(nqp::decont($errno), 0);
+            exit 125 if $ready < 0 && $error != 4;
         }
         native-close($fd);
         my %grant = from-json($message.decode('utf8'));
@@ -111,17 +114,24 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
         $receipt.chmod(0o600);
         $receipt.rename($path.IO.parent.add('bootstrap-accepted'));
         exit 125 unless $accepted;
-        startup-failed(126, 'directory')
-            if native-chdir(CArray[uint8].new(|$cwd.encode('utf8-c8').list, 0)) != 0;
+        my $errno = errno-location();
+        my int32 $changed = native-chdir(CArray[uint8].new(|$cwd.encode('utf8-c8').list, 0));
+        my int32 $error = nqp::atpos_i(nqp::decont($errno), 0);
+        startup-failed(126, 'directory', $error) if $changed != 0;
         for @environment.rotor(2) -> @entry {
-            startup-failed(126, 'environment') if native-setenv(
+            $errno = errno-location();
+            my int32 $set = native-setenv(
                 CArray[uint8].new(|@entry[0].encode('utf8-c8').list, 0),
-                CArray[uint8].new(|@entry[1].encode('utf8-c8').list, 0), 1) != 0;
+                CArray[uint8].new(|@entry[1].encode('utf8-c8').list, 0), 1);
+            $error = nqp::atpos_i(nqp::decont($errno), 0);
+            startup-failed(126, 'environment', $error) if $set != 0;
         }
         my @storage = @argv.map({ CArray[uint8].new(|.encode('utf8-c8').list, 0) });
         my $arguments = CArray[Pointer].new(|@storage.map({ nativecast(Pointer, $_) }), Pointer);
-        execvp(@storage[0], $arguments);
-        startup-failed(127, 'exec');
+        $errno = errno-location();
+        my int32 $executed = execvp(@storage[0], $arguments);
+        $error = nqp::atpos_i(nqp::decont($errno), 0);
+        startup-failed(127, 'exec', $error);
     }
 
     die 'Unexpected owner mode arguments' if @arguments;
@@ -181,14 +191,20 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
     }
     sub signal-group(Int:D $signal --> Nil) {
         return if $group < 0;
-        if pidfd_send_signal($group, $signal, Pointer, 4) != 0 {
-            die 'Cannot signal owned process group' unless errno-location()[0] == 3;
+        my $errno = errno-location();
+        my int32 $result = pidfd_send_signal($group, $signal, Pointer, 4);
+        my int32 $error = nqp::atpos_i(nqp::decont($errno), 0);
+        if $result != 0 {
+            die 'Cannot signal owned process group' unless $error == 3;
         }
     }
     sub group-empty(--> Bool:D) {
         return True if $group < 0;
-        return False if pidfd_send_signal($group, 0, Pointer, 4) == 0;
-        die 'Cannot observe owned process group' unless errno-location()[0] == 3;
+        my $errno = errno-location();
+        my int32 $result = pidfd_send_signal($group, 0, Pointer, 4);
+        my int32 $error = nqp::atpos_i(nqp::decont($errno), 0);
+        return False if $result == 0;
+        die 'Cannot observe owned process group' unless $error == 3;
         True
     }
     sub terminate-group(--> Promise:D) {
@@ -295,8 +311,10 @@ sub run-owner(*@arguments --> Nil) is export(:internals) {
         return if $group >= 0 || !(%cleanup<pid> // 0);
         # This read-only watch proves exit after deletion; it never signals a PID.
         # Reuse can make the proof conservative, but cannot make the old PID live.
-        my $fd = pidfd_open(%cleanup<pid>.Int, 0);
-        return if $fd < 0 && errno-location()[0] == 3;
+        my $errno = errno-location();
+        my int32 $fd = pidfd_open(%cleanup<pid>.Int, 0);
+        my int32 $error = nqp::atpos_i(nqp::decont($errno), 0);
+        return if $fd < 0 && $error == 3;
         die 'Cannot observe cancelled bootstrap exit' if $fd < 0;
         LEAVE native-close($fd) if $fd.defined && $fd >= 0;
         my $event = PollEvent.new(:$fd);

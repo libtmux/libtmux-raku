@@ -138,12 +138,12 @@ with-tmux(sub ($fixture) {
     subtest 'native startup errors differ from application status' => {
         throws-like {
             $server.run-program([$fixture.directory.add('missing-executable').Str])
-        }, X::LibTmux::Command, :kind<spawn>, :exitcode(127),
+        }, X::LibTmux::Command, :kind<spawn>, :exitcode(127), :message(/ 'errno 2' /),
             'a missing executable is a native startup failure';
         throws-like {
             $server.run-program(['/bin/true'],
                 :directory($fixture.directory.add('missing-directory').Str))
-        }, X::LibTmux::Command, :kind<spawn>, :exitcode(126),
+        }, X::LibTmux::Command, :kind<spawn>, :exitcode(126), :message(/ 'errno 2' /),
             'an unavailable working directory is a native startup failure';
         is $server.run-program(['/bin/sh', '-c', 'exit 127']).exitcode, 127,
             'application exit 127 remains an ordinary completion';

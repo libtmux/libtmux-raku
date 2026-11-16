@@ -134,8 +134,11 @@ sub require-process-groups(--> Nil) {
     }
     $fd = pidfd_open($*PID, 0);
     failure('platform', 'Cannot acquire a process pidfd', NotStarted).throw if $fd < 0;
-    my $status = pidfd_send_signal($fd, 0, Pointer, 4);
-    my $error = $status == 0 ?? 0 !! errno-location()[0];
+    # Resolve this thread's errno address before the call, then copy it without
+    # another NativeCall that could replace the error.
+    my $errno = errno-location();
+    my int32 $status = pidfd_send_signal($fd, 0, Pointer, 4);
+    my int32 $error = nqp::atpos_i(nqp::decont($errno), 0);
     failure('platform', 'Managed programs require Linux process-group pidfds (6.9+); native errno ' ~ $error,
         NotStarted).throw unless $status == 0 || $error == 3;
 }
