@@ -165,13 +165,28 @@ sub extract-unit(Str:D $file --> Hash:D) {
     my @declarations;
     my @guides;
     my @guide-links;
+    my %nested;
     my %seen;
     sub walk($node, Str:D $owner = '') {
         return if %seen{$node.WHICH}++;
         my $kind = $node.^name;
         return if $kind eq 'RakuAST::Doc::Declarator';
         if $kind eq 'RakuAST::Doc::Block' {
-            @guides.push(markup($node, :links(@guide-links))) if $node.type eq any(<pod NAME DESCRIPTION>);
+            if $node.type eq any(<pod NAME DESCRIPTION>) {
+                if %nested{$owner}:exists {
+                    # A Pod block inside a class that another package declares documents that class,
+                    # after its declarator text. Any other Pod block documents the unit.
+                    my @links;
+                    my $text = markup($node, :@links).trim;
+                    my %doc = %nested{$owner}<doc>;
+                    %doc<summary> //= '';
+                    %doc<body> = (%doc<body> // '', $text).grep(*.chars).join("\n\n");
+                    %doc<_nativeLinks> = [|(%doc<_nativeLinks> // []), |@links];
+                    %nested{$owner}<doc> = %doc;
+                } else {
+                    @guides.push(markup($node, :links(@guide-links)));
+                }
+            }
             return;
         }
         my $next-owner = $owner;
@@ -215,6 +230,7 @@ sub extract-unit(Str:D $file --> Hash:D) {
             %symbol<doc> = documentation($node);
             %symbol<modifiers> = [];
             @declarations.push(%symbol);
+            %nested{%symbol<id>} = %symbol if %symbol<kind> eq 'class' && %symbol<parent>;
             if $kind eq 'RakuAST::Type::Enum' {
                 for $node.meta-object.enums.sort(*.value) -> $case {
                     @declarations.push(%(id => %symbol<id> ~ '.' ~ $case.key,

@@ -121,6 +121,63 @@ role Reference[::ID, Str:D $entity] {
 
 #| Value-only command target for a session in one daemon incarnation.
 class SessionRef does Reference[SessionId, 'session'] is export {
+=begin pod
+=head1 What is on here
+
+A SessionRef names one session in one daemon incarnation and holds no process.
+A method that talks to tmux opens a short-lived client and closes it, and a
+method that returns a facade performs no I/O. The groups below list every
+method.
+
+B<Identity and inspection.> C<inspect> captures a fresh graph and returns the
+View for this session. It raises when the daemon was replaced or the session no
+longer exists. C<same-entity> compares IDs and daemon identities and C<entity>
+names the entity kind; neither performs I/O.
+
+=item Capture the session now: C<inspect>
+=item Compare two references: C<same-entity>
+=item Name the entity kind: C<entity>
+
+B<Windows of the session.> C<new-window> creates a window and returns a
+WindowRef from the ID tmux reports, without refreshing any observation.
+C<next-window> and C<previous-window> select the neighbouring window, and
+C<last-window> selects the previous current window. C<renumber-windows>
+renumbers the session's links, so indices you captured earlier may be stale.
+
+=item Create a window: C<new-window>
+=item Select a neighbouring window: C<next-window>, C<previous-window>
+=item Select the previous current window: C<last-window>
+=item Renumber the links: C<renumber-windows>
+
+B<Renaming and removing.> C<rename> stores the exact name and refuses
+characters or separators the daemon would change. C<kill> destroys the session;
+a snapshot you already hold keeps its data.
+
+=item Rename the session: C<rename>
+=item Destroy the session: C<kill>
+
+B<Clients of the session.> C<lock> asks tmux to lock the clients attached to
+the session, and C<detach-clients> asks tmux to detach them. The acknowledgement
+of a detach is not the clients' exit.
+
+=item Lock the clients: C<lock>
+=item Detach the clients: C<detach-clients>
+
+B<Options, hooks and environment.> C<options>, C<hooks> and C<environment>
+construct value-only facades scoped to this session. Construction does no I/O;
+the facade's own methods read or change one kind of setting.
+
+=item Options: C<options>
+=item Hooks: C<hooks>
+=item Environment: C<environment>
+
+B<Raw tmux commands.> C<command> runs one explicit Invocation, bounded and
+guarded by the daemon identity this reference captured. It adds no target, so
+pass C<-t> with the session's C<id>. It raises StaleReference when the daemon
+was replaced.
+
+=item Run one command: C<command>
+=end pod
     #| Construct a session environment facade without acquiring current values.
     method environment(--> Environment:D) {
         Environment.new(:endpoint(self.endpoint), :incarnation(self.incarnation),
@@ -170,6 +227,67 @@ class SessionRef does Reference[SessionId, 'session'] is export {
 }
 #| Value-only command target for a physical window, independent of its links.
 class WindowRef does Reference[WindowId, 'window'] is export {
+=begin pod
+=head1 What is on here
+
+A WindowRef names one physical window in one daemon incarnation and holds no
+process. It addresses the window itself, not a placement in a session: C<link>
+adds a placement, and WindowLinkRef moves or removes one. A method that talks
+to tmux opens a short-lived client and closes it, and a method that returns a
+facade performs no I/O. The groups below list every method.
+
+B<Identity and inspection.> C<inspect> captures a fresh graph and returns the
+View for this window. It raises when the daemon was replaced or the window no
+longer exists. C<same-entity> compares IDs and daemon identities and C<entity>
+names the entity kind; neither performs I/O.
+
+=item Capture the window now: C<inspect>
+=item Compare two references: C<same-entity>
+=item Name the entity kind: C<entity>
+
+B<Layout.> C<select-layout> applies a named layout, and C<restore-layout>
+validates and applies serialized layout bytes in the daemon's declared dialect.
+C<next-layout> and C<previous-layout> step through the tmux layouts, and
+C<spread-layout> distributes space evenly around the active pane.
+
+=item Apply a named layout: C<select-layout>
+=item Apply serialized layout bytes: C<restore-layout>
+=item Step through the layouts: C<next-layout>, C<previous-layout>
+=item Spread space evenly: C<spread-layout>
+
+B<Size and pane order.> C<resize> sets absolute dimensions or adjusts one
+direction; the two forms cannot be mixed. C<rotate> rotates the panes in the
+layout, and C<last-pane> selects the previous active pane.
+
+=item Resize the window: C<resize>
+=item Rotate the panes: C<rotate>
+=item Select the previous active pane: C<last-pane>
+
+B<Names, placements and lifetime.> C<rename> stores the exact name. C<link>
+adds the window to another session at an index and returns a WindowLinkRef for
+that placement. C<respawn> restarts the window's process; replacing a running
+process needs an explicit C<:kill>. C<kill> destroys the physical window and
+all its links.
+
+=item Rename the window: C<rename>
+=item Add a placement in a session: C<link>
+=item Restart the process: C<respawn>
+=item Destroy the window and its links: C<kill>
+
+B<Options and hooks.> C<options> and C<hooks> construct value-only facades
+scoped to this window. Construction does no I/O; the facade's own methods read
+or change one kind of setting.
+
+=item Options: C<options>
+=item Hooks: C<hooks>
+
+B<Raw tmux commands.> C<command> runs one explicit Invocation, bounded and
+guarded by the daemon identity this reference captured. It adds no target, so
+pass C<-t> with the window's C<id>. It raises StaleReference when the daemon
+was replaced.
+
+=item Run one command: C<command>
+=end pod
     #| Store the exact name; refuse characters or separators the daemon would change.
     method rename(Str:D $name --> Result:D) is single-operation {
         my $literal = operation-name($name, :domain<window>, :incarnation(self.incarnation));
@@ -240,6 +358,118 @@ class WindowRef does Reference[WindowId, 'window'] is export {
 }
 #| Value-only command target for a physical pane in one daemon incarnation.
 class PaneRef does Reference[PaneId, 'pane'] is export {
+=begin pod
+=head1 What is on here
+
+A PaneRef names one physical pane in one daemon incarnation and holds no
+process. A method that talks to tmux opens a short-lived client and closes it,
+and a method that returns a facade performs no I/O. A method that creates a pane
+or a window returns a reference built from the ID tmux reports. The groups below
+list every method.
+
+B<Identity and inspection.> C<inspect> captures a fresh graph and returns the
+View for this pane. It raises when the daemon was replaced or the pane no
+longer exists. C<same-entity> compares IDs and daemon identities and C<entity>
+names the entity kind; neither performs I/O.
+
+=item Capture the pane now: C<inspect>
+=item Compare two references: C<same-entity>
+=item Name the entity kind: C<entity>
+
+B<Sending input.> C<send-text> sends literal text and never appends Enter.
+C<send-keys> sends native key names, repeated a positive number of times, and
+C<send-prefix> sends the configured prefix key. C<set-input> enables or
+disables delivery of keyboard input to the pane.
+
+=item Send literal text: C<send-text>
+=item Send key names: C<send-keys>
+=item Send the prefix key: C<send-prefix>
+=item Allow or block keyboard input: C<set-input>
+
+B<Reading output.> C<capture> returns screen or history bytes with explicit
+bounds and whitespace options, and C<capture-pending> returns incomplete escape
+input separately. Both return a Blob without text conversion. C<pipe> connects
+the pane's output or input to a shell command, and it accepts tmux FORMAT and
+strftime syntax as well as shell syntax.
+
+=item Capture the screen or history: C<capture>
+=item Capture pending escape input: C<capture-pending>
+=item Pipe output or input to a command: C<pipe>
+
+B<Splitting, resizing and focus.> C<split> creates a detached split by default
+and returns a PaneRef for the new pane. C<resize> sets absolute dimensions or
+adjusts one direction, and C<toggle-zoom> toggles the window's zoom state.
+C<select> makes this pane the current one.
+
+=item Split the pane: C<split>
+=item Resize the pane: C<resize>
+=item Zoom or unzoom the window: C<toggle-zoom>
+=item Make it the current pane: C<select>
+
+B<Moving panes.> C<join> moves the pane into another pane's split tree and
+C<move> places it beside another pane; both keep its ID. C<swap> exchanges two
+panes. C<break> moves the pane to a new window in a session you name and
+returns a WindowRef; a window with several placements needs an explicit C<:from>
+WindowLinkRef.
+
+=item Join another pane's split tree: C<join>
+=item Place it beside another pane: C<move>
+=item Exchange two panes: C<swap>
+=item Move it to a new window: C<break>
+
+B<Floating panes.> C<new-floating> creates a floating pane, and C<move-floating>
+places it at explicit coordinates. C<stack> and C<set-z-index> change its
+stacking order, and C<tile> and C<float> convert between a tile and a floating
+pane while keeping the ID. A daemon without the floating-pane capabilities
+raises Unsupported.
+
+=item Create a floating pane: C<new-floating>
+=item Place it at coordinates: C<move-floating>
+=item Change the stacking order: C<stack>, C<set-z-index>
+=item Convert between tile and float: C<tile>, C<float>
+
+B<Terminal state and modes.> C<clear-history> discards scrollback and leaves the
+visible screen alone. C<reset-terminal> resets tmux's terminal state, and
+C<reset> also clears history in one tmux queue; neither restarts the process,
+and C<reset> can leave partial effects on failure. C<copy-mode> enters copy
+mode, C<copy-command> sends one native copy-mode command, and C<clock-mode>
+shows the clock.
+
+=item Clear scrollback: C<clear-history>
+=item Reset the terminal: C<reset-terminal>, C<reset>
+=item Enter copy mode: C<copy-mode>
+=item Send a copy-mode command: C<copy-command>
+=item Show the clock: C<clock-mode>
+
+B<Titles and marks.> C<set-title> sets the title through one literal FORMAT
+expansion; tmux's title rules still apply. C<toggle-mark> makes this pane the
+global marked-pane target, and C<unmark> clears the server's marked pane.
+
+=item Set the title: C<set-title>
+=item Mark the pane: C<toggle-mark>
+=item Clear the mark: C<unmark>
+
+B<Process and lifetime.> C<respawn> restarts the pane's process; replacing a
+running process needs an explicit C<:kill>. C<kill> destroys the pane, and a
+snapshot you already hold keeps its data.
+
+=item Restart the process: C<respawn>
+=item Destroy the pane: C<kill>
+
+B<Options and hooks.> C<options> and C<hooks> construct value-only facades
+scoped to this pane. Construction does no I/O; the facade's own methods read or
+change one kind of setting.
+
+=item Options: C<options>
+=item Hooks: C<hooks>
+
+B<Raw tmux commands.> C<command> runs one explicit Invocation, bounded and
+guarded by the daemon identity this reference captured. It adds no target, so
+pass C<-t> with the pane's C<id>. It raises StaleReference when the daemon
+was replaced.
+
+=item Run one command: C<command>
+=end pod
     #| Send literal bytes as text without appending Enter.
     method send-text(Str:D $text --> Result:D) is single-operation {
         self.command(Invocation.new(:argv(['send-keys', '-l', '-t', self.id, '--', $text])))
