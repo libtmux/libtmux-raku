@@ -55,7 +55,7 @@ sub MAIN(Bool :$check-source = False) {
             ~ "invalid-command: Failed (scope: command)\n"
             ~ "skipped-option: Skipped (scope: command)\n"
             ~ "Recovery: removed the first effect explicitly\n"
-            ~ "Owned daemon and socket cleaned up\n"];
+            ~ "Stopped the tmux server and removed its socket\n"];
 
     my $binary = %*ENV<LIBTMUX_TEST_TMUX> // die 'LIBTMUX_TEST_TMUX must name the qualified endpoint binary';
     die 'LIBTMUX_TEST_TMUX must be an executable absolute path'
