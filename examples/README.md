@@ -14,12 +14,13 @@
 </div>
 
 Complete programs that start a private tmux server, do one job and close it.
-Run them from the repository root after the
-[toolchain setup](../.github/CONTRIBUTING.md#toolchain), with tmux on `PATH`:
+Install the library, with tmux 3.3a or newer on `PATH`:
 
 ```console
-$ zef install .
+$ zef install 'LibTmux:ver<0.0.1+>:auth<zef:libtmux>'
 ```
+
+Save a program under its name and run it with `raku`.
 
 | Task | Program | Raku facilities |
 | --- | --- | --- |
@@ -38,7 +39,7 @@ $ zef install .
 `editor` in a fresh snapshot. The earlier snapshot still has one pane.
 
 ```console
-$ raku -I. examples/quickstart.raku
+$ raku quickstart.raku
 ```
 
 It prints `editor: 2 panes`.
@@ -49,7 +50,7 @@ It prints `editor: 2 panes`.
 the first pane, then kills the second pane. A fresh snapshot reads each result.
 
 ```console
-$ raku -I. examples/resize-panes.raku
+$ raku resize-panes.raku
 ```
 
 It prints `window: 100x20`, `editor: 30 columns` and `panes: 1`.
@@ -61,7 +62,7 @@ It prints `window: 100x20`, `editor: 30 columns` and `panes: 1`.
 count, and `.grep`, `.map` and `.sort` list the rest.
 
 ```console
-$ raku -I. examples/query-panes.raku
+$ raku query-panes.raku
 ```
 
 It prints `Wide pane: editor` and `Other panes: logs, tests`.
@@ -75,7 +76,7 @@ It prints `Wide pane: editor` and `Other panes: logs, tests`.
 and shows `:pushdown<require>` refusing the query that keeps a title test local.
 
 ```console
-$ raku -I. examples/explain-query.raku
+$ raku explain-query.raku
 ```
 
 It prints whether each query is fully pushed to tmux, the filter tmux gets,
@@ -87,7 +88,7 @@ the match, and the refusal.
 floating when the daemon reports `pane-floating`, tiled otherwise.
 
 ```console
-$ raku -I. examples/floating-panes.raku
+$ raku floating-panes.raku
 ```
 
 It prints `Status pane: floating` or `Status pane: tiled`, then `status`.
@@ -99,7 +100,7 @@ text to `cat` and collects the echoed bytes with `react` and `whenever`. Then it
 checks the captured screen.
 
 ```console
-$ raku -I. examples/watch-output.raku
+$ raku watch-output.raku
 ```
 
 It prints `hello from Raku` and `Screen capture confirmed`.
@@ -115,11 +116,11 @@ watches control-mode output and captures the screen. It filters a snapshot,
 then compares an exact source query with the captured pane.
 
 ```console
-$ raku -I. examples/session-workflow.raku
+$ raku session-workflow.raku
 ```
 
 The output includes `Session: 2 panes`, `editor: hello from Raku` and
-`Owned clients, daemon and socket cleaned up`.
+`Stopped the tmux server and removed its socket`.
 
 ## Recover after a command fails
 
@@ -128,12 +129,12 @@ command and checks that the next command was skipped. It then removes the
 first effect.
 
 ```console
-$ raku -I. examples/batch-recovery.raku
+$ raku batch-recovery.raku
 ```
 
 It prints the `Complete`, `Failed` and `Skipped` outcomes, then
 `Recovery: removed the first effect explicitly` and
-`Owned daemon and socket cleaned up`.
+`Stopped the tmux server and removed its socket`.
 
 A failed batch does not undo commands that already succeeded.
 
@@ -141,7 +142,3 @@ A failed batch does not undo commands that already succeeded.
 
 Every program except the quickstart takes `--tmux=PATH`. The quickstart runs
 `tmux` from `PATH`.
-
-The [example check](../scripts/check-examples/check-examples.raku) runs every program against
-`LIBTMUX_TEST_TMUX`, compares its output and rejects leftover sockets. See
-[Contributing](../.github/CONTRIBUTING.md#checks).
