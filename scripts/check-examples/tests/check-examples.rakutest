@@ -2,11 +2,13 @@ use v6.d;
 use lib $?FILE.IO.parent(3).add('lib');
 use Test;
 use Scripts::Filesystem;
+use Scripts::Processes;
 
 # The script finds its repository from its own path, so a copy in a throwaway
 # directory checks that directory's README, guide and examples.
 my $script = $?FILE.IO.parent.parent.add('check-examples.raku');
 my $support = $?FILE.IO.parent(3).add('lib/Scripts/Filesystem.rakumod');
+my $processes = $?FILE.IO.parent(3).add('lib/Scripts/Processes.rakumod');
 my $root = private-directory('libtmux-examples');
 LEAVE remove-tree($root) if $root.defined && $root.e;
 
@@ -31,6 +33,7 @@ sub check() {
 
 put('scripts/check-examples/check-examples.raku', $script.slurp);
 put('scripts/lib/Scripts/Filesystem.rakumod', $support.slurp);
+put('scripts/lib/Scripts/Processes.rakumod', $processes.slurp);
 put('examples/hello.raku', $example);
 documents();
 my ($status, $out, $err) = check();
@@ -56,5 +59,20 @@ put('README.md', "<!-- runs: ../elsewhere.raku -->\n\n```raku\n{$example}```\n")
 ($status, $out, $err) = check();
 isnt $status, 0, 'a marker that leaves examples/ fails';
 like $err, /'Invalid example path'/, 'the failure names the path';
+
+# The runner fails an example that leaves a tmux server behind. It finds one by
+# the private directory named in the server's command line.
+my $marker = "libtmux-leftover-{$*PID}";
+is processes-naming($marker).elems, 0, 'no process names a marker nothing uses';
+my $leftover = Proc::Async.new($*EXECUTABLE.Str, '-e', 'say "up"; sleep 30', $marker);
+my $running = Promise.new;
+$leftover.stdout.tap(-> $line { $running.keep(True) if $running.status == Planned });
+my $finished = $leftover.start;
+await $running;
+is processes-naming($marker).List, (await $leftover.pid,), 'a running process that names the marker is found';
+$leftover.kill;
+# A Proc that ends by a signal throws when it is sunk, so keep it.
+my $ended = await $finished;
+is processes-naming($marker).elems, 0, 'a process that exited is no longer found';
 
 done-testing;

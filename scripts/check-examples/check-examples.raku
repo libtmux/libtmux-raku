@@ -1,6 +1,7 @@
 use v6.d;
 use lib $?FILE.IO.parent(2).add('lib');
 use Scripts::Filesystem;
+use Scripts::Processes;
 
 my $root = $?FILE.IO.parent(3).absolute.IO;
 my $quickstart = $root.add('examples/quickstart.raku');
@@ -28,7 +29,8 @@ sub check-snippets(Str:D $document, Str:D $marker, Str:D $opening,
 
 #| Check that the README and the native guide quote the examples they name,
 #| then, unless `--check-source` is given, run every example against the tmux
-#| named by LIBTMUX_TEST_TMUX.
+#| named by LIBTMUX_TEST_TMUX. An example that leaves a socket directory or a
+#| process behind fails.
 sub MAIN(Bool :$check-source = False) {
     my $snippets = check-snippets('README.md', '<!-- runs: ',
         " -->\n\n```raku\n", "```raku\n", "```\n")
@@ -82,6 +84,8 @@ sub MAIN(Bool :$check-source = False) {
             if (%expected{$name}:exists) && !%expected{$name}.first(* eq $output).defined;
         die "Example left an owned socket directory: $name"
             if $temporary.dir.first(*.basename.starts-with('libtmux-owned-')).defined;
+        my @leftover = processes-naming($temporary.Str);
+        die "Example left a process running: $name (pid {@leftover.join(', ')})" if @leftover;
         print $output;
     }
     say "PASS: {@examples.elems} executable examples";

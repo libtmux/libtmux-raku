@@ -157,7 +157,8 @@ $ mise exec -- raku scripts/check-examples/check-examples.raku --check-source
 ```
 
 Run every example against the same explicit `LIBTMUX_TEST_TMUX` endpoint binary.
-The runner checks displayed source, expected output and owned socket cleanup.
+The runner checks displayed source, expected output, and that no socket
+directory or process is left behind.
 It places a `tmux` symlink to the selected binary in a private temporary directory
 first on the child `PATH`, then removes that directory on exit. Programs other
 than the minimal quickstart also receive the binary through `--tmux`:

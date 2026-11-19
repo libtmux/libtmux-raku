@@ -2,7 +2,8 @@
 
 Checks that every Raku snippet in `README.md` and `lib/LibTmux.rakumod` is the
 byte-for-byte text of the example it names, then runs each program in
-`examples/` and compares its output with the documented result.
+`examples/`, compares its output with the documented result and rejects an
+example that leaves a socket directory or a process behind.
 
 `ci.yml` runs the source check on every push and the full run in each tmux job.
 The source check needs no tmux:
