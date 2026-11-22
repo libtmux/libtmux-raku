@@ -167,7 +167,8 @@ than the minimal quickstart also receive the binary through `--tmux`:
 $ mise exec -- raku scripts/check-examples/check-examples.raku
 ```
 
-Logo exports and their upstream source provenance live in [docs/assets](../docs/assets/README.md).
+Logo exports and their upstream source provenance live in
+[assets](../assets/README.md).
 Keep artwork build dependencies in the upstream artwork project.
 
 Check tracked edits for whitespace errors:

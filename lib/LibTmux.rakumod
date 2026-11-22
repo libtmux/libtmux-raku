@@ -206,22 +206,29 @@ use v6.d;
 use LibTmux;
 
 sub MAIN(Str:D :$tmux = 'tmux') {
-    my $server = Server.start(:binary($tmux), :name<work>, :shell-command('exec cat'));
+    my $server = Server.start(:binary($tmux), :name<work>,
+        :shell-command('exec cat'));
     LEAVE $server.close if $server.defined;
     $server.snapshot.panes.single.ref.set-title('editor');
 
     my %wide = width => %(gte => 60);
     my %titled = AND => [%wide, %(title => %(contains => 'edit'))];
 
-    say 'width: fully pushed = ' ~ $server.explain-panes(:where(%wide)).fully-pushed;
+    my $wide-plan = $server.explain-panes(:where(%wide));
+    say 'width: fully pushed = ' ~ $wide-plan.fully-pushed;
     my $plan = $server.explain-panes(:where(%titled));
     say 'width and title: fully pushed = ' ~ $plan.fully-pushed;
     say 'tmux filter: ' ~ $plan.source-filter;
 
-    say 'Matches: ' ~ $server.query-panes(:where(%titled)).map(*.title).join(', ');
+    my @matches = $server.query-panes(:where(%titled)).map(*.title);
+    say 'Matches: ' ~ @matches.join(', ');
     try {
         $server.query-panes(:where(%titled), :pushdown<require>);
-        CATCH { when X::LibTmux::Unsupported { say 'require: refused, title stays local' } }
+        CATCH {
+            when X::LibTmux::Unsupported {
+                say 'require: refused, title stays local';
+            }
+        }
     }
 }
 =end code
@@ -284,11 +291,13 @@ use LibTmux;
 use LibTmux::Control;
 
 sub MAIN(Str:D :$tmux = 'tmux') {
-    my $server = Server.start(:binary($tmux), :name<output>, :shell-command('exec cat'));
+    my $server = Server.start(:binary($tmux), :name<output>,
+        :shell-command('exec cat'));
     LEAVE $server.close if $server.defined;
     my $snapshot = await $server.snapshot-async;
     my $pane = $snapshot.panes.single.ref;
-    my $connection = await $server.open-control-async(:session-id($snapshot.sessions.single.id));
+    my $session-id = $snapshot.sessions.single.id;
+    my $connection = await $server.open-control-async(:$session-id);
     LEAVE $connection.close if $connection.defined;
 
     my $message = 'hello from Raku';
@@ -301,7 +310,10 @@ sub MAIN(Str:D :$tmux = 'tmux') {
                 done if $received.contains($message);
             }
         }
-        whenever start { $pane.send-text($message); $pane.send-keys('Enter') } { }
+        whenever start {
+            $pane.send-text($message);
+            $pane.send-keys('Enter');
+        } { }
         whenever Promise.in(2) { die 'Pane output timed out' }
     }
 

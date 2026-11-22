@@ -3,11 +3,13 @@ use LibTmux;
 use LibTmux::Control;
 
 sub MAIN(Str:D :$tmux = 'tmux') {
-    my $server = Server.start(:binary($tmux), :name<output>, :shell-command('exec cat'));
+    my $server = Server.start(:binary($tmux), :name<output>,
+        :shell-command('exec cat'));
     LEAVE $server.close if $server.defined;
     my $snapshot = await $server.snapshot-async;
     my $pane = $snapshot.panes.single.ref;
-    my $connection = await $server.open-control-async(:session-id($snapshot.sessions.single.id));
+    my $session-id = $snapshot.sessions.single.id;
+    my $connection = await $server.open-control-async(:$session-id);
     LEAVE $connection.close if $connection.defined;
 
     my $message = 'hello from Raku';
@@ -20,7 +22,10 @@ sub MAIN(Str:D :$tmux = 'tmux') {
                 done if $received.contains($message);
             }
         }
-        whenever start { $pane.send-text($message); $pane.send-keys('Enter') } { }
+        whenever start {
+            $pane.send-text($message);
+            $pane.send-keys('Enter');
+        } { }
         whenever Promise.in(2) { die 'Pane output timed out' }
     }
 

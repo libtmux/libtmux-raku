@@ -16,7 +16,8 @@ The full run needs `LIBTMUX_TEST_TMUX`, the absolute path of the tmux to test
 against:
 
 ```console
-$ LIBTMUX_TEST_TMUX=/usr/local/bin/tmux raku scripts/check-examples/check-examples.raku
+$ LIBTMUX_TEST_TMUX=/usr/local/bin/tmux \
+    raku scripts/check-examples/check-examples.raku
 ```
 
 Test that a snippet which differs from its example fails the check:

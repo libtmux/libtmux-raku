@@ -7,7 +7,8 @@ every test, so a skipped test fails the lane.
 `ci.yml` pipes the live suite through it:
 
 ```console
-$ prove6 --verbose -I. -It/lib xt/live | raku scripts/check-skips/check-skips.raku
+$ prove6 --verbose -I. -It/lib xt/live \
+    | raku scripts/check-skips/check-skips.raku
 ```
 
 The pipeline fails when `prove6` fails, because the step runs with `pipefail`.

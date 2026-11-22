@@ -12,7 +12,8 @@ sub MAIN(Str:D :$tmux = 'tmux') {
     $left.set-title('editor');
     $right.set-title('logs');
 
-    my $connection = $server.open-control(:session-id($before.sessions.single.id));
+    my $session-id = $before.sessions.single.id;
+    my $connection = $server.open-control(:$session-id);
     LEAVE $connection.close if $connection.defined;
     my $seen = Promise.new;
     my $vow = $seen.vow;
@@ -23,31 +24,42 @@ sub MAIN(Str:D :$tmux = 'tmux') {
         if $event ~~ PaneOutput && $event.pane-id eq $left.id {
             $lock.protect({
                 $output ~= $event.data.decode('utf8-c8');
-                die 'Example output exceeded its bound' if $output.chars > 65536;
-                $vow.keep(True) if $seen.status == Planned && $output.contains($message);
+                die 'Example output exceeded its bound'
+                    if $output.chars > 65536;
+                $vow.keep(True)
+                    if $seen.status == Planned && $output.contains($message);
             });
         }
-    }, :quit(-> $error { $lock.protect({ $vow.break($error) if $seen.status == Planned }) }));
+    }, :quit(-> $error {
+        $lock.protect({ $vow.break($error) if $seen.status == Planned });
+    }));
     LEAVE $tap.close if $tap.defined;
     $left.send-text($message);
     $left.send-keys('Enter');
     my $wait = await Promise.anyof($seen, Promise.in(2));
-    die 'No matching pane output arrived before the deadline' unless $seen.status == Kept;
-    die 'Capture did not contain the observed output' unless $left.capture.decode('utf8').contains($message);
+    die 'No matching pane output arrived before the deadline'
+        unless $seen.status == Kept;
+    die 'Capture did not contain the observed output'
+        unless $left.capture.decode('utf8').contains($message);
 
     my $after = $connection.snapshot;
     my @wide := $after.panes.where(%(width => %(gte => 60)));
     my $editor = @wide.filter(*.title eq 'editor').single;
     die 'Captured membership or titles were wrong' unless @wide.elems == 2;
     die 'An earlier snapshot changed' unless $before.panes.elems == 1;
-    my $plan = $server.explain-panes(:where(%(id => $left.id, width => %(gte => 60))));
-    die 'The declared scalar query was not exactly pushable' unless $plan.fully-pushed;
+    my %where = id => $left.id, width => %(gte => 60);
+    my $plan = $server.explain-panes(:%where);
+    die 'The declared scalar query was not exactly pushable'
+        unless $plan.fully-pushed;
+    my $queried = $server.query-panes(
+        :where(%(id => $left.id)), :pushdown<require>);
     die 'Source acquisition selected the wrong pane'
-        unless $server.query-panes(:where(%(id => $left.id)), :pushdown<require>).single.id eq $left.id;
+        unless $queried.single.id eq $left.id;
 
+    my $floating = $after.capabilities.supports('pane-floating');
     say "Session: {@wide.elems} panes";
     say "{$editor.title}: $message";
-    say 'Floating panes: ' ~ ($after.capabilities.supports('pane-floating') ?? 'available' !! 'unavailable');
+    say 'Floating panes: ' ~ ($floating ?? 'available' !! 'unavailable');
     say "Query: {$plan.acquisition-mode}, exact source restriction";
 
     $tap.close;

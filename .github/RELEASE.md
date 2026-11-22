@@ -95,7 +95,8 @@ Run the checks in [CONTRIBUTING.md](CONTRIBUTING.md#checks), including the
 release identity contracts:
 
 ```console
-$ /usr/bin/time -p mise exec -- raku scripts/check-release/tests/check-release.rakutest
+$ /usr/bin/time -p mise exec -- \
+    raku scripts/check-release/tests/check-release.rakutest
 ```
 
 CI builds an archive from its checked-out commit and installs that exact
@@ -230,7 +231,9 @@ $ read -r RELEASE_RUN_ID && \
     RELEASE_JOB_ID=$(gh run view "$RELEASE_RUN_ID" \
         --repo libtmux/libtmux-raku \
         --json jobs \
-        --jq '.jobs[] | select(.name == "Verify registry installation") | .databaseId') && \
+        --jq '.jobs[]
+            | select(.name == "Verify registry installation")
+            | .databaseId') && \
     test -n "$RELEASE_JOB_ID" && \
     gh run rerun "$RELEASE_RUN_ID" \
         --repo libtmux/libtmux-raku \
