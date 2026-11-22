@@ -14,8 +14,9 @@ sub MAIN(Str:D :$tmux = 'tmux') {
     $window.resize(:width(100), :height(20));
     $editor.resize(:width(30));
     my $sized = $server.snapshot;
+    my $pane = $sized.panes.where(%(id => $editor.id)).single;
     say "window: {$sized.windows.single.width}x{$sized.windows.single.height}";
-    say "editor: {$sized.panes.where(%(id => $editor.id)).single.width} columns";
+    say "editor: {$pane.width} columns";
 
     $logs.kill;
     say "panes: {$server.snapshot.panes.elems}";

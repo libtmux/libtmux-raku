@@ -13,6 +13,7 @@
 
 [![CI](https://github.com/libtmux/libtmux-raku/actions/workflows/ci.yml/badge.svg)](https://github.com/libtmux/libtmux-raku/actions/workflows/ci.yml)
 [![LibTmux](https://raku.land/zef:libtmux/LibTmux/badges/version)](https://raku.land/zef:libtmux/LibTmux)
+[![libtmux.org](https://img.shields.io/badge/docs-libtmux.org-0b7285)](https://libtmux.org/en/raku/)
 [![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/libtmux/libtmux-raku/blob/master/LICENSE)
 
 </div>
@@ -113,8 +114,9 @@ sub MAIN(Str:D :$tmux = 'tmux') {
     $window.resize(:width(100), :height(20));
     $editor.resize(:width(30));
     my $sized = $server.snapshot;
+    my $pane = $sized.panes.where(%(id => $editor.id)).single;
     say "window: {$sized.windows.single.width}x{$sized.windows.single.height}";
-    say "editor: {$sized.panes.where(%(id => $editor.id)).single.width} columns";
+    say "editor: {$pane.width} columns";
 
     $logs.kill;
     say "panes: {$server.snapshot.panes.elems}";
@@ -195,22 +197,29 @@ use v6.d;
 use LibTmux;
 
 sub MAIN(Str:D :$tmux = 'tmux') {
-    my $server = Server.start(:binary($tmux), :name<work>, :shell-command('exec cat'));
+    my $server = Server.start(:binary($tmux), :name<work>,
+        :shell-command('exec cat'));
     LEAVE $server.close if $server.defined;
     $server.snapshot.panes.single.ref.set-title('editor');
 
     my %wide = width => %(gte => 60);
     my %titled = AND => [%wide, %(title => %(contains => 'edit'))];
 
-    say 'width: fully pushed = ' ~ $server.explain-panes(:where(%wide)).fully-pushed;
+    my $wide-plan = $server.explain-panes(:where(%wide));
+    say 'width: fully pushed = ' ~ $wide-plan.fully-pushed;
     my $plan = $server.explain-panes(:where(%titled));
     say 'width and title: fully pushed = ' ~ $plan.fully-pushed;
     say 'tmux filter: ' ~ $plan.source-filter;
 
-    say 'Matches: ' ~ $server.query-panes(:where(%titled)).map(*.title).join(', ');
+    my @matches = $server.query-panes(:where(%titled)).map(*.title);
+    say 'Matches: ' ~ @matches.join(', ');
     try {
         $server.query-panes(:where(%titled), :pushdown<require>);
-        CATCH { when X::LibTmux::Unsupported { say 'require: refused, title stays local' } }
+        CATCH {
+            when X::LibTmux::Unsupported {
+                say 'require: refused, title stays local';
+            }
+        }
     }
 }
 ```
@@ -290,11 +299,13 @@ use LibTmux;
 use LibTmux::Control;
 
 sub MAIN(Str:D :$tmux = 'tmux') {
-    my $server = Server.start(:binary($tmux), :name<output>, :shell-command('exec cat'));
+    my $server = Server.start(:binary($tmux), :name<output>,
+        :shell-command('exec cat'));
     LEAVE $server.close if $server.defined;
     my $snapshot = await $server.snapshot-async;
     my $pane = $snapshot.panes.single.ref;
-    my $connection = await $server.open-control-async(:session-id($snapshot.sessions.single.id));
+    my $session-id = $snapshot.sessions.single.id;
+    my $connection = await $server.open-control-async(:$session-id);
     LEAVE $connection.close if $connection.defined;
 
     my $message = 'hello from Raku';
@@ -307,7 +318,10 @@ sub MAIN(Str:D :$tmux = 'tmux') {
                 done if $received.contains($message);
             }
         }
-        whenever start { $pane.send-text($message); $pane.send-keys('Enter') } { }
+        whenever start {
+            $pane.send-text($message);
+            $pane.send-keys('Enter');
+        } { }
         whenever Promise.in(2) { die 'Pane output timed out' }
     }
 
@@ -342,26 +356,38 @@ use v6.d;
 use LibTmux;
 
 sub MAIN(Str:D :$tmux = 'tmux') {
-    my $server = Server.start(:binary($tmux), :name<recovery>, :shell-command('exec cat'));
+    my $server = Server.start(:binary($tmux), :name<recovery>,
+        :shell-command('exec cat'));
     LEAVE $server.close if $server.defined;
+    my $before = Invocation.new(
+        :argv(['set-option', '-s', '@before-failure', 'set']));
+    my $invalid = Invocation.new(:argv(['libtmux-example-unknown-command=']));
+    my $after = Invocation.new(
+        :argv(['set-option', '-s', '@after-failure', 'set']));
     my $batch = Batch.new(:operations([
         Operation.new(:name<set-option>, :acknowledgement-only,
-            :command(Invocation.new(:argv(['set-option', '-s', '@before-failure', 'set'])))),
+            :command($before)),
         Operation.new(:name<invalid-command>, :acknowledgement-only,
-            :command(Invocation.new(:argv(['libtmux-example-unknown-command='])))),
+            :command($invalid)),
         Operation.new(:name<skipped-option>, :acknowledgement-only,
-            :command(Invocation.new(:argv(['set-option', '-s', '@after-failure', 'set'])))),
+            :command($after)),
     ]));
     my $report = $server.run-batch($batch);
+    my @outcomes = $report.operations.map(*.outcome);
     die 'Batch attribution was wrong'
-        unless $report.operations.map(*.outcome).List eqv (Complete, Failed, Skipped);
+        unless @outcomes.List eqv (Complete, Failed, Skipped);
     my $options = $server.options;
-    die 'The successful first effect disappeared' unless $options.get('@before-failure') eq 'set';
-    die 'A skipped operation ran' if $options.entries(:name<@after-failure>).elems;
-    say .name ~ ': ' ~ .outcome ~ ' (scope: ' ~ .completion-scope ~ ')' for $report.operations;
+    die 'The successful first effect disappeared'
+        unless $options.get('@before-failure') eq 'set';
+    die 'A skipped operation ran'
+        if $options.entries(:name<@after-failure>).elems;
+    for $report.operations -> $op {
+        say "{$op.name}: {$op.outcome} (scope: {$op.completion-scope})";
+    }
 
     $options.unset('@before-failure');
-    die 'Explicit recovery failed' if $options.entries(:name<@before-failure>).elems;
+    die 'Explicit recovery failed'
+        if $options.entries(:name<@before-failure>).elems;
     say 'Recovery: removed the first effect explicitly';
     $server.close;
     say 'Stopped the tmux server and removed its socket';
@@ -407,47 +433,54 @@ More: the [examples guide][repo-examples-readme-md].
 
 ## Documentation
 
-Headings above link to the native declarations and their RakuDoc comments.
+Headings above link to the [API reference][raku-reference] on libtmux.org.
 
 - [Native API guide][repo-lib-libtmux-rakumod]: the object graph, queries,
   capabilities, async execution, control events and recovery.
-- [Examples][repo-examples-readme-md]: complete Raku programs with checked results.
+- [Examples][repo-examples-readme-md]: complete Raku programs with checked
+  results.
 - [Contributing][repo-github-contributing-md]: compiler setup and validation.
 - [API documentation authoring][repo-docs-documentation-rakudoc] and
   [writing conventions][repo-github-writing-md].
 - [MIT license][repo-license] and [artwork provenance][repo-assets-readme-md].
 
-[api-batch]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Batch.rakumod#L206
-[api-capabilities-supports]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Capabilities.rakumod#L126
-[api-connection-events]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Control/Connection.rakumod#L147
-[api-operation]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Batch.rakumod#L53
-[api-options-describe]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Configuration.rakumod#L166
-[api-pane-capture]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L257
-[api-pane-kill]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L495
-[api-pane-resize]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L316
-[api-pane-selection-filter]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Selection.rakumod#L68
-[api-pane-selection-where]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Selection.rakumod#L78
-[api-pane-send-keys]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L248
-[api-pane-send-text]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L244
-[api-pane-split]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L279
-[api-server-close]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L685
-[api-server-explain-panes]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L432
-[api-server-hooks]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L565
-[api-server-kill-server]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L538
-[api-server-new]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L290
-[api-server-new-session]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L452
-[api-server-open-control]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L575
-[api-server-open-control-async]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L579
-[api-server-options]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L551
-[api-server-query-panes]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L430
-[api-server-run-batch]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L608
-[api-server-start]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Server.rakumod#L622
-[api-session-kill]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L169
-[api-session-new-window]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L135
-[api-snapshot-capabilities]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L662
-[api-window-kill]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L239
-[api-window-resize]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L179
+Part of the [libtmux.org](https://libtmux.org/) family alongside Python
+[`libtmux`](https://github.com/tmux-python/libtmux), sibling
+[language ports](https://github.com/libtmux) and
+[`tmux`](https://github.com/tmux/tmux).
+
+[api-batch]: https://libtmux.org/en/raku/latest/reference/libtmux-batch-batch/
+[api-capabilities-supports]: https://libtmux.org/en/raku/latest/reference/libtmux-capabilities-supports/
+[api-connection-events]: https://libtmux.org/en/raku/latest/reference/libtmux-control-connection-events/
+[api-operation]: https://libtmux.org/en/raku/latest/reference/libtmux-batch-operation/
+[api-options-describe]: https://libtmux.org/en/raku/latest/reference/libtmux-configuration-options-describe/
+[api-pane-capture]: https://libtmux.org/en/raku/latest/reference/libtmux-model-paneref-capture/
+[api-pane-kill]: https://libtmux.org/en/raku/latest/reference/libtmux-model-paneref-kill/
+[api-pane-resize]: https://libtmux.org/en/raku/latest/reference/libtmux-model-paneref-resize/
+[api-pane-selection-filter]: https://libtmux.org/en/raku/latest/reference/libtmux-model-paneselection-filter/
+[api-pane-selection-where]: https://libtmux.org/en/raku/latest/reference/libtmux-model-paneselection-where/
+[api-pane-send-keys]: https://libtmux.org/en/raku/latest/reference/libtmux-model-paneref-send-keys/
+[api-pane-send-text]: https://libtmux.org/en/raku/latest/reference/libtmux-model-paneref-send-text/
+[api-pane-split]: https://libtmux.org/en/raku/latest/reference/libtmux-model-paneref-split/
+[api-server-close]: https://libtmux.org/en/raku/latest/reference/libtmux-server-close/
+[api-server-explain-panes]: https://libtmux.org/en/raku/latest/reference/libtmux-server-explain-panes/
+[api-server-hooks]: https://libtmux.org/en/raku/latest/reference/libtmux-server-hooks/
+[api-server-kill-server]: https://libtmux.org/en/raku/latest/reference/libtmux-server-kill-server/
+[api-server-new]: https://libtmux.org/en/raku/latest/reference/libtmux-server-new/
+[api-server-new-session]: https://libtmux.org/en/raku/latest/reference/libtmux-server-new-session/
+[api-server-open-control]: https://libtmux.org/en/raku/latest/reference/libtmux-server-open-control/
+[api-server-open-control-async]: https://libtmux.org/en/raku/latest/reference/libtmux-server-open-control-async/
+[api-server-options]: https://libtmux.org/en/raku/latest/reference/libtmux-server-options/
+[api-server-query-panes]: https://libtmux.org/en/raku/latest/reference/libtmux-server-query-panes/
+[api-server-run-batch]: https://libtmux.org/en/raku/latest/reference/libtmux-server-run-batch/
+[api-server-start]: https://libtmux.org/en/raku/latest/reference/libtmux-server-start/
+[api-session-kill]: https://libtmux.org/en/raku/latest/reference/libtmux-model-sessionref-kill/
+[api-session-new-window]: https://libtmux.org/en/raku/latest/reference/libtmux-model-sessionref-new-window/
+[api-snapshot-capabilities]: https://libtmux.org/en/raku/latest/reference/libtmux-model-snapshot-capabilities/
+[api-window-kill]: https://libtmux.org/en/raku/latest/reference/libtmux-model-windowref-kill/
+[api-window-resize]: https://libtmux.org/en/raku/latest/reference/libtmux-model-windowref-resize/
 [raku-land]: https://raku.land/zef:libtmux/LibTmux
+[raku-reference]: https://libtmux.org/en/raku/latest/reference/
 [repo-assets-readme-md]: https://github.com/libtmux/libtmux-raku/blob/master/assets/README.md
 [repo-changelog-md]: https://github.com/libtmux/libtmux-raku/blob/master/CHANGELOG.md
 [repo-docs-adr-0001-tmux-compatibility-md]: https://github.com/libtmux/libtmux-raku/blob/master/docs/adr/0001-tmux-compatibility.md
