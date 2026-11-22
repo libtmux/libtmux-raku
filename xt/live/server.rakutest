@@ -119,6 +119,93 @@ with-tmux(-> $fixture {
         'session existence preserves a missing-daemon acquisition error';
     ok !$absent-path.IO.e, 'failed borrowed creation leaves its socket absent';
 
+    subtest 'default socket selection reaches the intended live daemon' => {
+        my $sandbox = $fixture.directory.add('selection-tmpdir');
+        $sandbox.mkdir(0o700);
+        my %base-env = %*ENV, TMUX_TMPDIR => $sandbox.Str;
+        my $launcher = LibTmux::Transport::Executor.new(:timeout-ms(5_000));
+        my Int $default-pid = 0;
+        my Int $named-pid = 0;
+        my ExitWatch $default-watch;
+        my ExitWatch $named-watch;
+        sub purge-tree(IO::Path:D $path --> Nil) {
+            return unless $path.e || $path.l;
+            if !$path.l && $path.d {
+                purge-tree($_) for $path.dir;
+                $path.rmdir;
+            } else { $path.unlink }
+        }
+        LEAVE {
+            if $default-pid > 0 {
+                try $launcher.execute(($binary, '-u', 'kill-server').List,
+                    :environment(%base-env), :!check);
+                die 'default sandbox daemon survived cleanup'
+                    if $default-watch.defined && !$default-watch.wait;
+            }
+            if $named-pid > 0 {
+                try $launcher.execute(($binary, '-u', '-L', 'named-target', 'kill-server').List,
+                    :environment(%base-env), :!check);
+                die 'named sandbox daemon survived cleanup'
+                    if $named-watch.defined && !$named-watch.wait;
+            }
+            $default-watch.close if $default-watch.defined;
+            $named-watch.close if $named-watch.defined;
+            $launcher.close if $launcher.defined;
+            purge-tree($sandbox);
+        }
+        $default-pid = $launcher.execute(($binary, '-u', '-f', '/dev/null',
+            'new-session', '-d', '-P', '-F', '#{pid}', '-s', 'default-daemon',
+            'exec cat').List, :environment(%base-env)).stdout.decode.trim.Int;
+        $default-watch = ExitWatch.new(:pid($default-pid));
+        $named-pid = $launcher.execute(($binary, '-u', '-L', 'named-target', '-f', '/dev/null',
+            'new-session', '-d', '-P', '-F', '#{pid}', '-s', 'named-daemon',
+            'exec cat').List, :environment(%base-env)).stdout.decode.trim.Int;
+        $named-watch = ExitWatch.new(:pid($named-pid));
+        isnt $default-pid, $fixture.pid, 'sandbox default daemon is distinct from the fixture';
+        isnt $named-pid, $default-pid, 'sandbox named daemon is distinct from the default daemon';
+
+        sub observed-pid(*%options --> Int:D) {
+            my $candidate = LibTmux::Server.new(:$binary, |%options);
+            LEAVE $candidate.close;
+            $candidate.snapshot.incarnation.pid
+        }
+
+        is observed-pid(:environment(%base-env)), $default-pid,
+            'unset selectors without TMUX reach the default socket';
+        my %tmux-env = |%base-env, TMUX => $fixture.socket-path.Str ~ ',' ~ $fixture.pid ~ ',0',
+            TMUX_PANE => '%0';
+        my $inside-tmux = LibTmux::Server.new(:$binary, :environment(%tmux-env));
+        LEAVE $inside-tmux.close if $inside-tmux.defined;
+        is $inside-tmux.endpoint.socket-path, $fixture.socket-path.Str,
+            'TMUX fallback reports the resolved socket path';
+        is $inside-tmux.snapshot.incarnation.pid, $fixture.pid,
+            'unset LIBTMUX_SOCKET variables reach the daemon named in TMUX';
+        my $created-in-tmux = $inside-tmux.new-session(:name<from-tmux>, :shell-command('exec cat'));
+        $created-in-tmux.kill;
+        $inside-tmux.close;
+
+        is observed-pid(:environment(%(|%tmux-env, LIBTMUX_SOCKET => 'named-target'))),
+            $named-pid, 'LIBTMUX_SOCKET selects -L and overrides TMUX';
+        is observed-pid(:environment(%(|%tmux-env, LIBTMUX_SOCKET_PATH => "  \t ",
+            LIBTMUX_SOCKET => 'named-target'))), $named-pid,
+            'whitespace-only LIBTMUX_SOCKET_PATH leaves LIBTMUX_SOCKET in force';
+        is observed-pid(:environment(%(|%tmux-env,
+            LIBTMUX_SOCKET_PATH => $fixture.socket-path.Str,
+            LIBTMUX_SOCKET => 'named-target'))), $fixture.pid,
+            'LIBTMUX_SOCKET_PATH wins over LIBTMUX_SOCKET without error';
+        is observed-pid(:cwd($fixture.directory.parent),
+            :environment(%(|%base-env,
+                LIBTMUX_SOCKET_PATH => $fixture.directory.basename ~ '/socket'))),
+            $fixture.pid, 'relative LIBTMUX_SOCKET_PATH resolves against cwd';
+        is observed-pid(:socket-name<named-target>,
+            :environment(%(|%tmux-env, LIBTMUX_SOCKET_PATH => $fixture.socket-path.Str,
+                LIBTMUX_SOCKET => 'ignored/slash'))), $named-pid,
+            'explicit socket-name overrides environment selectors';
+        is observed-pid(:socket-path($fixture.socket-path.Str),
+            :environment(%(|%tmux-env, LIBTMUX_SOCKET => 'named-target'))), $fixture.pid,
+            'explicit socket-path overrides environment selectors';
+    };
+
     my $wrapper = $fixture.directory.add('startup-wrapper');
     my $record = $fixture.directory.add('startup-record');
     LEAVE { $wrapper.unlink if $wrapper.defined && $wrapper.e; $record.unlink if $record.defined && $record.e }
@@ -227,7 +314,9 @@ with-tmux(-> $fixture {
     is @left.elems, 0, 'post-version spawn failure removes its empty owned directory';
 });
 
-my $owned = LibTmux::Server.start(:$binary, :name<observatory>, :shell-command('exec cat'));
+my $owned = LibTmux::Server.start(:$binary, :name<observatory>, :shell-command('exec cat'),
+    :environment(%(|%*ENV, LIBTMUX_SOCKET => 'ignored/slash',
+        LIBTMUX_SOCKET_PATH => '/nonexistent/ignored.sock')));
 LEAVE $owned.close if $owned.defined;
 ok $owned.owned, 'start creates an explicitly owned daemon';
 my $snapshot = await $owned.snapshot-async;

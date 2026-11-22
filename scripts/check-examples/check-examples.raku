@@ -70,7 +70,7 @@ sub MAIN(Bool :$check-source = False) {
     my %environment = %*ENV;
     %environment<PATH> = $temporary.Str ~ ':' ~ (%environment<PATH> // '/usr/bin:/bin');
     %environment<TMPDIR> = $temporary.Str;
-    %environment<TMUX TMUX_PANE RAKULIB PERL6LIB>:delete;
+    %environment<TMUX TMUX_PANE LIBTMUX_SOCKET LIBTMUX_SOCKET_PATH RAKULIB PERL6LIB>:delete;
 
     for @examples -> $example {
         my @arguments;

@@ -30,6 +30,103 @@ subtest 'endpoint configuration fixes command scope and environment' => {
         X::LibTmux::Command, :kind<argument>, 'nested environment values remain singular strings';
 };
 
+subtest 'default socket selection honors environment precedence and overrides' => {
+    my $abs = Endpoint.new(:environment(%(LIBTMUX_SOCKET_PATH => '/tmp/env.sock')));
+    is $abs.socket-path, '/tmp/env.sock', 'LIBTMUX_SOCKET_PATH sets socket-path';
+    is $abs.socket-name, '', 'LIBTMUX_SOCKET_PATH leaves socket-name empty';
+    is-deeply $abs.argv, ('tmux', '-u', '-S', '/tmp/env.sock').List,
+        'LIBTMUX_SOCKET_PATH emits -S';
+
+    my $rel = Endpoint.new(:cwd('/tmp/workspace'),
+        :environment(%(LIBTMUX_SOCKET_PATH => 'sockets/rel.sock')));
+    is $rel.socket-path, '/tmp/workspace/sockets/rel.sock',
+        'relative LIBTMUX_SOCKET_PATH resolves against captured cwd';
+    is-deeply $rel.argv, ('tmux', '-u', '-S', '/tmp/workspace/sockets/rel.sock').List,
+        'resolved relative LIBTMUX_SOCKET_PATH enters argv';
+
+    my $untrimmed-path = Endpoint.new(:environment(%(LIBTMUX_SOCKET_PATH => '/tmp/trailing ')));
+    is $untrimmed-path.socket-path, '/tmp/trailing ',
+        'non-blank LIBTMUX_SOCKET_PATH is kept untrimmed';
+
+    my $named = Endpoint.new(:environment(%(LIBTMUX_SOCKET => 'env-named')));
+    is $named.socket-name, 'env-named', 'LIBTMUX_SOCKET sets socket-name';
+    is $named.socket-path, '', 'LIBTMUX_SOCKET leaves socket-path empty';
+    is-deeply $named.argv, ('tmux', '-u', '-L', 'env-named').List,
+        'LIBTMUX_SOCKET emits -L';
+
+    my $untrimmed-name = Endpoint.new(:environment(%(LIBTMUX_SOCKET => ' padded ')));
+    is $untrimmed-name.socket-name, ' padded ', 'non-blank LIBTMUX_SOCKET is kept untrimmed';
+
+    for 'sub/name', '.', '..', '../escape', "bad\0name" -> $bad {
+        throws-like { Endpoint.new(:environment(%(LIBTMUX_SOCKET => $bad))) },
+            X::LibTmux::Command, :kind<argument>, :outcome(LibTmux::Types::NotStarted),
+            'invalid LIBTMUX_SOCKET fails before dispatch';
+    }
+    throws-like { Endpoint.new(:environment(%(LIBTMUX_SOCKET_PATH => "/tmp/bad\0.sock"))) },
+        X::LibTmux::Command, :kind<argument>, :outcome(LibTmux::Types::NotStarted),
+        'NUL in LIBTMUX_SOCKET_PATH fails before dispatch';
+
+    my $both = Endpoint.new(:environment(%(
+        LIBTMUX_SOCKET_PATH => '/tmp/winner.sock',
+        LIBTMUX_SOCKET => 'ignored/slash',
+        TMUX => '/tmp/tmux.sock,12,0',
+    )));
+    is $both.socket-path, '/tmp/winner.sock',
+        'LIBTMUX_SOCKET_PATH wins over LIBTMUX_SOCKET without error';
+    is $both.socket-name, '', 'ignored LIBTMUX_SOCKET does not populate socket-name';
+
+    for '', " \t\n " -> $blank {
+        my $fallback = Endpoint.new(:environment(%(
+            LIBTMUX_SOCKET_PATH => $blank,
+            LIBTMUX_SOCKET => 'fallback-name',
+        )));
+        is $fallback.socket-name, 'fallback-name',
+            'empty or whitespace-only LIBTMUX_SOCKET_PATH leaves LIBTMUX_SOCKET in force';
+        is $fallback.socket-path, '', 'blank LIBTMUX_SOCKET_PATH is treated as unset';
+        is-deeply $fallback.argv, ('tmux', '-u', '-L', 'fallback-name').List,
+            'fallback LIBTMUX_SOCKET emits -L';
+    }
+
+    my $tmux = Endpoint.new(:environment(%(
+        LIBTMUX_SOCKET_PATH => '   ',
+        LIBTMUX_SOCKET => '',
+        TMUX => '/tmp/tmux-1000/session,4321,0',
+        TMUX_PANE => '%3',
+    )));
+    is $tmux.socket-path, '/tmp/tmux-1000/session',
+        'unset LIBTMUX_SOCKET variables pin the socket path from TMUX';
+    is $tmux.socket-name, '', 'TMUX fallback leaves socket-name empty';
+    is-deeply $tmux.argv, ('tmux', '-u', '-S', '/tmp/tmux-1000/session').List,
+        'TMUX fallback passes -S without inheriting TMUX';
+    nok $tmux.environment<TMUX>:exists, 'TMUX remains absent from child environment';
+    nok $tmux.environment<TMUX_PANE>:exists, 'TMUX_PANE remains absent from child environment';
+
+    my $comma = Endpoint.new(:environment(%(TMUX => '/tmp/first,second,4321,0')));
+    is $comma.socket-path, '/tmp/first', 'TMUX socket parsing stops at the first comma';
+
+    for Map.new, %(LIBTMUX_SOCKET_PATH => '', LIBTMUX_SOCKET => '  ', TMUX => ''),
+        %(TMUX => '   '), %(TMUX => ',4321,0') -> $unset {
+        my $default = Endpoint.new(:environment($unset));
+        is $default.socket-path, '', 'unset environment leaves socket-path empty';
+        is $default.socket-name, '', 'unset environment leaves socket-name empty';
+        is-deeply $default.argv, ('tmux', '-u').List,
+            'unset environment passes neither -S nor -L';
+    }
+
+    my %override-env = LIBTMUX_SOCKET_PATH => '/tmp/env.sock',
+        LIBTMUX_SOCKET => 'ignored/slash', TMUX => '/tmp/tmux.sock,9,0';
+    my $explicit-path = Endpoint.new(:socket-path('/tmp/explicit.sock'),
+        :environment(%override-env));
+    is $explicit-path.socket-path, '/tmp/explicit.sock',
+        'explicit socket-path overrides environment selectors';
+    is $explicit-path.socket-name, '', 'explicit socket-path ignores LIBTMUX_SOCKET';
+    my $explicit-name = Endpoint.new(:socket-name<explicit-name>,
+        :environment(%override-env));
+    is $explicit-name.socket-name, 'explicit-name',
+        'explicit socket-name overrides environment selectors';
+    is $explicit-name.socket-path, '', 'explicit socket-name ignores LIBTMUX_SOCKET_PATH';
+};
+
 subtest 'async argument errors preserve the Promise contract' => {
     my $runtime = Runtime.new(:endpoint(Endpoint.new));
     LEAVE $runtime.close;

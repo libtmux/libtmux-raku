@@ -286,7 +286,8 @@ submethod BUILD(:$!endpoint!, :$runtime!, :$owner = OwnedDaemon,
 }
 submethod TWEAK() { $!closed-vow = $!closed.vow }
 
-#| Capture a borrowed endpoint without I/O. Closing it closes clients only.
+#| Capture a borrowed endpoint without I/O; see L<LibTmux::Engine::Endpoint>
+#| for default C<LIBTMUX_SOCKET_PATH>, C<LIBTMUX_SOCKET> and C<TMUX> selection.
 method new(:$binary = 'tmux', :$socket-name = '', :$socket-path = '',
            :$config-file = '', :$environment = %*ENV, :$cwd = $*CWD,
            :$timeout-ms = 10_000, :$max-output-bytes = 8 * 1024 * 1024,
@@ -628,7 +629,7 @@ method start(:$name = 'main', :$binary = 'tmux', :$shell-command = Str,
     $command = Invocation.new(:argv($command.argv), :max-bytes($max-command-bytes));
     invalid('cancel must be a Cancellation') unless $cancel === Cancellation || $cancel ~~ Cancellation:D;
     my $deadline = now + $timeout-ms / 1000;
-    my $settings = Endpoint.new(:$binary, :$environment, :$cwd);
+    my $settings = Endpoint.new(:$binary, :socket-path('/dev/null'), :$environment, :$cwd);
     my $executor = Executor.new(:timeout-ms(remaining($deadline)), :$max-output-bytes);
     LEAVE $executor.close if $executor.defined;
     my $version = $executor.execute(($binary, '-V').List,
@@ -707,12 +708,13 @@ method close-async(--> Promise:D) {
 A Server has many methods. They fall into the groups below, and each -async
 method sits beside the synchronous one that awaits it.
 
-B<Connecting and closing.> C<new> captures a borrowed endpoint without I/O, and
-C<from-env> imports the endpoint that C<TMUX> names after it checks the daemon.
-C<start> launches a private daemon that this Server owns, on a temporary
-socket, with a first session. C<close> is idempotent: it joins running work,
-leaves a borrowed daemon running and stops an owned one. C<kill-server>
-terminates the daemon whoever owns it.
+B<Connecting and closing.> C<new> captures a borrowed endpoint without I/O,
+following C<LIBTMUX_SOCKET_PATH>, C<LIBTMUX_SOCKET> and C<TMUX> when no socket
+is passed, and C<from-env> imports the endpoint and pane/session IDs that
+C<TMUX> names after it verifies the daemon PID. C<start> launches a private
+daemon that this Server owns, on a temporary socket, with a first session.
+C<close> is idempotent: it joins running work, leaves a borrowed daemon running
+and stops an owned one. C<kill-server> terminates the daemon whoever owns it.
 
 =item Borrow an endpoint: C<new>, C<from-env>
 =item Own a daemon: C<start>
@@ -816,13 +818,20 @@ C<run-batch> reports partial outcomes and never promises rollback.
 
 =head1 Explicit environment and health
 
-C<from-env> is the only factory that interprets C<TMUX>. It parses its final
-PID and session components from the right, so commas in the socket path remain
-literal. It requires an absolute socket path, validates C<TMUX_PANE> when
-present, observes the actual daemon and rejects a different PID. The returned
-borrowed facade is bound to that incarnation. Child processes still receive
-neither ambient variable. Imported object IDs are observations from the supplied
-environment, not evidence that those objects still exist:
+With neither C<:socket-path> nor C<:socket-name>, C<new> delegates default
+socket selection to L<Endpoint|LibTmux::Engine::Endpoint>:
+C<LIBTMUX_SOCKET_PATH>, else C<LIBTMUX_SOCKET>, else the socket path in C<TMUX>
+up to the first comma, else tmux's default socket, without performing I/O or
+importing pane or session IDs.
+
+C<from-env> is the factory that verifies C<TMUX> daemon identity and imports
+pane and session IDs. It parses the final PID and session components from the
+right, so commas in the socket path remain literal. It requires an absolute
+socket path, validates C<TMUX_PANE> when present, observes the actual daemon
+and rejects a different PID. The returned borrowed facade is bound to that
+incarnation. Child processes still receive neither ambient variable. Imported
+object IDs are observations from the supplied environment, not evidence that
+those objects still exist:
 
     use LibTmux;
     my $server = LibTmux::Server.from-env(:environment(%*ENV));
