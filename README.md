@@ -1,8 +1,8 @@
 <!-- libtmux-logo -->
 <div align="center">
   <picture>
-    <source srcset="https://raw.githubusercontent.com/libtmux/libtmux-raku/HEAD/docs/assets/logo.svg" type="image/svg+xml">
-    <img src="https://raw.githubusercontent.com/libtmux/libtmux-raku/HEAD/docs/assets/logo-512.png" width="128" height="128" alt="libtmux for Raku">
+    <source srcset="https://raw.githubusercontent.com/libtmux/libtmux-raku/HEAD/assets/logo.svg" type="image/svg+xml">
+    <img src="https://raw.githubusercontent.com/libtmux/libtmux-raku/HEAD/assets/logo.png" width="128" height="128" alt="libtmux for Raku">
   </picture>
 </div>
 <!-- /libtmux-logo -->
@@ -415,7 +415,7 @@ Headings above link to the native declarations and their RakuDoc comments.
 - [Contributing][repo-github-contributing-md]: compiler setup and validation.
 - [API documentation authoring][repo-docs-documentation-rakudoc] and
   [writing conventions][repo-github-writing-md].
-- [MIT license][repo-license] and [artwork provenance][repo-docs-assets-readme-md].
+- [MIT license][repo-license] and [artwork provenance][repo-assets-readme-md].
 
 [api-batch]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Batch.rakumod#L206
 [api-capabilities-supports]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Capabilities.rakumod#L126
@@ -448,9 +448,9 @@ Headings above link to the native declarations and their RakuDoc comments.
 [api-window-kill]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L239
 [api-window-resize]: https://github.com/libtmux/libtmux-raku/blob/f543ca5de32e04445f4d6e29c66e5dba94ac9a63/lib/LibTmux/Model.rakumod#L179
 [raku-land]: https://raku.land/zef:libtmux/LibTmux
+[repo-assets-readme-md]: https://github.com/libtmux/libtmux-raku/blob/master/assets/README.md
 [repo-changelog-md]: https://github.com/libtmux/libtmux-raku/blob/master/CHANGELOG.md
 [repo-docs-adr-0001-tmux-compatibility-md]: https://github.com/libtmux/libtmux-raku/blob/master/docs/adr/0001-tmux-compatibility.md
-[repo-docs-assets-readme-md]: https://github.com/libtmux/libtmux-raku/blob/master/docs/assets/README.md
 [repo-docs-documentation-rakudoc]: https://github.com/libtmux/libtmux-raku/blob/master/docs/documentation.rakudoc
 [repo-docs-reference-catalogue-rakudoc]: https://github.com/libtmux/libtmux-raku/blob/master/docs/reference/catalogue.rakudoc
 [repo-examples-readme-md]: https://github.com/libtmux/libtmux-raku/blob/master/examples/README.md
