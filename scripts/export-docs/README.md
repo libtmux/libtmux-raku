@@ -13,7 +13,8 @@ $ raku -I. scripts/export-docs/export-docs.raku --output=docs/_build/api.json
 ```
 
 ```console
-$ raku -I. scripts/export-docs/export-docs.raku --require-documented=docs/_build/api.json
+$ raku -I. scripts/export-docs/export-docs.raku \
+    --require-documented=docs/_build/api.json
 ```
 
 `docs/documentation.rakudoc` describes the extraction. Test it against fixture

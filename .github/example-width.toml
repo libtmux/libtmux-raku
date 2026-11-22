@@ -1,0 +1,10 @@
+width = 80
+markdown = ["**/*.md"]
+sources = ["examples/**/*.raku"]
+shared_digest = "872d3f4cb1eb2b5cd9c5b7adc9cd140a153e4bbed3cb5bd0b7400a905e6dae4d"
+allow_ceiling = 1
+
+[[allow]]
+path = ".github/WRITING.md"
+line = "    my $connection = await $server.open-control-async(:session-id($snapshot.sessions.single.id));"
+reason = "the Bad example in the port block; it shows the width problem the Good example fixes"

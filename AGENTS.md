@@ -25,8 +25,9 @@ conventions and keep changes scoped to the active implementation goal.
 
 - Setup, validation, tmux isolation, and pull requests:
   [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md).
-- Documentation, comments, and commit messages:
-  [.github/WRITING.md](.github/WRITING.md).
+- Documentation, comments, commit messages, and code examples:
+  [.github/WRITING.md](.github/WRITING.md), and its
+  [Examples](.github/WRITING.md#examples) section for code a reader sees.
 - Support scripts: what may stay, their language, layout and checks:
   [.github/SCRIPTS.md](.github/SCRIPTS.md). Their tests live in
   `scripts/<name>/tests/`; run them all with `prove6 --jobs=2 -I. scripts`.
