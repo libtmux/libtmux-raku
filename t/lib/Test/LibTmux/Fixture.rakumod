@@ -96,8 +96,7 @@ class Fixture is export {
         my $err-tap = $proc.stderr(:bin).tap(-> $chunk { collect($err, $chunk) });
         LEAVE { $out-tap.close; $err-tap.close }
         my %environment = %*ENV;
-        %environment<TMUX>:delete;
-        %environment<TMUX_PANE>:delete;
+        %environment<TMUX TMUX_PANE LIBTMUX_SOCKET LIBTMUX_SOCKET_PATH>:delete;
         my $key = $proc.WHICH.Str;
         my $done = $!lock.protect({
             die FixtureError.new(:message('fixture is closing or closed'))
@@ -210,34 +209,40 @@ sub make-fixture(--> Fixture:D) {
 sub with-tmux(&body, Promise :$cancel) is export {
     die FixtureCancelled.new(:message('owned fixture cancelled before setup'))
         if $cancel.defined && $cancel.status != Planned;
-    my $fixture = make-fixture;
-    my $result;
-    my $failure;
-    try {
-        if $cancel.defined {
-            die FixtureCancelled.new(:message('owned fixture cancelled during setup'))
-                if $cancel.status != Planned;
-            my $running = start {
-                my $value = body($fixture);
-                $value ~~ Promise ?? (await $value) !! $value
-            };
-            my $wait-result = try await Promise.anyof($running, $cancel);
-            die FixtureCancelled.new(:message('owned fixture cancelled'))
-                if $cancel.status != Planned;
-            $result = await $running;
-        } else {
-            $result = body($fixture);
-            $result = await $result if $result ~~ Promise;
+    my %clean-env = %*ENV;
+    %clean-env<TMUX TMUX_PANE LIBTMUX_SOCKET LIBTMUX_SOCKET_PATH>:delete;
+    {
+        my %*ENV = %clean-env;
+        my $fixture = make-fixture;
+        my $result;
+        my $failure;
+        try {
+            if $cancel.defined {
+                die FixtureCancelled.new(:message('owned fixture cancelled during setup'))
+                    if $cancel.status != Planned;
+                my $running = start {
+                    my %*ENV = %clean-env;
+                    my $value = body($fixture);
+                    $value ~~ Promise ?? (await $value) !! $value
+                };
+                my $wait-result = try await Promise.anyof($running, $cancel);
+                die FixtureCancelled.new(:message('owned fixture cancelled'))
+                    if $cancel.status != Planned;
+                $result = await $running;
+            } else {
+                $result = body($fixture);
+                $result = await $result if $result ~~ Promise;
+            }
+            $result.exception.throw if $result ~~ Failure;
+            CATCH { default { $failure = $_ } }
         }
-        $result.exception.throw if $result ~~ Failure;
-        CATCH { default { $failure = $_ } }
+        my $cleanup-failure;
+        try {
+            $fixture.close;
+            CATCH { default { $cleanup-failure = $_ } }
+        }
+        die $failure if $failure.defined;
+        die $cleanup-failure if $cleanup-failure.defined;
+        $result
     }
-    my $cleanup-failure;
-    try {
-        $fixture.close;
-        CATCH { default { $cleanup-failure = $_ } }
-    }
-    die $failure if $failure.defined;
-    die $cleanup-failure if $cleanup-failure.defined;
-    $result
 }

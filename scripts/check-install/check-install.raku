@@ -12,6 +12,7 @@ sub MAIN(Str:D :$archive = '', Bool :$registry = False) {
     my $started = now;
     my $installed = $temporary.add('installed');
     my %environment = %*ENV;
+    %environment<TMUX TMUX_PANE LIBTMUX_SOCKET LIBTMUX_SOCKET_PATH>:delete;
     %environment<TMPDIR> = $temporary.Str;
     %environment<ZEF_CONFIG_TEMPDIR> = $temporary.add('zef').Str;
     my $metadata = from-json($source.add('META6.json').slurp);

@@ -24,9 +24,9 @@ sub text-value(Mu $value, Str:D $name, Bool :$empty = False --> Str:D) {
 class Endpoint is export {
     #| Executable name or path used for direct argv invocation.
     has Str:D $.binary = 'tmux';
-    #| Named tmux socket; empty selects the normal socket policy.
+    #| Named tmux socket from C<:socket-name> or C<LIBTMUX_SOCKET>; empty otherwise.
     has Str:D $.socket-name = '';
-    #| Explicit socket path, resolved against the captured working directory.
+    #| Resolved socket path from C<:socket-path>, C<LIBTMUX_SOCKET_PATH> or C<TMUX>.
     has Str:D $.socket-path = '';
     #| Explicit tmux configuration path; empty leaves the native choice unchanged.
     has Str:D $.config-file = '';
@@ -39,7 +39,9 @@ class Endpoint is export {
     #| Length-delimited endpoint key; this alone does not identify a daemon lifetime.
     has Str:D $.key = '';
 
-    #| Validate and copy endpoint settings without contacting tmux.
+    #| Validate and copy endpoint settings without contacting tmux. With neither
+    #| C<:socket-path> nor C<:socket-name>, C<LIBTMUX_SOCKET_PATH> selects C<-S>,
+    #| else C<LIBTMUX_SOCKET> selects C<-L>, else C<TMUX> pins its socket path.
     method new(:$binary = 'tmux', :$socket-name = '', :$socket-path = '',
                :$config-file = '', :$environment = %*ENV, :$cwd = $*CWD) is single-operation {
         my $bin = text-value($binary, 'binary');
@@ -54,11 +56,27 @@ class Endpoint is export {
         my $directory = $cwd.IO.absolute.IO;
         invalid('environment must be associative') unless $environment ~~ Associative:D;
         my %copy;
+        my Str $ambient-tmux = '';
         for $environment.kv -> Mu $key, Mu $value {
             my $entry = text-value($key, 'environment key');
             invalid('environment keys cannot contain equals') if $entry.contains('=');
             my $text = text-value($value, 'environment value', :empty);
+            $ambient-tmux = $text if $entry eq 'TMUX';
             %copy{$entry} = $text unless $entry eq any(<TMUX TMUX_PANE>);
+        }
+        if !$name.chars && !$path.chars {
+            my $env-path = %copy<LIBTMUX_SOCKET_PATH> // '';
+            my $env-name = %copy<LIBTMUX_SOCKET> // '';
+            if $env-path ~~ /\S/ {
+                $path = $env-path;
+            } elsif $env-name ~~ /\S/ {
+                invalid('socket-name cannot contain a slash or be a directory traversal')
+                    if $env-name.contains('/') || $env-name eq any('.', '..');
+                $name = $env-name;
+            } elsif $ambient-tmux.chars {
+                my $tmux-path = $ambient-tmux.split(',', 2)[0];
+                $path = $tmux-path if $tmux-path ~~ /\S/;
+            }
         }
         # Relative paths resolve in the captured cwd, not a later caller's cwd.
         $path = $directory.add($path).absolute if $path.chars && !$path.IO.is-absolute;
@@ -416,10 +434,16 @@ class Runtime does Acquirer does CommandExecutor is export {
 =begin pod
 =head1 Daemon identity and explicit effects
 
-Endpoint captures argv scope and sanitized environment without I/O. Runtime
-owns its executor; Observation and Incarnation retain values only. Observing
-capabilities reads the daemon's version separately from the client executable.
-Prepared projections and references are bound to that daemon incarnation.
+Endpoint captures argv scope and sanitized environment without I/O. With neither
+C<:socket-path> nor C<:socket-name>, C<Endpoint.new> selects
+C<LIBTMUX_SOCKET_PATH> (C<-S>) else C<LIBTMUX_SOCKET> (C<-L>), treating empty or
+whitespace-only values as unset and keeping other values untrimmed. With neither
+variable set, a socket path in C<TMUX> (up to the first comma) is passed with
+C<-S> while C<TMUX> and C<TMUX_PANE> remain absent from child environments;
+otherwise neither C<-S> nor C<-L> is passed. Runtime owns its executor;
+Observation and Incarnation retain values only. Observing capabilities reads the
+daemon's version separately from the client executable. Prepared projections and
+references are bound to that daemon incarnation.
 
 Managed commands check Linux boot ID and process start ticks, then enter one
 tmux command-list branch fenced by PID and tmux start time. A replacement

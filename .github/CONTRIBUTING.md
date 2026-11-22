@@ -118,8 +118,8 @@ verifies their source and executable versions. See the
 
 `LIBTMUX_TEST_TMUX` is test-only. It does not change the production
 `Server.new` executable default or select a borrowed socket. Each fixture owns
-its temporary directory and explicit socket and clears inherited `TMUX` and
-`TMUX_PANE` for its children.
+its temporary directory and explicit socket and clears inherited `TMUX`,
+`TMUX_PANE`, `LIBTMUX_SOCKET` and `LIBTMUX_SOCKET_PATH` for its children.
 
 ```console
 $ mise exec -- prove6 -I. -It/lib xt/live
@@ -258,11 +258,11 @@ required.
 ## tmux isolation
 
 The runtime floor is tmux 3.3a on Linux. For tests and probes,
-use unique owned sockets and temporary directories. Clear inherited `TMUX`
-and `TMUX_PANE`. Never use or stop the default server or a borrowed server.
-Clean up owned resources on success, failure, and cancellation, and verify
-that owned processes exit. Command acknowledgement alone does not establish
-operation completion.
+use unique owned sockets and temporary directories. Clear inherited `TMUX`,
+`TMUX_PANE`, `LIBTMUX_SOCKET`, and `LIBTMUX_SOCKET_PATH`. Never use or stop the
+default server or a borrowed server. Clean up owned resources on success,
+failure, and cancellation, and verify that owned processes exit. Command
+acknowledgement alone does not establish operation completion.
 
 ## Review and publication
 

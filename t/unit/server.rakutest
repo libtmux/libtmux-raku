@@ -10,6 +10,30 @@ my $server = LibTmux::Server.new(:binary('/nonexistent/libtmux-no-io'),
     :socket-path('/nonexistent/libtmux-owned.sock'));
 ok !$server.owned, 'construction captures a borrowed endpoint without I/O';
 is $server.endpoint.binary, '/nonexistent/libtmux-no-io', 'endpoint retains its configured binary';
+subtest 'Server.new delegates default socket selection without I/O' => {
+    my $both = LibTmux::Server.new(:binary('/nonexistent/libtmux-no-io'), :cwd('/tmp/work'),
+        :environment(%(LIBTMUX_SOCKET_PATH => 'rel/server.sock', LIBTMUX_SOCKET => 'ignored')));
+    LEAVE $both.close;
+    is $both.endpoint.socket-path, '/tmp/work/rel/server.sock',
+        'Server.new resolves relative LIBTMUX_SOCKET_PATH and ignores LIBTMUX_SOCKET';
+    my $named = LibTmux::Server.new(:binary('/nonexistent/libtmux-no-io'),
+        :environment(%(LIBTMUX_SOCKET_PATH => '  ', LIBTMUX_SOCKET => 'named')));
+    LEAVE $named.close;
+    is $named.endpoint.socket-name, 'named',
+        'Server.new falls back to LIBTMUX_SOCKET when LIBTMUX_SOCKET_PATH is blank';
+    my $tmux = LibTmux::Server.new(:binary('/nonexistent/libtmux-no-io'),
+        :environment(%(TMUX => '/tmp/tmux.sock,77,0')));
+    LEAVE $tmux.close;
+    is $tmux.endpoint.socket-path, '/tmp/tmux.sock',
+        'Server.new pins the TMUX socket path when neither LIBTMUX_SOCKET variable is set';
+    nok $tmux.environment-pane-id.defined || $tmux.environment-session-id.defined,
+        'Server.new does not import pane or session IDs';
+    my $default = LibTmux::Server.new(:binary('/nonexistent/libtmux-no-io'),
+        :environment(Map.new));
+    LEAVE $default.close;
+    is-deeply $default.endpoint.argv, ('/nonexistent/libtmux-no-io', '-u').List,
+        'Server.new passes no socket when nothing selects one';
+};
 for Map.new, %(TMUX => 'relative,12,0'), %(TMUX => '/tmp/socket,0,0'),
     %(TMUX => '/tmp/socket,12,no'), %(TMUX => '/tmp/socket,12,0', TMUX_PANE => '@1') -> $environment {
     throws-like { LibTmux::Server.from-env(:$environment) }, X::LibTmux::Command,

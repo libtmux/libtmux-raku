@@ -44,6 +44,8 @@ subtest 'successful callback releases its daemon and directory' => {
     }
     temp %*ENV<TMUX> = 'borrowed-marker';
     temp %*ENV<TMUX_PANE> = '%987654321';
+    temp %*ENV<LIBTMUX_SOCKET> = 'borrowed-socket';
+    temp %*ENV<LIBTMUX_SOCKET_PATH> = '/tmp/borrowed-socket-path';
     my $answer = with-tmux(-> $owned {
         $fixture = $owned;
         $exit-fd = pidfd_open($owned.pid, 0);
@@ -52,7 +54,11 @@ subtest 'successful callback releases its daemon and directory' => {
             'fixture', 'owned server is ready for commands';
         my $environment = $owned.cmd('show-environment', '-g');
         nok $environment.contains('borrowed-marker'), 'ambient TMUX is absent';
-        nok $environment.contains('TMUX_PANE='), 'ambient pane is absent';
+        unlike $environment, / ^^ 'TMUX_PANE=' /, 'ambient pane is absent';
+        unlike $environment, / ^^ 'LIBTMUX_SOCKET=' /, 'ambient socket name is absent';
+        unlike $environment, / ^^ 'LIBTMUX_SOCKET_PATH=' /, 'ambient socket path is absent';
+        nok (%*ENV<TMUX TMUX_PANE LIBTMUX_SOCKET LIBTMUX_SOCKET_PATH>:exists).any,
+            'callback environment scrubs ambient selectors';
         42
     });
     is $answer, 42, 'callback result survives cleanup';
